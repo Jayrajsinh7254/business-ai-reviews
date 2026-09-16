@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
 import SignupPage from './pages/SignupPage';
 import LoginPage from './pages/LoginPage';
@@ -22,11 +23,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-      <footer className="app-footer">
-        <div className="footer-content">
-          <p>© {new Date().getFullYear()} ReviewAssist — Built with React & AI</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

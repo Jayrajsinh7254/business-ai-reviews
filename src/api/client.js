@@ -343,6 +343,15 @@ export const api = {
     return getToken();
   },
 
+  getCurrentUser() {
+    try {
+      const data = localStorage.getItem('reviewassist_current_user');
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  },
+
   setToken(token) {
     return setToken(token);
   },

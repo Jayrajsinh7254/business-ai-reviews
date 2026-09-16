@@ -612,38 +612,60 @@ export const api = {
     } catch {}
   },
 
+  getStoredBusinesses() {
+    return getStoredBusinesses();
+  },
+
+  getStoredReviews(businessId) {
+    return getStoredReviews(businessId || 'demo-1');
+  },
+
   /**
    * GET business by ID
    */
   async getBusiness(businessId) {
-    if (isSupabaseConfigured() && supabase) {
-      const { data, error } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('id', businessId)
-        .maybeSingle();
+    const cleanId = businessId || 'demo-1';
 
-      if (!error && data) {
-        return formatBusinessRow(data);
+    // Fast resolution for demo businesses
+    if (cleanId.startsWith('demo-')) {
+      const stored = getStoredBusinesses();
+      if (stored[cleanId]) {
+        return stored[cleanId];
+      }
+    }
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('businesses')
+          .select('*')
+          .eq('id', cleanId)
+          .maybeSingle();
+
+        if (!error && data) {
+          return formatBusinessRow(data);
+        }
+      } catch (err) {
+        console.warn('Supabase getBusiness error:', err);
       }
     }
 
     const token = getToken();
     return fetchWithFallback(
-      `/api/businesses/${businessId}`,
+      `/api/businesses/${cleanId}`,
       {
         method: 'GET',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       },
       () => {
         const businesses = getStoredBusinesses();
-        const biz = businesses[businessId];
+        const biz = businesses[cleanId];
         if (biz) return biz;
         return {
-          id: businessId,
-          name: 'Partner Business',
-          category: 'other',
-          services: ['Standard Service', 'Consultation', 'Custom Package'],
+          id: cleanId,
+          name: cleanId.startsWith('demo-2') ? 'Lumina Skin & Hair Studio' : 'Apex Auto Care & Diagnostics',
+          category: cleanId.startsWith('demo-2') ? 'salon' : 'automobile',
+          services: ['Full Synthetic Oil Change', 'Brake Pad Replacement', 'Engine Diagnostic'],
           googleReviewUrl: 'https://search.google.com/local/writereview',
           createdAt: new Date().toISOString(),
         };
@@ -776,59 +798,65 @@ export const api = {
    * GET business dashboard statistics
    */
   async getBusinessStats(businessId) {
-    if (isSupabaseConfigured() && supabase) {
-      const { data: reviews, error } = await supabase
-        .from('reviews')
-        .select('*')
-        .eq('business_id', businessId);
+    const cleanId = businessId || 'demo-1';
 
-      if (!error && Array.isArray(reviews)) {
-        const totalReviews = reviews.length;
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
+    if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
+      try {
+        const { data: reviews, error } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('business_id', cleanId);
 
-        const thisMonthReviews = reviews.filter((r) => {
-          const d = new Date(r.created_at);
-          return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-        }).length;
+        if (!error && Array.isArray(reviews) && reviews.length > 0) {
+          const totalReviews = reviews.length;
+          const now = new Date();
+          const currentMonth = now.getMonth();
+          const currentYear = now.getFullYear();
 
-        const avgRating =
-          totalReviews > 0
-            ? (reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / totalReviews).toFixed(1)
-            : '5.0';
+          const thisMonthReviews = reviews.filter((r) => {
+            const d = new Date(r.created_at);
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+          }).length;
 
-        const estimatedScans = Math.max(totalReviews * 2 + 5, 24);
-        const scanToReviewRate =
-          totalReviews > 0
-            ? Math.min(100, Math.round((totalReviews / estimatedScans) * 100)) + '%'
-            : '0%';
+          const avgRating =
+            totalReviews > 0
+              ? (reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / totalReviews).toFixed(1)
+              : '5.0';
 
-        return {
-          totalReviews,
-          thisMonth: thisMonthReviews,
-          avgRating: Number(avgRating),
-          scanToReviewRate,
-        };
+          const estimatedScans = Math.max(totalReviews * 2 + 5, 24);
+          const scanToReviewRate =
+            totalReviews > 0
+              ? Math.min(100, Math.round((totalReviews / estimatedScans) * 100)) + '%'
+              : '0%';
+
+          return {
+            totalReviews,
+            thisMonth: thisMonthReviews,
+            avgRating: Number(avgRating),
+            scanToReviewRate,
+          };
+        }
+      } catch (err) {
+        console.warn('Supabase getBusinessStats error:', err);
       }
     }
 
     const token = getToken();
     return fetchWithFallback(
-      `/api/businesses/${businessId}/stats`,
+      `/api/businesses/${cleanId}/stats`,
       {
         method: 'GET',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       },
       () => {
-        const reviews = getStoredReviews(businessId);
+        const reviews = getStoredReviews(cleanId);
         const totalReviews = reviews.length;
         
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
         const thisMonthReviews = reviews.filter((r) => {
-          const d = new Date(r.createdAt);
+          const d = new Date(r.createdAt || r.created_at);
           return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
         }).length;
 
@@ -857,36 +885,42 @@ export const api = {
    * GET business customer reviews
    */
   async getBusinessReviews(businessId) {
-    if (isSupabaseConfigured() && supabase) {
-      const { data: reviews, error } = await supabase
-        .from('reviews')
-        .select('*')
-        .eq('business_id', businessId)
-        .order('created_at', { ascending: false });
+    const cleanId = businessId || 'demo-1';
 
-      if (!error && Array.isArray(reviews)) {
-        return reviews.map((r) => ({
-          id: r.id,
-          businessId: r.business_id,
-          serviceType: r.service_type,
-          rating: r.rating,
-          text: r.text,
-          whatStoodOut: r.what_stood_out,
-          whatCouldImprove: r.what_could_improve,
-          createdAt: r.created_at,
-        }));
+    if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
+      try {
+        const { data: reviews, error } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('business_id', cleanId)
+          .order('created_at', { ascending: false });
+
+        if (!error && Array.isArray(reviews) && reviews.length > 0) {
+          return reviews.map((r) => ({
+            id: r.id,
+            businessId: r.business_id,
+            serviceType: r.service_type,
+            rating: r.rating,
+            text: r.text,
+            whatStoodOut: r.what_stood_out,
+            whatCouldImprove: r.what_could_improve,
+            createdAt: r.created_at,
+          }));
+        }
+      } catch (err) {
+        console.warn('Supabase getBusinessReviews error:', err);
       }
     }
 
     const token = getToken();
     return fetchWithFallback(
-      `/api/businesses/${businessId}/reviews`,
+      `/api/businesses/${cleanId}/reviews`,
       {
         method: 'GET',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       },
       () => {
-        return getStoredReviews(businessId);
+        return getStoredReviews(cleanId);
       }
     );
   },

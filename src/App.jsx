@@ -19,6 +19,7 @@ export default function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/review/:businessId" element={<ReviewPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/dashboard/:businessId" element={<DashboardPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

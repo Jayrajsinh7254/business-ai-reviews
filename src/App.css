@@ -410,12 +410,15 @@
   padding: 4.5rem 1.5rem 3rem;
   text-align: center;
   background: radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 60%);
+  overflow: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 
 .hero-glow-blob {
   position: absolute;
-  width: 380px;
-  height: 380px;
+  width: min(380px, 80vw);
+  height: min(380px, 80vw);
   border-radius: 50%;
   filter: blur(80px);
   opacity: 0.45;
@@ -426,13 +429,13 @@
 .hero-glow-1 {
   background: radial-gradient(circle, #6366f1 0%, transparent 70%);
   top: -50px;
-  left: 10%;
+  left: 5%;
 }
 
 .hero-glow-2 {
   background: radial-gradient(circle, #06b6d4 0%, transparent 70%);
   top: 50px;
-  right: 10%;
+  right: 5%;
 }
 
 .hero-container {
@@ -440,6 +443,7 @@
   margin: 0 auto;
   position: relative;
   z-index: 1;
+  width: 100%;
 }
 
 .hero-badge {
@@ -793,7 +797,7 @@
 
 .features-showcase-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
   gap: 1.75rem;
 }
 
@@ -843,11 +847,13 @@
 /* 5. Industry Solutions Pills */
 .industries-section {
   padding: 5rem 1.5rem;
+  overflow: hidden;
+  width: 100%;
 }
 
 .industry-pills-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 1.25rem;
 }
 
@@ -1562,12 +1568,13 @@
 .dashboard-header-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
 }
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
   gap: 1.25rem;
 }
 
@@ -2860,11 +2867,25 @@
    13. Comprehensive Mobile & Multi-Screen Responsive System
    ========================================================================== */
 
-/* Universal Touch & Ergonomic Optimizations */
-html, body {
+/* Universal Touch, Viewport & Layout Resets */
+html {
   overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+  -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+}
+
+body {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+  position: relative;
+}
+
+img, svg, canvas, video {
+  max-width: 100%;
 }
 
 button, a, input, select, textarea {
@@ -2874,7 +2895,7 @@ button, a, input, select, textarea {
 /* Tablet & Medium Screens (<= 1024px) */
 @media (max-width: 1024px) {
   .page-container {
-    padding: 1.5rem 1.25rem;
+    padding: 1.5rem 1.25rem 3rem;
   }
 
   .metrics-grid {
@@ -2887,19 +2908,17 @@ button, a, input, select, textarea {
     gap: 1.25rem;
   }
 
-  .features-cards-grid {
+  .features-showcase-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .pricing-cards-grid {
-    grid-template-columns: 1fr;
-    max-width: 500px;
-    margin: 0 auto;
+  .industry-pills-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .footer-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
+  .footer-container {
+    grid-template-columns: 1fr 1.5fr;
+    gap: 2.5rem;
   }
 }
 
@@ -2911,6 +2930,10 @@ button, a, input, select, textarea {
 
   .page-subtitle {
     font-size: 0.95rem;
+  }
+
+  .page-container {
+    padding: 1.25rem 1rem 3rem;
   }
 
   .dashboard-header-row {
@@ -2929,6 +2952,7 @@ button, a, input, select, textarea {
   .dashboard-header-actions .btn-logout {
     grid-column: span 2;
     justify-content: center;
+    width: 100%;
   }
 
   .dashboard-header-actions .btn-whatsapp-action,
@@ -2939,14 +2963,15 @@ button, a, input, select, textarea {
     text-align: center;
     padding: 0.75rem 0.65rem;
     font-size: 0.85rem;
+    width: 100%;
   }
 
   .hero-section {
-    padding: 3.5rem 1.25rem 2.5rem;
+    padding: 3.5rem 1rem 2.5rem;
   }
 
   .hero-headline {
-    font-size: 2.15rem;
+    font-size: clamp(1.85rem, 6.5vw, 2.5rem);
     line-height: 1.2;
   }
 
@@ -2977,7 +3002,19 @@ button, a, input, select, textarea {
   }
 
   .sandbox-card {
-    padding: 1.25rem;
+    padding: 1.25rem 1rem;
+  }
+
+  .sandbox-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .features-showcase-grid,
+  .industry-pills-grid,
+  .steps-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
   .standee-studio-container {
@@ -2985,15 +3022,26 @@ button, a, input, select, textarea {
   }
 
   .standee-studio-header {
-    padding: 1.25rem 1.25rem;
+    padding: 1.25rem 1rem;
   }
 
   .standee-workspace-grid {
-    padding: 1.25rem;
+    grid-template-columns: 1fr;
+    padding: 1.25rem 1rem;
     gap: 1.5rem;
   }
 
-  .footer-bottom-row {
+  .footer-container {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .footer-links-group {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  .footer-bottom-container {
     flex-direction: column;
     align-items: center;
     text-align: center;
@@ -3014,73 +3062,82 @@ button, a, input, select, textarea {
     font-size: 16px !important;
   }
 
+  .page-container {
+    padding: 1rem 0.75rem 2.5rem;
+  }
+
+  /* Modals as bottom-sheet drawers on phone */
   .modal-backdrop {
-    padding: 0.5rem;
+    padding: 0.5rem 0.25rem;
     align-items: flex-end;
   }
 
   .modal-content {
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-    max-height: 90vh;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    max-height: 88dvh;
+    max-height: 88vh;
     overflow-y: auto;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .modal-header {
-    padding: 1rem 1.25rem;
+    padding: 1rem 1.15rem;
     position: sticky;
     top: 0;
     background: #ffffff;
-    z-index: 10;
+    z-index: 20;
+    border-bottom: 1px solid var(--border-subtle);
   }
 
   .modal-body {
-    padding: 1.25rem;
+    padding: 1.15rem 1rem;
   }
 
   /* Metrics 2x2 on phones */
   .metrics-grid {
     grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+    gap: 0.65rem;
   }
 
   .metric-card {
-    padding: 1rem 0.85rem;
-    gap: 0.75rem;
+    padding: 0.9rem 0.75rem;
+    gap: 0.6rem;
     flex-direction: column;
     align-items: flex-start;
   }
 
   .metric-icon-box {
-    width: 38px;
-    height: 38px;
-    font-size: 1.15rem;
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
   }
 
   .metric-value {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
   }
 
   .metric-subtext {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
   }
 
   /* Reviews Header & Filters */
   .reviews-section-card {
-    padding: 1.25rem 1rem;
+    padding: 1.15rem 0.85rem;
   }
 
   .reviews-header-bar {
     flex-direction: column;
     align-items: stretch;
-    gap: 0.85rem;
+    gap: 0.75rem;
   }
 
   .reviews-filter-bar {
     width: 100%;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 0.4rem;
+    align-items: stretch;
+    gap: 0.35rem;
   }
 
   .filter-tabs {
@@ -3089,6 +3146,7 @@ button, a, input, select, textarea {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    gap: 0.2rem;
   }
 
   .filter-tabs::-webkit-scrollbar {
@@ -3097,15 +3155,16 @@ button, a, input, select, textarea {
 
   .filter-btn {
     flex: 1;
+    min-width: 60px;
     text-align: center;
-    padding: 0.45rem 0.5rem;
-    font-size: 0.78rem;
+    padding: 0.45rem 0.4rem;
+    font-size: 0.75rem;
     white-space: nowrap;
   }
 
   /* Review item responsive adjustments */
   .review-item-card {
-    padding: 1rem;
+    padding: 1rem 0.85rem;
   }
 
   .review-item-top {
@@ -3115,20 +3174,22 @@ button, a, input, select, textarea {
   }
 
   .review-item-stars-service {
+    display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 0.4rem;
   }
 
   .btn-ai-reply-trigger {
     width: 100%;
     justify-content: center;
-    padding: 0.55rem;
-    font-size: 0.85rem;
+    padding: 0.6rem;
+    font-size: 0.82rem;
   }
 
   /* WhatsApp Modal Responsive */
   .whatsapp-modal-card {
-    max-width: 100%;
+    max-width: 100% !important;
   }
 
   .whatsapp-modal-title-row h3,
@@ -3144,7 +3205,7 @@ button, a, input, select, textarea {
   .template-pill-btn {
     width: 100%;
     text-align: left;
-    padding: 0.55rem 0.85rem;
+    padding: 0.6rem 0.85rem;
     font-size: 0.82rem;
   }
 
@@ -3162,11 +3223,12 @@ button, a, input, select, textarea {
   .btn-whatsapp-send {
     padding: 0.95rem;
     font-size: 0.95rem;
+    width: 100%;
   }
 
   /* AI Reply Modal Responsive */
   .ai-reply-modal-card {
-    max-width: 100%;
+    max-width: 100% !important;
   }
 
   .reply-option-header {
@@ -3184,14 +3246,16 @@ button, a, input, select, textarea {
 
   /* Standee Designer Studio Responsive */
   .standee-studio-overlay {
-    padding: 0.5rem;
+    padding: 0.5rem 0.25rem;
     align-items: flex-end;
   }
 
   .standee-studio-container {
-    max-height: 92vh;
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
+    max-height: 90dvh;
+    max-height: 90vh;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    width: 100% !important;
   }
 
   .studio-title {
@@ -3208,42 +3272,65 @@ button, a, input, select, textarea {
   }
 
   .standee-preview-container {
-    padding: 1.5rem 0.5rem;
+    padding: 1.25rem 0.5rem;
+    width: 100%;
+    overflow: hidden;
   }
 
   .standee-card-rendered {
-    max-width: 280px;
+    max-width: 270px;
+    width: 100%;
+    margin: 0 auto;
   }
 
   .standee-canvas {
-    width: 130px !important;
-    height: 130px !important;
+    width: 120px !important;
+    height: 120px !important;
   }
 
   .acrylic-stand-base {
-    width: 180px;
+    width: 170px;
+    margin: -6px auto 0;
+  }
+
+  .standee-actions-toolbar {
+    width: 100%;
+  }
+
+  .standee-actions-toolbar button {
+    width: 100%;
   }
 
   /* Auth Pages */
   .auth-card {
-    padding: 1.75rem 1.25rem;
+    padding: 1.5rem 1rem;
+  }
+
+  .demo-buttons-group {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .demo-pill-btn {
+    width: 100%;
+    text-align: center;
   }
 }
 
 /* Compact Smartphones (<= 480px) */
 @media (max-width: 480px) {
   .navbar-container {
-    padding: 0.75rem 1rem;
+    padding: 0.65rem 0.85rem;
   }
 
   .brand-name {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
   }
 
   .brand-logo-badge {
-    width: 32px;
-    height: 32px;
-    font-size: 1.1rem;
+    width: 30px;
+    height: 30px;
+    font-size: 1rem;
   }
 
   .navbar-env-badge {
@@ -3253,29 +3340,34 @@ button, a, input, select, textarea {
   /* Customer Review Flow */
   .mobile-review-viewport {
     padding: 0.75rem 0.5rem;
+    min-height: 100dvh;
+    min-height: 100vh;
   }
 
   .mobile-card {
-    padding: 1.35rem 1rem;
+    padding: 1.25rem 0.85rem;
     border-radius: var(--radius-lg);
+    width: 100%;
   }
 
   .review-biz-title {
-    font-size: 1.35rem;
+    font-size: 1.3rem;
   }
 
   .step-progress-bar {
-    gap: 0.35rem;
+    gap: 0.25rem;
+    max-width: 220px;
   }
 
   .step-dot {
-    width: 30px;
-    height: 30px;
-    font-size: 0.8rem;
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
   }
 
   .star-picker-section {
-    padding: 0.85rem 0.65rem;
+    padding: 0.85rem 0.5rem;
+    width: 100%;
   }
 
   .star-picker-header {
@@ -3284,33 +3376,41 @@ button, a, input, select, textarea {
     gap: 0.35rem;
   }
 
-  .star-picker-subhint {
+  .sentiment-badge {
     font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  .star-picker-subhint {
+    font-size: 0.68rem;
   }
 
   .draft-top-actions {
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: 0.35rem;
   }
 
   .btn-google-post {
     padding: 0.85rem 1rem;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
+    width: 100%;
   }
 
   .step-actions-split {
     flex-direction: column;
     gap: 0.65rem;
+    width: 100%;
   }
 
-  .step-actions-split .btn-secondary {
+  .step-actions-split .btn-secondary,
+  .step-actions-split .btn-primary {
     width: 100%;
     text-align: center;
   }
 
   /* Landing Page Small Screen */
   .section-title {
-    font-size: 1.75rem;
+    font-size: 1.65rem;
   }
 
   .section-desc {
@@ -3318,16 +3418,31 @@ button, a, input, select, textarea {
   }
 
   .hero-headline {
-    font-size: 1.85rem;
+    font-size: 1.75rem;
   }
 
-  .features-cards-grid {
-    grid-template-columns: 1fr;
+  .bottom-cta-card {
+    padding: 2.25rem 1rem;
   }
 
-  .footer-grid {
+  .cta-headline {
+    font-size: 1.65rem;
+  }
+
+  .cta-buttons-group {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.65rem;
+  }
+
+  .cta-buttons-group .btn-xl {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .footer-links-group {
     grid-template-columns: 1fr;
-    gap: 1.75rem;
+    gap: 1.5rem;
   }
 }
 
@@ -3346,11 +3461,20 @@ button, a, input, select, textarea {
   }
 
   .step-heading {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
   }
 
   .standee-card-rendered {
-    max-width: 250px;
+    max-width: 240px;
+  }
+
+  .standee-canvas {
+    width: 105px !important;
+    height: 105px !important;
+  }
+
+  .acrylic-stand-base {
+    width: 150px;
   }
 }
 

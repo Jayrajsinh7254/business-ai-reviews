@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import StarRating from '../components/StarRating';
 import QRCodeDisplay from '../components/QRCodeDisplay';
 import StandeeDesigner from '../components/StandeeDesigner';
+import WhatsAppInviteModal from '../components/WhatsAppInviteModal';
+import AiReplyModal from '../components/AiReplyModal';
 import { api } from '../api/client';
 
 export default function DashboardPage() {
@@ -19,6 +21,8 @@ export default function DashboardPage() {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [showQRModal, setShowQRModal] = useState(false);
   const [showStandeeStudio, setShowStandeeStudio] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [selectedReviewForReply, setSelectedReviewForReply] = useState(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -133,6 +137,13 @@ export default function DashboardPage() {
         </div>
 
         <div className="dashboard-header-actions">
+          <button
+            type="button"
+            className="btn-whatsapp-action"
+            onClick={() => setShowWhatsAppModal(true)}
+          >
+            💬 WhatsApp Invite
+          </button>
           <button
             type="button"
             className="btn-primary"
@@ -304,6 +315,17 @@ export default function DashboardPage() {
                     )}
                   </div>
                 )}
+
+                {/* Review Card Actions */}
+                <div className="review-item-actions-row">
+                  <button
+                    type="button"
+                    className="btn-ai-reply-trigger"
+                    onClick={() => setSelectedReviewForReply(rev)}
+                  >
+                    <span>🤖</span> Generate AI Owner Reply
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -324,6 +346,24 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* WhatsApp & SMS Invite Modal */}
+      {showWhatsAppModal && (
+        <WhatsAppInviteModal
+          business={business}
+          reviewUrl={reviewUrl}
+          onClose={() => setShowWhatsAppModal(false)}
+        />
+      )}
+
+      {/* AI Review Reply Modal */}
+      {selectedReviewForReply && (
+        <AiReplyModal
+          review={selectedReviewForReply}
+          business={business}
+          onClose={() => setSelectedReviewForReply(null)}
+        />
+      )}
 
       {/* Standee Designer Studio Modal */}
       {showStandeeStudio && (

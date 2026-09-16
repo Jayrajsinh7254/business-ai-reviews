@@ -7,6 +7,7 @@ export default function HomePage() {
   // Live Demo Sandbox State
   const [demoRating, setDemoRating] = useState(5);
   const [demoService, setDemoService] = useState('Oil Change & Inspection');
+  const [demoNotes, setDemoNotes] = useState('Super friendly team, prompt service, clean workshop');
   const [demoDraft, setDemoDraft] = useState(
     'Came in for an oil change and inspection this morning. Super quick service, honest pricing, and the technician was really polite and helpful. Will definitely be coming back for future maintenance!'
   );

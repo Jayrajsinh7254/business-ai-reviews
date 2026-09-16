@@ -109,9 +109,56 @@ export default function DashboardPage() {
     }
   };
 
+  // Inline WhatsApp Customer Inviter State
+  const [waCustomerName, setWaCustomerName] = useState('');
+  const [waPhone, setWaPhone] = useState('');
+  const [waTemplate, setWaTemplate] = useState('friendly');
+  const [waCopied, setWaCopied] = useState(false);
+
+  const bizName = business?.name || 'our business';
   const reviewUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/review/${businessId}`
     : `/review/${businessId}`;
+
+  const generateWaMessage = () => {
+    const namePart = waCustomerName.trim() ? `Hi ${waCustomerName.trim()}!` : 'Hi there!';
+    if (waTemplate === 'short') {
+      return `${namePart} Thanks for choosing ${bizName}! We'd love your 30-second feedback — our AI will help craft your review: ${reviewUrl}`;
+    }
+    if (waTemplate === 'offer') {
+      return `${namePart} Thank you for visiting ${bizName}! Leave a quick Google review here: ${reviewUrl} and show it to us on your next visit for a special discount! 🎁`;
+    }
+    return `${namePart} Thanks for visiting ${bizName} today! Could you take 30 seconds to share your experience? Our smart AI helps craft your review in 1 click: ${reviewUrl} ⭐`;
+  };
+
+  const handleSendDirectWhatsApp = () => {
+    const cleanPhone = waPhone.replace(/[^0-9]/g, '');
+    const msg = generateWaMessage();
+    const encoded = encodeURIComponent(msg);
+    const targetUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleSendDirectSMS = () => {
+    const cleanPhone = waPhone.replace(/[^0-9]/g, '');
+    const msg = generateWaMessage();
+    const encoded = encodeURIComponent(msg);
+    window.location.href = `sms:${cleanPhone}?body=${encoded}`;
+  };
+
+  const handleCopyWaMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(generateWaMessage());
+      setWaCopied(true);
+      setToast('✓ WhatsApp message & review link copied!');
+      setTimeout(() => {
+        setWaCopied(false);
+        setToast('');
+      }, 3000);
+    } catch (err) {
+      console.warn('Clipboard write error:', err);
+    }
+  };
 
   const [toast, setToast] = useState('');
 
@@ -190,6 +237,14 @@ export default function DashboardPage() {
         </div>
 
         <div className="dashboard-header-top-actions">
+          <button
+            type="button"
+            className="btn-whatsapp-header-action"
+            onClick={() => setShowWhatsAppModal(true)}
+            title="Open WhatsApp customer review inviter"
+          >
+            💬 Send WhatsApp
+          </button>
           <Link
             to={`/review/${businessId}`}
             target="_blank"
@@ -261,6 +316,116 @@ export default function DashboardPage() {
               Open Page →
             </span>
           </a>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          PROMINENT INLINE WHATSAPP & SMS 1-CLICK CUSTOMER INVITER WIDGET
+          ========================================================================= */}
+      <div className="whatsapp-dashboard-card">
+        <div className="whatsapp-dash-header">
+          <div className="whatsapp-dash-title-row">
+            <div className="whatsapp-icon-bubble">💬</div>
+            <div>
+              <h3 className="whatsapp-dash-title">WhatsApp 1-Click Review Inviter</h3>
+              <p className="whatsapp-dash-desc">
+                Send a personalized review request directly to recent customers via WhatsApp or SMS
+              </p>
+            </div>
+          </div>
+          <span className="whatsapp-pill-badge">⚡ Instant Direct Send</span>
+        </div>
+
+        <div className="whatsapp-dash-body">
+          <div className="form-grid-2">
+            <div className="form-group">
+              <label className="form-label">
+                Customer Name <span className="optional-tag">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                value={waCustomerName}
+                onChange={(e) => setWaCustomerName(e.target.value)}
+                placeholder="e.g. Rahul, Sarah, or John"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                WhatsApp Phone Number <span className="optional-tag">(Include country code)</span>
+              </label>
+              <input
+                type="tel"
+                className="form-input"
+                value={waPhone}
+                onChange={(e) => setWaPhone(e.target.value)}
+                placeholder="e.g. +91 9876543210 or 9876543210"
+              />
+            </div>
+          </div>
+
+          {/* Template selection tabs */}
+          <div className="wa-template-picker-section">
+            <label className="form-label">Select Message Style:</label>
+            <div className="template-tabs-row">
+              <button
+                type="button"
+                className={`template-tab-btn ${waTemplate === 'friendly' ? 'active' : ''}`}
+                onClick={() => setWaTemplate('friendly')}
+              >
+                ⭐ Friendly & Warm (Recommended)
+              </button>
+              <button
+                type="button"
+                className={`template-tab-btn ${waTemplate === 'short' ? 'active' : ''}`}
+                onClick={() => setWaTemplate('short')}
+              >
+                ⚡ Quick 30-Sec
+              </button>
+              <button
+                type="button"
+                className={`template-tab-btn ${waTemplate === 'offer' ? 'active' : ''}`}
+                onClick={() => setWaTemplate('offer')}
+              >
+                🎁 VIP Special Offer
+              </button>
+            </div>
+          </div>
+
+          {/* Live Message Preview */}
+          <div className="message-preview-box">
+            <div className="preview-label-row">
+              <span>Preview of WhatsApp Message:</span>
+              <span className="preview-ready-tag">✓ Ready to Send</span>
+            </div>
+            <p className="message-preview-text">{generateWaMessage()}</p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="wa-dash-actions-row">
+            <button
+              type="button"
+              className="btn-whatsapp-send btn-lg"
+              onClick={handleSendDirectWhatsApp}
+            >
+              <span>💬</span> Send via WhatsApp
+            </button>
+            <button
+              type="button"
+              className="btn-sms-send btn-lg"
+              onClick={handleSendDirectSMS}
+            >
+              <span>📱</span> Send via SMS
+            </button>
+            <button
+              type="button"
+              className={`btn-secondary btn-lg ${waCopied ? 'btn-copied' : ''}`}
+              onClick={handleCopyWaMessage}
+            >
+              {waCopied ? '✓ Copied to Clipboard!' : '📋 Copy Message'}
+            </button>
+          </div>
         </div>
       </div>
 

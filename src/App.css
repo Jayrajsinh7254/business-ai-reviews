@@ -4509,7 +4509,144 @@ button, a, input, select, textarea {
   background: #e0e7ff;
 }
 
-/* Responsive Dashboard Queries */
+/* ==========================================================================
+   WHATSAPP 1-CLICK CUSTOMER INVITER WIDGET & HEADER ACTION
+   ========================================================================== */
+.btn-whatsapp-header-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: #25d366;
+  border: 1px solid #1ebc59;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-whatsapp-header-action:hover {
+  background: #1ebc59;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35);
+}
+
+.whatsapp-dashboard-card {
+  background: #ffffff;
+  border: 2px solid #bbf7d0;
+  border-radius: 16px;
+  padding: 1.75rem;
+  box-shadow: 0 6px 24px -4px rgba(16, 185, 129, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.whatsapp-dashboard-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #25d366 0%, #10b981 100%);
+}
+
+.whatsapp-dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.whatsapp-dash-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.whatsapp-icon-bubble {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: #25d366;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+  flex-shrink: 0;
+}
+
+.whatsapp-dash-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.whatsapp-dash-desc {
+  font-size: 0.88rem;
+  color: #64748b;
+  margin: 0.2rem 0 0;
+}
+
+.whatsapp-pill-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: #dcfce7;
+  color: #15803d;
+  padding: 0.3rem 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid #bbf7d0;
+  white-space: nowrap;
+}
+
+.whatsapp-dash-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.wa-template-picker-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.wa-dash-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.preview-ready-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #15803d;
+  background: #dcfce7;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+}
+
+.btn-copied {
+  background: #10b981 !important;
+  color: #ffffff !important;
+  border-color: #10b981 !important;
+}
+
+/* ==========================================================================
+   COMPREHENSIVE DASHBOARD MOBILE & RESPONSIVE MEDIA QUERIES
+   ========================================================================== */
 @media (max-width: 900px) {
   .launchpad-actions-grid {
     grid-template-columns: 1fr;
@@ -4520,18 +4657,112 @@ button, a, input, select, textarea {
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
+  .dashboard-page {
+    padding: 1rem 0.75rem 3.5rem;
+    gap: 1.25rem;
+  }
+
   .dashboard-header-card {
     padding: 1.25rem;
   }
 
+  .dashboard-biz-tag {
+    gap: 0.35rem;
+  }
+
   .dashboard-header-top-actions {
     width: 100%;
-    justify-content: flex-start;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .dashboard-header-top-actions .btn-whatsapp-header-action,
+  .dashboard-header-top-actions .btn-preview-link,
+  .dashboard-header-top-actions .btn-logout {
+    width: 100%;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+    font-size: 0.92rem;
+  }
+
+  .review-link-share-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .share-bar-url {
+    font-size: 0.82rem;
+    padding: 0.4rem;
+    background: #ffffff;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+  }
+
+  .btn-copy-link-pill {
+    width: 100%;
+    padding: 0.65rem;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .whatsapp-dashboard-card {
+    padding: 1.25rem;
+  }
+
+  .whatsapp-dash-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .wa-dash-actions-row {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .wa-dash-actions-row .btn-whatsapp-send,
+  .wa-dash-actions-row .btn-sms-send,
+  .wa-dash-actions-row .btn-secondary {
+    width: 100%;
+    justify-content: center;
+    padding: 0.85rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  .template-tabs-row {
+    flex-direction: column;
+  }
+
+  .template-tab-btn {
+    width: 100%;
+    text-align: left;
+    padding: 0.6rem 0.85rem;
   }
 
   .metrics-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .metric-card {
+    padding: 1rem 0.85rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+
+  .metric-icon-box {
+    width: 38px;
+    height: 38px;
+    font-size: 1.15rem;
+  }
+
+  .metric-value {
+    font-size: 1.35rem;
   }
 
   .reviews-section-card {
@@ -4541,16 +4772,69 @@ button, a, input, select, textarea {
   .reviews-header-bar {
     flex-direction: column;
     align-items: flex-start;
+    gap: 0.85rem;
   }
 
   .reviews-filter-bar {
     width: 100%;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
   }
 
   .filter-tabs {
-    flex: 1;
-    justify-content: space-around;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.25rem;
+  }
+
+  .filter-btn {
+    padding: 0.45rem 0.25rem;
+    text-align: center;
+    font-size: 0.75rem;
+  }
+
+  .review-item-card {
+    padding: 1rem;
+  }
+
+  .review-item-actions-row {
+    width: 100%;
+  }
+
+  .btn-ai-reply-trigger {
+    width: 100%;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .whatsapp-modal-card,
+  .ai-reply-modal-card {
+    width: 95vw;
+    max-height: 92vh;
+    padding: 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-page {
+    padding: 0.75rem 0.5rem 3rem;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-demo-switcher-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .demo-switch-pill {
+    text-align: center;
+    padding: 0.5rem 0.75rem;
   }
 }
 

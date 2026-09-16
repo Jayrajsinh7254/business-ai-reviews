@@ -30,6 +30,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [category, setCategory] = useState('automobile');
+  const [googleReviewUrl, setGoogleReviewUrl] = useState('');
   const [services, setServices] = useState(['Oil Change', 'Brake Inspection']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -51,6 +52,7 @@ export default function SignupPage() {
         password,
         category,
         services,
+        googleReviewUrl: googleReviewUrl.trim(),
       });
 
       const biz = result.business || result;
@@ -172,6 +174,26 @@ export default function SignupPage() {
                   ))}
                 </select>
               </div>
+            </div>
+
+            {/* Google Review Link (Optional) */}
+            <div className="form-group">
+              <div className="form-label-row">
+                <label htmlFor="biz-google-url" className="form-label">
+                  Google Review Link or Place URL <span className="optional-tag">(Optional)</span>
+                </label>
+              </div>
+              <input
+                id="biz-google-url"
+                type="url"
+                className="form-input"
+                value={googleReviewUrl}
+                onChange={(e) => setGoogleReviewUrl(e.target.value)}
+                placeholder="e.g. https://g.page/r/... or Google Maps share link"
+              />
+              <span className="field-hint">
+                Leave empty to automatically open Google search for your business name.
+              </span>
             </div>
 
             {/* Services Tag Input */}

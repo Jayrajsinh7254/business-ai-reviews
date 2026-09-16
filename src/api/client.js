@@ -261,11 +261,30 @@ async function fetchWithFallback(url, options = {}, mockHandler) {
 }
 
 /**
+ * Helper to safely resolve a functional Google Review URL
+ * If a custom Google Review link is provided, use it. Otherwise, generate a real Google search link.
+ */
+export function resolveGoogleReviewUrl(url, businessName) {
+  if (
+    url &&
+    !url.includes('placeid=biz-') &&
+    !url.includes('placeid=undefined') &&
+    (url.startsWith('https://') || url.startsWith('http://'))
+  ) {
+    return url;
+  }
+  const query = encodeURIComponent((businessName || 'Local Business') + ' Google Reviews');
+  return `https://www.google.com/search?q=${query}`;
+}
+
+/**
  * Helper to format raw database business row to frontend format
  */
 function formatBusinessRow(row) {
   if (!row) return null;
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const rawGoogleUrl = row.google_review_url || row.googleReviewUrl;
+  const validGoogleUrl = resolveGoogleReviewUrl(rawGoogleUrl, row.name);
   return {
     id: row.id,
     name: row.name,
@@ -274,7 +293,7 @@ function formatBusinessRow(row) {
     email: row.email || '',
     shareableUrl: `${origin}/review/${row.id}`,
     dashboardUrl: `${origin}/dashboard/${row.id}`,
-    googleReviewUrl: row.google_review_url || row.googleReviewUrl || `https://search.google.com/local/writereview?placeid=${row.id}`,
+    googleReviewUrl: validGoogleUrl,
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
   };
 }
@@ -314,7 +333,9 @@ export const api = {
    * POST /api/auth/signup
    * Creates Supabase auth account + inserts row into `businesses` table
    */
-  async signup({ name, category, services, email, password }) {
+  async signup({ name, category, services, email, password, googleReviewUrl }) {
+    const rawGoogleUrl = googleReviewUrl?.trim() || `https://www.google.com/search?q=${encodeURIComponent(name.trim() + ' Google Reviews')}`;
+
     if (isSupabaseConfigured() && supabase) {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim(),
@@ -333,7 +354,7 @@ export const api = {
         category,
         services: Array.isArray(services) ? services : [],
         email: email.trim(),
-        google_review_url: `https://search.google.com/local/writereview?placeid=${id}`,
+        google_review_url: rawGoogleUrl,
       };
 
       const { data: insertedBiz, error: bizError } = await supabase
@@ -362,7 +383,7 @@ export const api = {
       '/api/auth/signup',
       {
         method: 'POST',
-        body: JSON.stringify({ name, category, services, email, password }),
+        body: JSON.stringify({ name, category, services, email, password, googleReviewUrl }),
       },
       () => {
         const id = 'biz-' + Math.random().toString(36).substring(2, 9);
@@ -375,7 +396,7 @@ export const api = {
           email,
           shareableUrl: `${origin}/review/${id}`,
           dashboardUrl: `${origin}/dashboard/${id}`,
-          googleReviewUrl: `https://search.google.com/local/writereview?placeid=${id}`,
+          googleReviewUrl: rawGoogleUrl,
           createdAt: new Date().toISOString(),
         };
         saveStoredBusiness(newBiz);
@@ -631,13 +652,15 @@ export const api = {
       // Fetch business Google Review URL
       const { data: biz } = await supabase
         .from('businesses')
-        .select('google_review_url')
+        .select('name, google_review_url')
         .eq('id', businessId)
         .maybeSingle();
 
+      const targetGoogleUrl = resolveGoogleReviewUrl(biz?.google_review_url, biz?.name);
+
       return {
         success: true,
-        googleReviewUrl: biz?.google_review_url || 'https://search.google.com/local/writereview',
+        googleReviewUrl: targetGoogleUrl,
       };
     }
 

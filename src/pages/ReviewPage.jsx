@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import StarRating from '../components/StarRating';
-import { api } from '../api/client';
+import { api, resolveGoogleReviewUrl } from '../api/client';
 
 export default function ReviewPage() {
   const { businessId } = useParams();
@@ -164,8 +164,9 @@ export default function ReviewPage() {
         origin: { y: 0.6 },
       });
 
-      // Open business Google Review link in a new tab
-      const targetUrl = result.googleReviewUrl || business?.googleReviewUrl || 'https://search.google.com/local/writereview';
+      // Open business Google Review link in a new tab (real Google review dialog or Google search)
+      const rawUrl = result.googleReviewUrl || business?.googleReviewUrl;
+      const targetUrl = resolveGoogleReviewUrl(rawUrl, business?.name);
       window.open(targetUrl, '_blank', 'noopener,noreferrer');
 
       setCurrentStep(4);

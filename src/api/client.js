@@ -568,8 +568,17 @@ export const api = {
         });
 
         if (error) {
-          console.error('Supabase Edge Function error:', error);
-          throw new Error(error.message || 'Failed to generate review draft');
+          let detailedMsg = error.message;
+          try {
+            if (error.context && typeof error.context.json === 'function') {
+              const errBody = await error.context.json();
+              if (errBody?.error) detailedMsg = errBody.error;
+            }
+          } catch {
+            // ignore
+          }
+          console.error('Supabase Edge Function error:', detailedMsg, error);
+          throw new Error(detailedMsg || 'Failed to generate review draft');
         }
 
         if (data?.draftText) {

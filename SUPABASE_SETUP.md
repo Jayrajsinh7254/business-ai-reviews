@@ -1,10 +1,10 @@
 # 🚀 Supabase Backend Setup Guide for ReviewAssist
 
-ReviewAssist is configured to work out-of-the-box with **Supabase** for user authentication, cloud PostgreSQL database storage, and real-time review collection.
+ReviewAssist is configured to work out-of-the-box with **Supabase** for user authentication, cloud PostgreSQL database storage, real-time review collection, and AI review generation via Supabase Edge Functions with Google Gemini.
 
 ---
 
-## ⚡ Quick 3-Step Setup (Takes < 2 minutes)
+## ⚡ Setup Guide
 
 ### Step 1: Create a Supabase Project
 1. Go to [supabase.com](https://supabase.com) and create a free account or sign in.
@@ -27,12 +27,12 @@ ReviewAssist is configured to work out-of-the-box with **Supabase** for user aut
 ### Step 3: Configure Your Environment Variables
 1. In your Supabase dashboard, navigate to **Project Settings** (gear icon at bottom left) -> **API** (or **Data API**).
 2. Copy:
-   - **Project URL** (e.g. `https://xyzprojectref.supabase.co`)
-   - **Project API Anon Key** (under `Project API keys` -> `anon` / `public`)
+   - **Project URL** (e.g. `https://sojryvohzlagalywpopf.supabase.co`)
+   - **Project API Anon Key** (under `Project API keys` -> `anon` / `public` or `sb_publishable_...`)
 3. Open the `.env` file in the root of this project and paste your keys:
    ```env
-   VITE_SUPABASE_URL=https://xyzprojectref.supabase.co
-   VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+   VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
    ```
 4. Restart your Vite dev server:
    ```bash
@@ -41,17 +41,30 @@ ReviewAssist is configured to work out-of-the-box with **Supabase** for user aut
 
 ---
 
+### Step 4: Deploy AI Review Edge Function (`generate-review`)
+ReviewAssist includes a Supabase Edge Function in [`supabase/functions/generate-review/index.ts`](./supabase/functions/generate-review/index.ts) powered by Google Gemini 2.5 Flash Lite.
+
+1. **Set the Gemini API Key Secret**:
+   In your terminal with the Supabase CLI (or via **Project Settings** -> **Edge Functions** -> **Secrets** in your Supabase dashboard):
+   ```bash
+   supabase secrets set GEMINI_API_KEY=your_gemini_api_key
+   ```
+
+2. **Deploy the Function**:
+   ```bash
+   supabase functions deploy generate-review --no-verify-jwt
+   ```
+   *(Note: `--no-verify-jwt` allows public customers scanning the QR code to generate AI draft reviews without having to log in).*
+
+---
+
 ## 🔒 Security & Architecture Overview
 
 - **Row Level Security (RLS)**:
   - **Public Read Access**: Anyone can read business details and submit reviews via QR code link without authentication.
   - **Authenticated Access**: Business owners manage their own business profile and private analytics dashboard with Supabase Auth JWT sessions.
+- **Edge Function with Gemini AI**:
+  - Validates `businessId` and `whatStoodOut`.
+  - Queries `businesses` table for business name and category.
+  - Generates authentic, first-person Google review drafts with `gemini-2.5-flash-lite`.
 - **Offline & Graceful Fallback**: If `.env` credentials are not yet populated, ReviewAssist operates with an in-memory/localStorage mock store for testing.
-
----
-
-## 🛠 Features Enabled with Supabase
-- **Instant Signup (`/signup`)**: Creates Supabase Auth credentials + registers business in Postgres.
-- **Secure Sign In (`/login`)**: Authenticates with Supabase Auth, retrieves linked business profile, and redirects to dashboard.
-- **Live Review Submission (`/review/:businessId`)**: Inserts customer reviews directly into the Supabase database.
-- **Real-Time Dashboard Analytics (`/dashboard/:businessId`)**: Calculates review counts, monthly growth, conversion rates, and star ratings straight from Supabase tables.

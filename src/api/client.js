@@ -553,9 +553,38 @@ export const api = {
 
   /**
    * POST /api/reviews/draft
-   * AI draft review generator
+   * AI draft review generator via Supabase Edge Function (Gemini 2.5 Flash Lite)
    */
   async generateDraftReview({ businessId, serviceType, whatStoodOut, whatCouldImprove }) {
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase.functions.invoke('generate-review', {
+          body: {
+            businessId,
+            serviceType,
+            whatStoodOut,
+            whatCouldImprove,
+          },
+        });
+
+        if (error) {
+          console.error('Supabase Edge Function error:', error);
+          throw new Error(error.message || 'Failed to generate review draft');
+        }
+
+        if (data?.draftText) {
+          return { draftText: data.draftText };
+        }
+
+        if (data?.error) {
+          throw new Error(data.error);
+        }
+      } catch (fnErr) {
+        console.warn('Supabase Edge Function failed:', fnErr);
+        throw fnErr;
+      }
+    }
+
     return fetchWithFallback(
       '/api/reviews/draft',
       {

@@ -122,7 +122,7 @@ export default function ReviewPage() {
       showToast('✨ Review regenerated with new phrasing!');
     } catch (err) {
       console.error('Failed to regenerate review:', err);
-      setErrorMsg('Could not regenerate review. Please try again.');
+      setErrorMsg(err.message || 'Could not regenerate review. Please try again.');
     } finally {
       setGeneratingDraft(false);
     }

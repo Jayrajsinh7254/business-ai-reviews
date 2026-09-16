@@ -1406,3 +1406,43 @@
   flex-wrap: wrap;
 }
 
+/* ==========================================================================
+   7. Copy & Paste UX Helpers
+   ========================================================================== */
+.draft-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.google-paste-hint-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  margin: 0.85rem 0;
+  font-size: 0.85rem;
+  color: #166534;
+  line-height: 1.45;
+}
+
+.hint-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.hint-text strong {
+  color: #14532d;
+}
+
+.step-4-quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+

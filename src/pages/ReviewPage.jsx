@@ -28,6 +28,19 @@ export default function ReviewPage() {
   const [postingReview, setPostingReview] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [toastMsg, setToastMsg] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyText = async () => {
+    try {
+      await navigator.clipboard.writeText(draftText.trim());
+      setCopied(true);
+      showToast('✓ Review copied to clipboard!');
+      setTimeout(() => setCopied(false), 2500);
+    } catch (err) {
+      console.warn('Clipboard write error:', err);
+      showToast('Please select and copy the text manually.');
+    }
+  };
 
   // Fetch business details on mount
   useEffect(() => {
@@ -413,14 +426,23 @@ export default function ReviewPage() {
                 <label htmlFor="draft-review-text" className="form-label">
                   Review Text (Feel free to edit)
                 </label>
-                <button
-                  type="button"
-                  className="btn-link-sm"
-                  onClick={handleRegenerate}
-                  disabled={generatingDraft}
-                >
-                  {generatingDraft ? 'Regenerating...' : '🔄 Regenerate wording'}
-                </button>
+                <div className="draft-top-actions">
+                  <button
+                    type="button"
+                    className="btn-link-sm"
+                    onClick={handleCopyText}
+                  >
+                    {copied ? '✓ Copied!' : '📋 Copy'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-link-sm"
+                    onClick={handleRegenerate}
+                    disabled={generatingDraft}
+                  >
+                    {generatingDraft ? 'Regenerating...' : '🔄 Re-write'}
+                  </button>
+                </div>
               </div>
 
               <textarea
@@ -461,8 +483,15 @@ export default function ReviewPage() {
                     />
                   </svg>
                 </span>
-                {postingReview ? 'Confirming...' : 'Post to Google Reviews'}
+                {postingReview ? 'Opening Google...' : 'Copy & Post to Google Reviews'}
               </button>
+
+              <div className="google-paste-hint-box">
+                <span className="hint-icon">💡</span>
+                <p className="hint-text">
+                  <strong>Easy 1-Click:</strong> Clicking above auto-copies this text and opens Google. Just <strong>Paste (Ctrl+V / Long-press Paste)</strong> into Google and click Post!
+                </p>
+              </div>
 
               <div className="sub-actions-row">
                 <button
@@ -491,7 +520,7 @@ export default function ReviewPage() {
             <div className="celebration-circle">🎉</div>
             <h2 className="success-heading">You are awesome!</h2>
             <p className="success-subtext">
-              Thank you for supporting <strong>{business?.name}</strong>. Your feedback was copied to your clipboard so you can paste it directly onto Google.
+              Thank you for supporting <strong>{business?.name}</strong>. Your review has been copied to your clipboard so you can paste it directly onto Google.
             </p>
 
             <div className="review-preview-summary card-flat">
@@ -499,10 +528,31 @@ export default function ReviewPage() {
               <p className="review-summary-quote">"{draftText}"</p>
             </div>
 
-            <div className="mt-4">
+            <div className="step-4-quick-actions">
+              <button
+                type="button"
+                className="btn-primary btn-block"
+                onClick={handleCopyText}
+              >
+                {copied ? '✓ Copied to Clipboard!' : '📋 Re-copy Review Text'}
+              </button>
               <button
                 type="button"
                 className="btn-secondary btn-block"
+                onClick={() => {
+                  const rawUrl = business?.googleReviewUrl;
+                  const targetUrl = resolveGoogleReviewUrl(rawUrl, business?.name);
+                  window.open(targetUrl, '_blank', 'noopener,noreferrer');
+                }}
+              >
+                🚀 Re-open Google Reviews
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <button
+                type="button"
+                className="btn-link"
                 onClick={() => {
                   setCurrentStep(1);
                   setWhatStoodOut('');

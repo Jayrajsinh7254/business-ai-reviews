@@ -202,22 +202,48 @@ function saveStoredReview(review) {
 /**
  * Intelligent AI draft review generator fallback
  */
-function generateMockDraft({ serviceType, whatStoodOut, whatCouldImprove }) {
+function generateMockDraft({ serviceType, whatStoodOut, whatCouldImprove, rating = 5 }) {
   const serviceMention = serviceType ? `getting my ${serviceType} done` : 'my visit';
   const stoodOutPart = whatStoodOut
     ? whatStoodOut.trim().replace(/[.,]$/, '')
-    : 'the exceptional service and welcoming staff';
-  
-  let review = `I recently visited for ${serviceMention} and had a fantastic experience. What really stood out was ${stoodOutPart.toLowerCase().startsWith('the ') ? stoodOutPart : `${stoodOutPart}`}. The entire team was professional, attentive, and thorough.`;
+    : 'the service';
 
-  if (whatCouldImprove && whatCouldImprove.trim()) {
-    const improvePart = whatCouldImprove.trim().replace(/[.,]$/, '');
-    review += ` While ${improvePart.toLowerCase()} could be tweaked slightly, everything else exceeded my expectations. Highly recommended!`;
-  } else {
-    review += ` I am very happy with the quality and would definitely recommend them to anyone looking for top-tier service!`;
+  const improvePart = whatCouldImprove && whatCouldImprove.trim()
+    ? whatCouldImprove.trim().replace(/[.,]$/, '')
+    : '';
+
+  const stars = Number(rating) || 5;
+
+  if (stars === 5) {
+    let review = `I recently visited for ${serviceMention} and had an exceptional experience. What really stood out was ${stoodOutPart}. The team was attentive, professional, and went above and beyond.`;
+    if (improvePart) {
+      review += ` While ${improvePart.toLowerCase()} could be tweaked slightly, overall it was a 5-star experience. Highly recommended!`;
+    } else {
+      review += ` I am very happy with the quality and would definitely recommend them to anyone looking for top-tier service!`;
+    }
+    return review;
   }
 
-  return review;
+  if (stars === 4) {
+    let review = `I had a good experience getting my ${serviceMention} handled. What stood out was ${stoodOutPart}.`;
+    if (improvePart) {
+      review += ` It would be even better if they could address ${improvePart.toLowerCase()}, but overall solid service.`;
+    } else {
+      review += ` Reliable service and friendly staff. Would visit again.`;
+    }
+    return review;
+  }
+
+  if (stars === 3) {
+    return `My visit for ${serviceMention} was average. While ${stoodOutPart}, there is noticeable room for improvement regarding ${improvePart || 'the overall service speed and customer care'}. A decent experience, but could be better.`;
+  }
+
+  if (stars === 2) {
+    return `I was quite disappointed with my experience for ${serviceMention}. Although ${stoodOutPart}, the issues with ${improvePart || 'the overall quality and customer handling'} made it fall well below my expectations.`;
+  }
+
+  // 1 star
+  return `Very frustrating and poor experience with ${serviceMention}. ${stoodOutPart ? `Despite ${stoodOutPart.toLowerCase()}, ` : ''}${improvePart || 'The service was completely unacceptable and fell short of basic standards'}. I would not recommend this place based on my visit.`;
 }
 
 /**
@@ -576,7 +602,7 @@ export const api = {
    * POST /api/reviews/draft
    * AI draft review generator via Supabase Edge Function (Gemini 2.5 Flash Lite)
    */
-  async generateDraftReview({ businessId, serviceType, whatStoodOut, whatCouldImprove }) {
+  async generateDraftReview({ businessId, serviceType, whatStoodOut, whatCouldImprove, rating = 5 }) {
     if (isSupabaseConfigured() && supabase) {
       try {
         const { data, error } = await supabase.functions.invoke('generate-review', {
@@ -585,6 +611,7 @@ export const api = {
             serviceType,
             whatStoodOut,
             whatCouldImprove,
+            rating,
           },
         });
 
@@ -619,10 +646,10 @@ export const api = {
       '/api/reviews/draft',
       {
         method: 'POST',
-        body: JSON.stringify({ businessId, serviceType, whatStoodOut, whatCouldImprove }),
+        body: JSON.stringify({ businessId, serviceType, whatStoodOut, whatCouldImprove, rating }),
       },
       () => {
-        const draftText = generateMockDraft({ serviceType, whatStoodOut, whatCouldImprove });
+        const draftText = generateMockDraft({ serviceType, whatStoodOut, whatCouldImprove, rating });
         return { draftText };
       }
     );

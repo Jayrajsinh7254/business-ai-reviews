@@ -106,6 +106,7 @@ export default function ReviewPage() {
         serviceType: effectiveService,
         whatStoodOut: whatStoodOut.trim(),
         whatCouldImprove: whatCouldImprove.trim(),
+        rating,
       });
 
       setDraftText(response.draftText || '');
@@ -118,8 +119,9 @@ export default function ReviewPage() {
     }
   };
 
-  // Step 3: Regenerate draft
-  const handleRegenerate = async () => {
+  // Step 3: Regenerate draft with rating adaptation
+  const handleRegenerate = async (customRating) => {
+    const activeRating = typeof customRating === 'number' ? customRating : rating;
     setGeneratingDraft(true);
     setErrorMsg('');
 
@@ -130,15 +132,21 @@ export default function ReviewPage() {
         serviceType: effectiveService,
         whatStoodOut: whatStoodOut.trim(),
         whatCouldImprove: whatCouldImprove.trim(),
+        rating: activeRating,
       });
       setDraftText(response.draftText || '');
-      showToast('✨ Review regenerated with new phrasing!');
+      showToast(`✨ Review tailored for ${activeRating}-star rating!`);
     } catch (err) {
       console.error('Failed to regenerate review:', err);
       setErrorMsg(err.message || 'Could not regenerate review. Please try again.');
     } finally {
       setGeneratingDraft(false);
     }
+  };
+
+  const handleRatingChange = (newRating) => {
+    setRating(newRating);
+    handleRegenerate(newRating);
   };
 
   // Step 3: Post to Google
@@ -336,22 +344,34 @@ export default function ReviewPage() {
           </div>
         )}
 
-        {/* STEP 2: What stood out & What could improve */}
+        {/* STEP 2: Rating & What stood out / could improve */}
         {currentStep === 2 && (
           <div className="step-content step-2 animate-fade-in">
             <div className="step-title-row">
               <span className="step-tag">Step 2 of 3</span>
-              <h2 className="step-heading">Tell us about your visit</h2>
+              <h2 className="step-heading">How was your visit?</h2>
             </div>
 
             <div className="service-selected-pill">
               <span>Service:</span> <strong>{getEffectiveService()}</strong>
             </div>
 
+            {/* Star Rating Picker */}
+            <div className="star-picker-section">
+              <label className="form-label text-center" style={{ marginBottom: '0.25rem', fontWeight: 600 }}>
+                How would you rate your overall experience?
+              </label>
+              <StarRating rating={rating} onChange={setRating} size="lg" />
+            </div>
+
             {/* What stood out to you? (required) */}
             <div className="form-group">
               <label htmlFor="what-stood-out" className="form-label">
-                What stood out to you? <span className="required-star">*</span>
+                {rating >= 4
+                  ? 'What stood out to you?'
+                  : rating === 3
+                  ? 'What was good or what was average?'
+                  : 'What went wrong during your visit?'} <span className="required-star">*</span>
               </label>
               <textarea
                 id="what-stood-out"
@@ -359,16 +379,31 @@ export default function ReviewPage() {
                 className="form-textarea"
                 value={whatStoodOut}
                 onChange={(e) => setWhatStoodOut(e.target.value)}
-                placeholder="e.g. Fast service, super friendly team, very clean environment, explained everything clearly..."
+                placeholder={
+                  rating >= 4
+                    ? 'e.g. Fast service, super friendly team, very clean environment, great quality...'
+                    : rating === 3
+                    ? 'e.g. Service was okay, but wait time was longer than expected...'
+                    : 'e.g. Poor service, delayed response, rude behavior, issue not resolved...'
+                }
                 required
               />
-              <span className="field-hint">A few quick words or bullet points are plenty!</span>
+              <span className="field-hint">
+                {rating <= 2
+                  ? 'Write your issues in any language or rough notes — AI will construct a firm, professional 1-2 star review.'
+                  : rating === 3
+                  ? 'Write your thoughts in any language — AI will construct a balanced 3-star review.'
+                  : 'Write in any language or rough notes — AI will convert it into an authentic 5-star review!'}
+              </span>
             </div>
 
             {/* Anything that could've been better? (optional) */}
             <div className="form-group">
               <label htmlFor="what-could-improve" className="form-label">
-                Anything that could've been better? <span className="optional-tag">(Optional)</span>
+                {rating >= 4
+                  ? "Anything that could've been better? "
+                  : 'Additional details or feedback '}
+                <span className="optional-tag">(Optional)</span>
               </label>
               <textarea
                 id="what-could-improve"
@@ -376,7 +411,11 @@ export default function ReviewPage() {
                 className="form-textarea"
                 value={whatCouldImprove}
                 onChange={(e) => setWhatCouldImprove(e.target.value)}
-                placeholder="e.g. Waiting area was a bit busy, parking was tight..."
+                placeholder={
+                  rating >= 4
+                    ? 'e.g. Waiting area was a bit busy, parking was tight...'
+                    : 'e.g. Requested a refund, tried calling multiple times...'
+                }
               />
             </div>
 
@@ -396,10 +435,10 @@ export default function ReviewPage() {
               >
                 {generatingDraft ? (
                   <span className="btn-loading-state">
-                    <span className="spinner"></span> Generating AI Draft...
+                    <span className="spinner"></span> Generating {rating}-Star Review...
                   </span>
                 ) : (
-                  '✨ Generate Review →'
+                  `✨ Generate ${rating}-Star Review →`
                 )}
               </button>
             </div>
@@ -414,10 +453,22 @@ export default function ReviewPage() {
               <h2 className="step-heading">Your Ready-to-Post Review</h2>
             </div>
 
-            {/* Star Rating Picker */}
+            {/* Star Rating Picker with dynamic sentiment badge */}
             <div className="star-picker-section">
-              <label className="form-label text-center">Your Rating</label>
-              <StarRating rating={rating} onChange={setRating} size="lg" />
+              <div className="star-picker-header">
+                <span className="form-label" style={{ marginBottom: 0 }}>Review Rating:</span>
+                <span className={`sentiment-badge rating-${rating}`}>
+                  {rating === 5 && '🌟 5-Star (Enthusiastic)'}
+                  {rating === 4 && '👍 4-Star (Positive)'}
+                  {rating === 3 && '⚖️ 3-Star (Balanced)'}
+                  {rating === 2 && '👎 2-Star (Dissatisfied)'}
+                  {rating === 1 && '⚠️ 1-Star (Critical)'}
+                </span>
+              </div>
+              <StarRating rating={rating} onChange={handleRatingChange} size="lg" />
+              <span className="star-picker-subhint">
+                Tap any star above to instantly regenerate the review with that tone!
+              </span>
             </div>
 
             {/* Editable Draft Textarea */}
@@ -437,7 +488,7 @@ export default function ReviewPage() {
                   <button
                     type="button"
                     className="btn-link-sm"
-                    onClick={handleRegenerate}
+                    onClick={() => handleRegenerate(rating)}
                     disabled={generatingDraft}
                   >
                     {generatingDraft ? 'Regenerating...' : '🔄 Re-write'}

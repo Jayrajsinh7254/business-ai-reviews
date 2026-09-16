@@ -18,15 +18,15 @@ export default function StarRating({
   const getRatingLabel = (score) => {
     switch (score) {
       case 1:
-        return 'Disappointing';
+        return '1 Star - Very Poor';
       case 2:
-        return 'Needs Work';
+        return '2 Stars - Disappointed';
       case 3:
-        return 'Average';
+        return '3 Stars - Average';
       case 4:
-        return 'Very Good';
+        return '4 Stars - Very Good';
       case 5:
-        return 'Outstanding!';
+        return '5 Stars - Outstanding!';
       default:
         return '';
     }

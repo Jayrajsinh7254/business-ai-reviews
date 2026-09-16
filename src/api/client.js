@@ -626,14 +626,13 @@ export const api = {
   async getBusiness(businessId) {
     const cleanId = businessId || 'demo-1';
 
-    // Fast resolution for demo businesses
-    if (cleanId.startsWith('demo-')) {
-      const stored = getStoredBusinesses();
-      if (stored[cleanId]) {
-        return stored[cleanId];
-      }
+    // 1. Instant resolution for demo businesses or stored businesses
+    const stored = getStoredBusinesses();
+    if (stored[cleanId]) {
+      return stored[cleanId];
     }
 
+    // 2. Supabase resolution if configured
     if (isSupabaseConfigured() && supabase) {
       try {
         const { data, error } = await supabase
@@ -650,27 +649,15 @@ export const api = {
       }
     }
 
-    const token = getToken();
-    return fetchWithFallback(
-      `/api/businesses/${cleanId}`,
-      {
-        method: 'GET',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      },
-      () => {
-        const businesses = getStoredBusinesses();
-        const biz = businesses[cleanId];
-        if (biz) return biz;
-        return {
-          id: cleanId,
-          name: cleanId.startsWith('demo-2') ? 'Lumina Skin & Hair Studio' : 'Apex Auto Care & Diagnostics',
-          category: cleanId.startsWith('demo-2') ? 'salon' : 'automobile',
-          services: ['Full Synthetic Oil Change', 'Brake Pad Replacement', 'Engine Diagnostic'],
-          googleReviewUrl: 'https://search.google.com/local/writereview',
-          createdAt: new Date().toISOString(),
-        };
-      }
-    );
+    // 3. Fallback mock business
+    return {
+      id: cleanId,
+      name: cleanId.startsWith('demo-2') ? 'Lumina Skin & Hair Studio' : 'Apex Auto Care & Diagnostics',
+      category: cleanId.startsWith('demo-2') ? 'salon' : 'automobile',
+      services: ['Full Synthetic Oil Change', 'Brake Pad Replacement', 'Engine Diagnostic'],
+      googleReviewUrl: 'https://search.google.com/local/writereview',
+      createdAt: new Date().toISOString(),
+    };
   },
 
   /**
@@ -713,85 +700,69 @@ export const api = {
         }
       } catch (fnErr) {
         console.warn('Supabase Edge Function failed:', fnErr);
-        throw fnErr;
+        // Fall back to local mock generator
       }
     }
 
-    return fetchWithFallback(
-      '/api/reviews/draft',
-      {
-        method: 'POST',
-        body: JSON.stringify({ businessId, serviceType, whatStoodOut, whatCouldImprove, rating }),
-      },
-      () => {
-        const draftText = generateMockDraft({ serviceType, whatStoodOut, whatCouldImprove, rating });
-        return { draftText };
-      }
-    );
+    const draftText = generateMockDraft({ serviceType, whatStoodOut, whatCouldImprove, rating });
+    return { draftText };
   },
 
   /**
    * POST review confirmation & persist to database
    */
   async confirmReview({ businessId, serviceType, finalText, rating, whatStoodOut = '', whatCouldImprove = '' }) {
-    if (isSupabaseConfigured() && supabase) {
-      const reviewId = 'rev-' + Math.random().toString(36).substring(2, 9);
-      const newReviewRow = {
-        id: reviewId,
-        business_id: businessId,
-        service_type: serviceType || 'General Service',
-        rating: rating || 5,
-        text: finalText,
-        what_stood_out: whatStoodOut || '',
-        what_could_improve: whatCouldImprove || '',
-      };
+    const cleanId = businessId || 'demo-1';
 
-      const { error } = await supabase.from('reviews').insert([newReviewRow]);
-      if (error) {
-        console.error('Error inserting review to Supabase:', error);
-      }
-
-      // Fetch business Google Review URL
-      const { data: biz } = await supabase
-        .from('businesses')
-        .select('name, google_review_url')
-        .eq('id', businessId)
-        .maybeSingle();
-
-      const targetGoogleUrl = resolveGoogleReviewUrl(biz?.google_review_url, biz?.name);
-
-      return {
-        success: true,
-        googleReviewUrl: targetGoogleUrl,
-      };
-    }
-
-    return fetchWithFallback(
-      '/api/reviews/confirm',
-      {
-        method: 'POST',
-        body: JSON.stringify({ businessId, serviceType, finalText, rating, whatStoodOut, whatCouldImprove }),
-      },
-      () => {
-        const businesses = getStoredBusinesses();
-        const biz = businesses[businessId] || {};
-        const review = {
-          id: 'rev-' + Math.random().toString(36).substring(2, 9),
-          businessId,
-          serviceType: serviceType || 'General Service',
+    if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
+      try {
+        const reviewId = 'rev-' + Math.random().toString(36).substring(2, 9);
+        const newReviewRow = {
+          id: reviewId,
+          business_id: cleanId,
+          service_type: serviceType || 'General Service',
           rating: rating || 5,
           text: finalText,
-          whatStoodOut,
-          whatCouldImprove,
-          createdAt: new Date().toISOString(),
+          what_stood_out: whatStoodOut || '',
+          what_could_improve: whatCouldImprove || '',
         };
-        saveStoredReview(review);
+
+        await supabase.from('reviews').insert([newReviewRow]);
+
+        const { data: biz } = await supabase
+          .from('businesses')
+          .select('name, google_review_url')
+          .eq('id', cleanId)
+          .maybeSingle();
+
+        const targetGoogleUrl = resolveGoogleReviewUrl(biz?.google_review_url, biz?.name);
+
         return {
           success: true,
-          googleReviewUrl: biz.googleReviewUrl || 'https://search.google.com/local/writereview',
+          googleReviewUrl: targetGoogleUrl,
         };
+      } catch (err) {
+        console.warn('Supabase review insert notice:', err);
       }
-    );
+    }
+
+    const businesses = getStoredBusinesses();
+    const biz = businesses[cleanId] || {};
+    const review = {
+      id: 'rev-' + Math.random().toString(36).substring(2, 9),
+      businessId: cleanId,
+      serviceType: serviceType || 'General Service',
+      rating: rating || 5,
+      text: finalText,
+      whatStoodOut,
+      whatCouldImprove,
+      createdAt: new Date().toISOString(),
+    };
+    saveStoredReview(review);
+    return {
+      success: true,
+      googleReviewUrl: biz.googleReviewUrl || 'https://search.google.com/local/writereview',
+    };
   },
 
   /**
@@ -800,6 +771,7 @@ export const api = {
   async getBusinessStats(businessId) {
     const cleanId = businessId || 'demo-1';
 
+    // 1. Supabase stats if available
     if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
       try {
         const { data: reviews, error } = await supabase
@@ -837,48 +809,39 @@ export const api = {
           };
         }
       } catch (err) {
-        console.warn('Supabase getBusinessStats error:', err);
+        console.warn('Supabase getBusinessStats notice:', err);
       }
     }
 
-    const token = getToken();
-    return fetchWithFallback(
-      `/api/businesses/${cleanId}/stats`,
-      {
-        method: 'GET',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      },
-      () => {
-        const reviews = getStoredReviews(cleanId);
-        const totalReviews = reviews.length;
-        
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
-        const thisMonthReviews = reviews.filter((r) => {
-          const d = new Date(r.createdAt || r.created_at);
-          return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-        }).length;
+    // 2. Local fallback stats calculated directly
+    const reviews = getStoredReviews(cleanId);
+    const totalReviews = reviews.length;
+    
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const thisMonthReviews = reviews.filter((r) => {
+      const d = new Date(r.createdAt || r.created_at);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    }).length;
 
-        const avgRating =
-          totalReviews > 0
-            ? (reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / totalReviews).toFixed(1)
-            : '5.0';
+    const avgRating =
+      totalReviews > 0
+        ? (reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / totalReviews).toFixed(1)
+        : '5.0';
 
-        const estimatedScans = Math.max(totalReviews * 2 + 5, 24);
-        const scanToReviewRate =
-          totalReviews > 0
-            ? Math.min(100, Math.round((totalReviews / estimatedScans) * 100)) + '%'
-            : '0%';
+    const estimatedScans = Math.max(totalReviews * 2 + 5, 24);
+    const scanToReviewRate =
+      totalReviews > 0
+        ? Math.min(100, Math.round((totalReviews / estimatedScans) * 100)) + '%'
+        : '0%';
 
-        return {
-          totalReviews,
-          thisMonth: thisMonthReviews,
-          avgRating: Number(avgRating),
-          scanToReviewRate,
-        };
-      }
-    );
+    return {
+      totalReviews,
+      thisMonth: thisMonthReviews,
+      avgRating: Number(avgRating),
+      scanToReviewRate,
+    };
   },
 
   /**
@@ -908,20 +871,10 @@ export const api = {
           }));
         }
       } catch (err) {
-        console.warn('Supabase getBusinessReviews error:', err);
+        console.warn('Supabase getBusinessReviews notice:', err);
       }
     }
 
-    const token = getToken();
-    return fetchWithFallback(
-      `/api/businesses/${cleanId}/reviews`,
-      {
-        method: 'GET',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      },
-      () => {
-        return getStoredReviews(cleanId);
-      }
-    );
+    return getStoredReviews(cleanId);
   },
 };

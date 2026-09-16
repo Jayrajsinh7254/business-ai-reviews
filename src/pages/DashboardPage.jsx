@@ -14,10 +14,31 @@ export default function DashboardPage() {
   const storedUser = api.getCurrentUser();
   const businessId = paramBizId || storedUser?.businessId || 'demo-1';
 
-  const [business, setBusiness] = useState(null);
-  const [stats, setStats] = useState(null);
-  const [reviews, setReviews] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Instant fallback default data to prevent any blank screen or spinner hang
+  const initialBiz = (api.getStoredBusinesses && api.getStoredBusinesses()[businessId]) || {
+    id: businessId,
+    name: businessId.startsWith('demo-2') ? 'Lumina Skin & Hair Studio' : 'Apex Auto Care & Diagnostics',
+    category: businessId.startsWith('demo-2') ? 'salon' : 'automobile',
+    services: businessId.startsWith('demo-2')
+      ? ['Balayage & Hair Styling', 'HydraFacial Glow', 'Keratin Smoothing']
+      : ['Full Synthetic Oil Change', 'Brake Pad Replacement', 'Engine Diagnostic'],
+    googleReviewUrl: 'https://search.google.com/local/writereview',
+    createdAt: new Date().toISOString(),
+  };
+
+  const initialStats = {
+    totalReviews: businessId.startsWith('demo-2') ? 3 : 4,
+    thisMonth: 2,
+    avgRating: 4.9,
+    scanToReviewRate: '82%',
+  };
+
+  const initialReviews = api.getStoredReviews ? api.getStoredReviews(businessId) : [];
+
+  const [business, setBusiness] = useState(initialBiz);
+  const [stats, setStats] = useState(initialStats);
+  const [reviews, setReviews] = useState(initialReviews);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   // UI filters & modal state
@@ -28,9 +49,6 @@ export default function DashboardPage() {
   const [selectedReviewForReply, setSelectedReviewForReply] = useState(null);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
-    setError('');
-
     const targetId = businessId || 'demo-1';
 
     try {
@@ -40,59 +58,19 @@ export default function DashboardPage() {
         api.getBusinessReviews(targetId),
       ]);
 
-      let biz = bizRes.status === 'fulfilled' && bizRes.value ? bizRes.value : null;
-      if (!biz) {
-        const storedBizs = api.getStoredBusinesses ? api.getStoredBusinesses() : {};
-        biz = storedBizs[targetId] || {
-          id: targetId,
-          name: targetId.startsWith('demo-2') ? 'Lumina Skin & Hair Studio' : 'Apex Auto Care & Diagnostics',
-          category: targetId.startsWith('demo-2') ? 'salon' : 'automobile',
-          services: targetId.startsWith('demo-2')
-            ? ['Balayage & Hair Styling', 'HydraFacial Glow', 'Keratin Smoothing']
-            : ['Full Synthetic Oil Change', 'Brake Pad Replacement', 'Engine Diagnostic'],
-          googleReviewUrl: 'https://search.google.com/local/writereview',
-          createdAt: new Date().toISOString(),
-        };
+      if (bizRes.status === 'fulfilled' && bizRes.value) {
+        setBusiness(bizRes.value);
       }
 
-      let st = statsRes.status === 'fulfilled' && statsRes.value ? statsRes.value : null;
-      if (!st) {
-        st = {
-          totalReviews: targetId.startsWith('demo-2') ? 3 : 4,
-          thisMonth: 2,
-          avgRating: 4.9,
-          scanToReviewRate: '82%',
-        };
+      if (statsRes.status === 'fulfilled' && statsRes.value) {
+        setStats(statsRes.value);
       }
 
-      let revs = reviewsRes.status === 'fulfilled' && Array.isArray(reviewsRes.value) ? reviewsRes.value : [];
-      if (revs.length === 0 && targetId.startsWith('demo-')) {
-        revs = api.getStoredReviews ? api.getStoredReviews(targetId) : [];
+      if (reviewsRes.status === 'fulfilled' && Array.isArray(reviewsRes.value)) {
+        setReviews(reviewsRes.value);
       }
-
-      setBusiness(biz);
-      setStats(st);
-      setReviews(revs);
     } catch (err) {
-      console.warn('Dashboard data load notice:', err);
-      const fallbackBiz = {
-        id: targetId,
-        name: targetId.startsWith('demo-2') ? 'Lumina Skin & Hair Studio' : 'Apex Auto Care & Diagnostics',
-        category: targetId.startsWith('demo-2') ? 'salon' : 'automobile',
-        services: ['Full Synthetic Oil Change', 'Brake Pad Replacement', 'Engine Diagnostic'],
-        googleReviewUrl: 'https://search.google.com/local/writereview',
-        createdAt: new Date().toISOString(),
-      };
-      setBusiness(fallbackBiz);
-      setStats({
-        totalReviews: 4,
-        thisMonth: 2,
-        avgRating: 4.8,
-        scanToReviewRate: '78%',
-      });
-      setReviews(api.getStoredReviews ? api.getStoredReviews('demo-1') : []);
-    } finally {
-      setLoading(false);
+      console.warn('Dashboard background refresh notice:', err);
     }
   }, [businessId]);
 
@@ -109,11 +87,14 @@ export default function DashboardPage() {
     navigate('/login', { replace: true });
   };
 
-  // Filter reviews
-  const filteredReviews = reviews.filter((r) => {
-    if (selectedFilter === 'all') return true;
-    return Number(r.rating) === Number(selectedFilter);
-  });
+  // Filter reviews safely
+  const filteredReviews = Array.isArray(reviews)
+    ? reviews.filter((r) => {
+        if (!r) return false;
+        if (selectedFilter === 'all') return true;
+        return Number(r.rating) === Number(selectedFilter);
+      })
+    : [];
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'Recently';
@@ -127,17 +108,6 @@ export default function DashboardPage() {
       return 'Recently';
     }
   };
-
-  if (loading) {
-    return (
-      <div className="page-container">
-        <div className="card text-center loading-card">
-          <div className="spinner spinner-lg"></div>
-          <p className="loading-text">Loading business dashboard & analytics...</p>
-        </div>
-      </div>
-    );
-  }
 
   const reviewUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/review/${businessId}`

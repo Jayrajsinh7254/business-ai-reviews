@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 3. Build the prompt string
+    // 3. Build the prompt string with advanced conversion & language translation instructions
     const improvedSection =
       whatCouldImprove && typeof whatCouldImprove === "string" && whatCouldImprove.trim()
         ? whatCouldImprove.trim()
@@ -109,12 +109,21 @@ Deno.serve(async (req: Request) => {
         ? serviceType.trim()
         : "service";
 
-    const prompt = `Write a natural, first-person Google review (2-4 sentences) for a ${bizCategory} business called "${bizName}".
-The customer got "${effectiveService}" done.
-What they liked: "${whatStoodOut.trim()}".
-What could be better: "${improvedSection}".
-Keep it sounding like a real person wrote it — not overly polished, not generic, no marketing language.
-Do not invent details that weren't mentioned above.`;
+    const prompt = `You are an expert AI review ghostwriter. Transform the customer's raw, informal notes or feedback into a high-quality, professional, authentic, and natural 5-star Google review written in fluent, grammatically flawless English.
+
+Business Name: "${bizName}"
+Business Category: "${bizCategory}"
+Service Received: "${effectiveService}"
+Customer's Raw Notes (What Stood Out): "${whatStoodOut.trim()}"
+Customer's Notes (Feedback / Improvement): "${improvedSection}"
+
+Instructions:
+1. Always write the review in clear, fluent, natural, professional English — even if the customer provided their notes in Hindi, Hinglish, Spanish, French, Gujarati, or broken English.
+2. Write from a genuine first-person customer perspective ("I visited...", "I had an excellent experience getting...", "The staff was...").
+3. Keep the review engaging, authentic, and 2 to 4 sentences long.
+4. Elevate rough phrasing or slang into articulate, positive, and polite sentences while preserving their real sentiment.
+5. If constructive feedback was provided, mention it politely (e.g., "While [improvement], the overall experience was fantastic!").
+6. Output ONLY the finalized review text. Do NOT include quotation marks, titles, or introductory greetings like "Here is your review:".`;
 
     // 4. Retrieve GEMINI_API_KEY from environment variables
     const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
@@ -162,6 +171,10 @@ Do not invent details that weren't mentioned above.`;
                 ],
               },
             ],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 300,
+            },
           }),
         });
 
@@ -179,10 +192,12 @@ Do not invent details that weren't mentioned above.`;
         }
 
         const geminiData = await geminiResponse.json();
-        const extracted =
+        let extracted =
           geminiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
         if (extracted) {
+          // Clean any extra quotes if model wrapped output
+          extracted = extracted.replace(/^["']|["']$/g, "").trim();
           draftText = extracted;
           break; // Successfully got review draft
         }

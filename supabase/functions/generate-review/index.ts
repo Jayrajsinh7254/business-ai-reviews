@@ -105,24 +105,24 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 3. Define sentiment guidance based on star rating
+    // 3. Define natural human sentiment tone guidance
     let sentimentGuidance = "";
     if (starRating === 5) {
       sentimentGuidance =
-        "5-STAR (EXCELLENT): The review must be overwhelmingly positive, highly enthusiastic, and recommend the business wholeheartedly. Express supreme satisfaction and highlight what stood out as exceptional.";
+        "5-STAR (Genuinely Delighted / High Praise): Write a happy, relaxed, authentic 5-star review. Highlight the specific positives mentioned in simple everyday words. Include natural enthusiasm (e.g., 'Super happy with the work', 'Fair prices and really honest people', 'Definitely coming back next time').";
     } else if (starRating === 4) {
       sentimentGuidance =
-        "4-STAR (VERY GOOD): The review should be mostly positive and happy with the service, praising what stood out, but with a slight, polite mention of any minor detail that could be improved.";
+        "4-STAR (Good / Solid Experience): Write a positive, grounded review giving a solid thumbs up. Mention what was done well, and if any minor hiccup was noted, mention it casually without sounding angry (e.g., 'Solid service and nice staff. Had to wait a few extra minutes, but overall very happy with the result').";
     } else if (starRating === 3) {
       sentimentGuidance =
-        "3-STAR (AVERAGE / MIXED): The review must be balanced and neutral. Acknowledge what was okay, but clearly mention shortcomings or areas that were underwhelming.";
+        "3-STAR (Average / Middle of the Road): Write an honest, balanced review. Acknowledge what was okay, but plainly mention where it felt underwhelming or slow (e.g., 'Decent job on the service, but communication could be a lot better').";
     } else if (starRating === 2) {
       sentimentGuidance =
-        "2-STAR (DISSATISFIED / DISAPPOINTED): The review must express clear dissatisfaction and disappointment. Politely but firmly point out what went wrong and how expectations were not met.";
+        "2-STAR (Disappointed / Unhappy): Write a disappointed, frank review pointing out the specific issues faced. Sound like a real customer who felt let down (e.g., 'Pretty disappointed with my visit. Took way longer than promised and staff wasn't very helpful').";
     } else {
       // 1 Star
       sentimentGuidance =
-        "1-STAR (VERY POOR / HIGHLY CRITICAL): The review must be strongly critical, expressing serious frustration and dissatisfaction with bad service, issues encountered, or unprofessionalism.";
+        "1-STAR (Frustrated / Strongly Critical): Write a blunt, direct 1-star review warning others. Detail what went wrong in plain, realistic words without sounding robotic or melodramatic (e.g., 'Terrible experience. Terrible customer service, overcharged, and they didn't even resolve the issue. Avoid this place').";
     }
 
     const improvedSection =
@@ -135,22 +135,27 @@ Deno.serve(async (req: Request) => {
         ? serviceType.trim()
         : "service";
 
-    const prompt = `You are an expert AI review ghostwriter. Transform the customer's raw notes into an authentic, realistic ${starRating}-star Google review written in fluent, grammatically flawless English.
+    const prompt = `You are a real human customer writing a genuine Google Maps review on your phone.
+Your goal is to turn the customer's raw notes (which may be in Hindi, Hinglish, Spanish, slang, or rough bullet points) into a completely NATURAL, AUTHENTIC review in fluent everyday English.
 
 Business Name: "${bizName}"
 Business Category: "${bizCategory}"
 Service Received: "${effectiveService}"
-Selected Star Rating: ${starRating} out of 5 stars
-Tone & Sentiment Requirement: ${sentimentGuidance}
-Customer's Experience Notes (What Stood Out): "${whatStoodOut.trim()}"
-Customer's Feedback on Issues / Improvement: "${improvedSection}"
+Selected Star Rating: ${starRating} Stars
+Rating Tone Goal: ${sentimentGuidance}
+Customer Notes (What Stood Out): "${whatStoodOut.trim()}"
+Customer Notes (Feedback / Issues): "${improvedSection}"
 
-Instructions:
-1. The tone, emotion, and wording MUST directly reflect a ${starRating}-star review as defined in the sentiment requirement.
-2. Always write the review in clear, fluent, natural English (even if the customer provided notes in Hindi, Hinglish, Spanish, French, Gujarati, or rough informal slang).
-3. Write from a first-person customer perspective ("I visited...", "I had...").
-4. Keep the review authentic, engaging, and 2 to 4 sentences long.
-5. Output ONLY the finalized review text. Do NOT include quotation marks, titles, or introductory text like "Here is your review:".`;
+CRITICAL ANTI-AI & HUMAN WRITING RULES:
+1. NEVER use AI cliches or robotic PR buzzwords:
+   - FORBIDDEN: "I recently had the pleasure of", "testament to", "nestled in", "plethora", "wholeheartedly recommend", "delve into", "tapestry", "seamless experience", "exceptional customer service", "top-notch establishment", "gem of a place", "culinary journey", "second to none", "without a shadow of a doubt", "in conclusion", "furthermore".
+2. SOUND LIKE A REAL PERSON typing a review on Google Maps:
+   - Use natural sentence structures that real people use (e.g. "Brought my car in for...", "Got my brakes done here...", "Stopped by for...", "Super quick and honest...", "The team was really friendly and helpful...").
+   - Vary your opening sentence naturally. Do not always start with "I visited [Business]".
+3. TRANSLATE AUTHENTICALLY:
+   - If the customer provided notes in Hindi, Hinglish, Spanish, Gujarati, slang, or rough notes, translate their core real-world meaning into natural conversational English as if a native speaker wrote it.
+4. LENGTH: Keep it between 2 to 4 concise, punchy sentences (around 30 to 65 words). Real Google reviews are concise and to the point.
+5. NO QUOTES OR LABELS: Output ONLY the finalized review text. Do NOT wrap in quotes or add titles or headers.`;
 
     // 4. Retrieve GEMINI_API_KEY from environment variables
     const geminiApiKey = Deno.env.get("GEMINI_API_KEY");

@@ -7,9 +7,8 @@ export default function HomePage() {
   // Live Demo Sandbox State
   const [demoRating, setDemoRating] = useState(5);
   const [demoService, setDemoService] = useState('Oil Change & Inspection');
-  const [demoNotes, setDemoNotes] = useState('super quick service and very polite technician');
   const [demoDraft, setDemoDraft] = useState(
-    'I recently visited for getting my Oil Change & Inspection done and had an exceptional experience. What really stood out was super quick service and very polite technician. The team was attentive, professional, and went above and beyond. Highly recommended!'
+    'Came in for an oil change and inspection this morning. Super quick service, honest pricing, and the technician was really polite and helpful. Will definitely be coming back for future maintenance!'
   );
   const [generatingDemo, setGeneratingDemo] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);

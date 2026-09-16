@@ -200,50 +200,47 @@ function saveStoredReview(review) {
 }
 
 /**
- * Intelligent AI draft review generator fallback
+ * Intelligent AI draft review generator fallback with authentic, human-sounding variations
  */
 function generateMockDraft({ serviceType, whatStoodOut, whatCouldImprove, rating = 5 }) {
-  const serviceMention = serviceType ? `getting my ${serviceType} done` : 'my visit';
-  const stoodOutPart = whatStoodOut
-    ? whatStoodOut.trim().replace(/[.,]$/, '')
-    : 'the service';
-
-  const improvePart = whatCouldImprove && whatCouldImprove.trim()
-    ? whatCouldImprove.trim().replace(/[.,]$/, '')
-    : '';
-
+  const service = serviceType ? serviceType.toLowerCase() : 'service';
+  const cleanStoodOut = whatStoodOut ? whatStoodOut.trim().replace(/[.,!]+$/, '') : 'honest service and friendly team';
+  const cleanImprove = whatCouldImprove ? whatCouldImprove.trim().replace(/[.,!]+$/, '') : '';
   const stars = Number(rating) || 5;
 
+  // Capitalize first letter helper
+  const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+
   if (stars === 5) {
-    let review = `I recently visited for ${serviceMention} and had an exceptional experience. What really stood out was ${stoodOutPart}. The team was attentive, professional, and went above and beyond.`;
-    if (improvePart) {
-      review += ` While ${improvePart.toLowerCase()} could be tweaked slightly, overall it was a 5-star experience. Highly recommended!`;
-    } else {
-      review += ` I am very happy with the quality and would definitely recommend them to anyone looking for top-tier service!`;
-    }
-    return review;
+    const templates = [
+      `Came in for ${service} and they did an awesome job. ${cap(cleanStoodOut)}. Really friendly crew and fair pricing from start to finish. Will definitely be coming back!`,
+      `Had my ${service} taken care of here today and couldn't be happier. ${cap(cleanStoodOut)}. Super quick, transparent, and hassle-free. Definitely recommend checking them out!`,
+      `Great experience getting my ${service} done. What really stood out was ${cleanStoodOut.toLowerCase()}. The staff was super helpful and honest without any pushy sales. 10/10 service!`,
+    ];
+    // Pick based on notes length to keep deterministic yet varied
+    const idx = cleanStoodOut.length % templates.length;
+    return templates[idx];
   }
 
   if (stars === 4) {
-    let review = `I had a good experience getting my ${serviceMention} handled. What stood out was ${stoodOutPart}.`;
-    if (improvePart) {
-      review += ` It would be even better if they could address ${improvePart.toLowerCase()}, but overall solid service.`;
-    } else {
-      review += ` Reliable service and friendly staff. Would visit again.`;
-    }
-    return review;
+    const templates = [
+      `Solid work on my ${service}. ${cap(cleanStoodOut)}. ${cleanImprove ? `Had a minor issue with ${cleanImprove.toLowerCase()}, but the ` : 'The '}team was polite and did a great job overall. Would visit again.`,
+      `Good, reliable service for ${service}. ${cap(cleanStoodOut)}. Everything went smoothly and pricing was fair. Satisfied with the results!`,
+    ];
+    const idx = cleanStoodOut.length % templates.length;
+    return templates[idx];
   }
 
   if (stars === 3) {
-    return `My visit for ${serviceMention} was average. While ${stoodOutPart}, there is noticeable room for improvement regarding ${improvePart || 'the overall service speed and customer care'}. A decent experience, but could be better.`;
+    return `My experience for ${service} was average. On the positive side, ${cleanStoodOut.toLowerCase()}, but ${cleanImprove ? cleanImprove.toLowerCase() : 'communication and wait times could definitely be improved'}. An okay visit overall.`;
   }
 
   if (stars === 2) {
-    return `I was quite disappointed with my experience for ${serviceMention}. Although ${stoodOutPart}, the issues with ${improvePart || 'the overall quality and customer handling'} made it fall well below my expectations.`;
+    return `Pretty disappointed with my visit for ${service}. ${cleanStoodOut ? `Although ${cleanStoodOut.toLowerCase()}, ` : ''}${cleanImprove ? cleanImprove : 'the service felt rushed and didn\'t meet expectations'}. Expected better based on the reviews.`;
   }
 
   // 1 star
-  return `Very frustrating and poor experience with ${serviceMention}. ${stoodOutPart ? `Despite ${stoodOutPart.toLowerCase()}, ` : ''}${improvePart || 'The service was completely unacceptable and fell short of basic standards'}. I would not recommend this place based on my visit.`;
+  return `Terrible experience getting ${service} done here. ${cleanStoodOut ? `${cap(cleanStoodOut)}, but ` : ''}${cleanImprove ? cleanImprove : 'the customer service was completely unprofessional and unhelpful'}. Would not recommend this place to anyone.`;
 }
 
 /**

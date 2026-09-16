@@ -137,6 +137,13 @@ export default function LoginPage() {
                 >
                   ✨ Lumina Studio
                 </button>
+                <button
+                  type="button"
+                  className="demo-pill-btn"
+                  onClick={() => handleQuickDemo('demo@reviewassist.ai', 'password123')}
+                >
+                  🚀 Instant Demo
+                </button>
               </div>
             </div>
           </form>

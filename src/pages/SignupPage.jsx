@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import TagInput from '../components/TagInput';
 import QRCodeDisplay from '../components/QRCodeDisplay';
 import StandeeDesigner from '../components/StandeeDesigner';
+import WhatsAppInviteModal from '../components/WhatsAppInviteModal';
 import { api } from '../api/client';
 
 const CATEGORIES = [
@@ -26,17 +27,41 @@ const CATEGORY_SUGGESTIONS = {
 };
 
 export default function SignupPage() {
+  const [searchParams] = useSearchParams();
+  const catParam = searchParams.get('cat');
+
+  const initialCat = (() => {
+    if (!catParam) return 'automobile';
+    const clean = catParam.toLowerCase();
+    if (clean === 'healthcare') return 'clinic';
+    if (clean === 'homeservices') return 'other';
+    if (CATEGORIES.some((c) => c.value === clean)) return clean;
+    return 'automobile';
+  })();
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [category, setCategory] = useState('automobile');
+  const [category, setCategory] = useState(initialCat);
   const [googleReviewUrl, setGoogleReviewUrl] = useState('');
-  const [services, setServices] = useState(['Oil Change', 'Brake Inspection']);
+  const [services, setServices] = useState(CATEGORY_SUGGESTIONS[initialCat]?.slice(0, 2) || ['Oil Change', 'Brake Inspection']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [createdBusiness, setCreatedBusiness] = useState(null);
   const [showStandeeStudio, setShowStandeeStudio] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+
+  useEffect(() => {
+    if (catParam) {
+      const clean = catParam.toLowerCase();
+      const mapped = clean === 'healthcare' ? 'clinic' : clean === 'homeservices' ? 'other' : clean;
+      if (CATEGORIES.some((c) => c.value === mapped)) {
+        setCategory(mapped);
+        setServices(CATEGORY_SUGGESTIONS[mapped]?.slice(0, 2) || []);
+      }
+    }
+  }, [catParam]);
 
   const isSubmitDisabled = !name.trim() || !email.trim() || !password || services.length === 0 || loading;
 
@@ -289,6 +314,13 @@ export default function SignupPage() {
               >
                 🎨 Open Standee & Poster Designer
               </button>
+              <button
+                type="button"
+                className="btn-whatsapp-action btn-lg"
+                onClick={() => setShowWhatsAppModal(true)}
+              >
+                💬 Send WhatsApp Review Invite
+              </button>
               <Link
                 to={`/review/${createdBusiness.id}`}
                 className="btn-secondary btn-lg"
@@ -311,6 +343,15 @@ export default function SignupPage() {
               </button>
             </div>
           </div>
+
+          {/* WhatsApp & SMS Invite Modal */}
+          {showWhatsAppModal && (
+            <WhatsAppInviteModal
+              business={createdBusiness}
+              reviewUrl={createdBusiness.shareableUrl || `${window.location.origin}/review/${createdBusiness.id}`}
+              onClose={() => setShowWhatsAppModal(false)}
+            />
+          )}
 
           {/* Standee Designer Studio Modal */}
           {showStandeeStudio && (

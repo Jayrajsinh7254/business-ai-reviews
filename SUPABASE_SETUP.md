@@ -42,19 +42,15 @@ ReviewAssist is configured to work out-of-the-box with **Supabase** for user aut
 ---
 
 ### Step 4: Deploy AI Review Edge Function (`generate-review`)
-ReviewAssist includes a Supabase Edge Function in [`supabase/functions/generate-review/index.ts`](./supabase/functions/generate-review/index.ts) powered by Google Gemini 2.5 Flash Lite.
+ReviewAssist includes a Supabase Edge Function in [`supabase/functions/generate-review/index.ts`](./supabase/functions/generate-review/index.ts) powered by Google Gemini 3.5 Flash Lite with natural human-sounding review prompt engineering.
 
 1. **Set the Gemini API Key Secret**:
-   In your terminal with the Supabase CLI (or via **Project Settings** -> **Edge Functions** -> **Secrets** in your Supabase dashboard):
-   ```bash
-   supabase secrets set GEMINI_API_KEY=your_gemini_api_key
-   ```
+   In your Supabase dashboard (**Project Settings** -> **Edge Functions** -> **Secrets**):
+   - Key: `GEMINI_API_KEY`
+   - Value: `<your_google_ai_studio_api_key>`
 
 2. **Deploy the Function**:
-   ```bash
-   supabase functions deploy generate-review --no-verify-jwt
-   ```
-   *(Note: `--no-verify-jwt` allows public customers scanning the QR code to generate AI draft reviews without having to log in).*
+   - In your Supabase Dashboard: **Edge Functions** -> click **generate-review** -> paste [`supabase/functions/generate-review/index.ts`](./supabase/functions/generate-review/index.ts) -> click **Deploy**.
 
 ---
 
@@ -66,5 +62,5 @@ ReviewAssist includes a Supabase Edge Function in [`supabase/functions/generate-
 - **Edge Function with Gemini AI**:
   - Validates `businessId` and `whatStoodOut`.
   - Queries `businesses` table for business name and category.
-  - Generates authentic, first-person Google review drafts with `gemini-2.5-flash-lite`.
+  - Generates authentic, first-person Google review drafts with `gemini-3.5-flash-lite`.
 - **Offline & Graceful Fallback**: If `.env` credentials are not yet populated, ReviewAssist operates with an in-memory/localStorage mock store for testing.

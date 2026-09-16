@@ -422,10 +422,15 @@ export const api = {
         setToken(activeToken);
         saveStoredBusiness(formattedBiz);
 
+        const userData = { email, name, businessId: id };
+        try {
+          localStorage.setItem('reviewassist_current_user', JSON.stringify(userData));
+        } catch {}
+
         return {
           token: activeToken,
           business: formattedBiz,
-          user: authUser || { email, name, businessId: id },
+          user: authUser || userData,
         };
       } catch (bizErr) {
         console.warn('Direct business insert fallback:', bizErr);
@@ -474,6 +479,10 @@ export const api = {
 
     if (data && data.token) {
       setToken(data.token);
+      try {
+        const u = data.user || { email, name, businessId: data.business?.id };
+        localStorage.setItem('reviewassist_current_user', JSON.stringify(u));
+      } catch {}
     }
     return data;
   },
@@ -523,11 +532,20 @@ export const api = {
       const token = authData.session?.access_token || authData.user?.id;
       setToken(token);
 
+      const currentUser = {
+        email: authData.user?.email || email,
+        name: formattedBiz.name,
+        businessId: formattedBiz.id,
+      };
+      try {
+        localStorage.setItem('reviewassist_current_user', JSON.stringify(currentUser));
+      } catch {}
+
       return {
         token,
         business: formattedBiz,
         businessId: formattedBiz.id,
-        user: authData.user,
+        user: authData.user || currentUser,
       };
     }
 
@@ -569,6 +587,10 @@ export const api = {
 
     if (data && data.token) {
       setToken(data.token);
+      try {
+        const u = data.user || { email, businessId: data.businessId || data.business?.id };
+        localStorage.setItem('reviewassist_current_user', JSON.stringify(u));
+      } catch {}
     }
     return data;
   },
@@ -585,6 +607,9 @@ export const api = {
       }
     }
     clearToken();
+    try {
+      localStorage.removeItem('reviewassist_current_user');
+    } catch {}
   },
 
   /**

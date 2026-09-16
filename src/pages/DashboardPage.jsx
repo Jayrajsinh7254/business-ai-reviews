@@ -121,51 +121,48 @@ export default function DashboardPage() {
 
   const reviewUrl = `${window.location.origin}/review/${businessId}`;
 
+  const [toast, setToast] = useState('');
+
+  const handleCopyReviewUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(reviewUrl);
+      setToast('✓ Review link copied to clipboard!');
+      setTimeout(() => setToast(''), 3000);
+    } catch (err) {
+      console.warn('Clipboard write error:', err);
+    }
+  };
+
   return (
     <div className="page-container dashboard-page">
+      {toast && <div className="floating-toast">{toast}</div>}
+
       {/* Dashboard Top Header */}
-      <div className="dashboard-header-row">
-        <div className="dashboard-title-area">
+      <div className="dashboard-header-card">
+        <div className="dashboard-header-main">
           <div className="dashboard-biz-tag">
             <span className="biz-category-badge">{business?.category || 'Business'}</span>
             <span className="biz-id-badge">ID: {businessId}</span>
           </div>
           <h1 className="page-title">{business?.name || 'Business Dashboard'}</h1>
           <p className="page-subtitle">
-            Real-time analytics and customer feedback powered by ReviewAssist
+            Real-time analytics and customer feedback copilot powered by ReviewAssist
           </p>
+
+          <div className="review-link-share-bar">
+            <span className="share-bar-label">Your Review Link:</span>
+            <span className="share-bar-url">{reviewUrl}</span>
+            <button
+              type="button"
+              className="btn-copy-link-pill"
+              onClick={handleCopyReviewUrl}
+            >
+              📋 Copy Link
+            </button>
+          </div>
         </div>
 
-        <div className="dashboard-header-actions">
-          <button
-            type="button"
-            className="btn-whatsapp-action"
-            onClick={() => setShowWhatsAppModal(true)}
-          >
-            💬 WhatsApp Invite
-          </button>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => setShowStandeeStudio(true)}
-          >
-            🎨 Design QR Standee
-          </button>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => setShowQRModal(true)}
-          >
-            📱 View QR Code
-          </button>
-          <Link
-            to={`/review/${businessId}`}
-            className="btn-outline"
-            target="_blank"
-            rel="noreferrer"
-          >
-            🚀 Open Review Page
-          </Link>
+        <div className="dashboard-header-top-actions">
           <button
             type="button"
             className="btn-logout"
@@ -174,6 +171,60 @@ export default function DashboardPage() {
           >
             🚪 Log out
           </button>
+        </div>
+      </div>
+
+      {/* Quick Launchpad Growth Hub */}
+      <div className="dashboard-launchpad-card">
+        <div className="launchpad-header">
+          <span className="launchpad-sparkle">🚀</span>
+          <div>
+            <h3 className="launchpad-title">Quick Growth Launchpad</h3>
+            <p className="launchpad-subtitle">3 fast ways to get more 5-star Google reviews today</p>
+          </div>
+        </div>
+
+        <div className="launchpad-actions-grid">
+          {/* Action 1: QR Standee Studio */}
+          <div className="launchpad-action-box" onClick={() => setShowStandeeStudio(true)}>
+            <div className="launchpad-icon-circle violet">🎨</div>
+            <div className="launchpad-box-body">
+              <h4 className="launchpad-box-title">Design QR Standee</h4>
+              <p className="launchpad-box-desc">Print counter standees, table tents, and cards</p>
+            </div>
+            <button type="button" className="btn-launchpad-arrow">
+              Open Studio →
+            </button>
+          </div>
+
+          {/* Action 2: WhatsApp Inviter */}
+          <div className="launchpad-action-box" onClick={() => setShowWhatsAppModal(true)}>
+            <div className="launchpad-icon-circle emerald">💬</div>
+            <div className="launchpad-box-body">
+              <h4 className="launchpad-box-title">WhatsApp & SMS Invite</h4>
+              <p className="launchpad-box-desc">Send 1-click AI review links to recent customers</p>
+            </div>
+            <button type="button" className="btn-launchpad-arrow">
+              Launch Invite →
+            </button>
+          </div>
+
+          {/* Action 3: Test Review Flow */}
+          <a
+            href={reviewUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="launchpad-action-box"
+          >
+            <div className="launchpad-icon-circle cyan">📱</div>
+            <div className="launchpad-box-body">
+              <h4 className="launchpad-box-title">Test Review Page</h4>
+              <p className="launchpad-box-desc">Experience the 30-second customer review flow</p>
+            </div>
+            <span className="btn-launchpad-arrow">
+              Open Page →
+            </span>
+          </a>
         </div>
       </div>
 

@@ -1529,15 +1529,26 @@
 .dashboard-page {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.75rem;
+  width: 100%;
 }
 
-.dashboard-header-row {
+.dashboard-header-card {
+  background-color: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem 2rem;
+  box-shadow: var(--shadow-sm);
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
+  align-items: flex-start;
   flex-wrap: wrap;
   gap: 1.25rem;
+}
+
+.dashboard-header-main {
+  flex: 1;
+  min-width: min(100%, 300px);
 }
 
 .dashboard-biz-tag {
@@ -1545,6 +1556,7 @@
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .biz-category-badge {
@@ -1565,11 +1577,151 @@
   border-radius: var(--radius-sm);
 }
 
-.dashboard-header-actions {
+.review-link-share-bar {
   display: flex;
   align-items: center;
+  gap: 0.6rem;
+  background-color: var(--bg-muted);
+  padding: 0.5rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  margin-top: 1rem;
   flex-wrap: wrap;
+}
+
+.share-bar-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.share-bar-url {
+  font-size: 0.85rem;
+  color: var(--color-primary);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+.btn-copy-link-pill {
+  background-color: #ffffff;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 700;
+  transition: all var(--transition-fast);
+  margin-left: auto;
+}
+
+.btn-copy-link-pill:hover {
+  background-color: var(--color-primary-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Quick Launchpad Growth Hub */
+.dashboard-launchpad-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+  border: 1.5px solid #bfdbfe;
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1.75rem;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.06);
+}
+
+.launchpad-header {
+  display: flex;
+  align-items: center;
   gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.launchpad-sparkle {
+  font-size: 1.75rem;
+}
+
+.launchpad-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.launchpad-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.launchpad-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.launchpad-action-box {
+  background-color: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1.15rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+}
+
+.launchpad-action-box:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.launchpad-icon-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+}
+
+.launchpad-icon-circle.violet { background-color: #f5f3ff; color: #7c3aed; }
+.launchpad-icon-circle.emerald { background-color: #ecfdf5; color: #059669; }
+.launchpad-icon-circle.cyan { background-color: #ecfeff; color: #0891b2; }
+
+.launchpad-box-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 0.25rem;
+}
+
+.launchpad-box-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.btn-launchpad-arrow {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 .metrics-grid {
@@ -2925,45 +3077,65 @@ button, a, input, select, textarea {
 /* Tablets Portrait & Large Handsets (<= 768px) */
 @media (max-width: 768px) {
   .page-title {
-    font-size: 1.65rem;
+    font-size: 1.55rem;
   }
 
   .page-subtitle {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
   }
 
   .page-container {
     padding: 1.25rem 1rem 3rem;
   }
 
-  .dashboard-header-row {
+  /* Dashboard Header Card Responsive */
+  .dashboard-header-card {
+    padding: 1.25rem 1rem;
     flex-direction: column;
     align-items: stretch;
-    gap: 1.25rem;
+    gap: 1rem;
   }
 
-  .dashboard-header-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.65rem;
+  .dashboard-header-top-actions {
     width: 100%;
   }
 
-  .dashboard-header-actions .btn-logout {
-    grid-column: span 2;
-    justify-content: center;
+  .dashboard-header-top-actions .btn-logout {
     width: 100%;
+    justify-content: center;
   }
 
-  .dashboard-header-actions .btn-whatsapp-action,
-  .dashboard-header-actions .btn-primary,
-  .dashboard-header-actions .btn-secondary,
-  .dashboard-header-actions .btn-outline {
-    justify-content: center;
+  .review-link-share-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .share-bar-url {
+    max-width: 100%;
+    word-break: break-all;
+    font-size: 0.8rem;
+  }
+
+  .btn-copy-link-pill {
+    width: 100%;
     text-align: center;
-    padding: 0.75rem 0.65rem;
-    font-size: 0.85rem;
-    width: 100%;
+    margin-left: 0;
+    padding: 0.55rem;
+  }
+
+  /* Launchpad Grid Responsive */
+  .dashboard-launchpad-card {
+    padding: 1.25rem 1rem;
+  }
+
+  .launchpad-actions-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .launchpad-action-box {
+    padding: 1rem 0.85rem;
   }
 
   .hero-section {

@@ -87,7 +87,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Fallback defaults for demo IDs if not in database
+    // Fallback defaults for demo IDs
     if (bizName === "Local Business") {
       if (businessId === "demo-1") {
         bizName = "Apex Auto Care & Diagnostics";
@@ -122,7 +122,7 @@ Do not invent details that weren't mentioned above.`;
       return new Response(
         JSON.stringify({
           error:
-            "GEMINI_API_KEY is not configured in Supabase Edge Function secrets. Please add it in your Supabase Dashboard under Project Settings -> Edge Functions -> Secrets.",
+            "GEMINI_API_KEY is not configured in Supabase Edge Function secrets. Please add it under Project Settings -> Edge Functions -> Secrets.",
         }),
         {
           status: 500,
@@ -131,11 +131,12 @@ Do not invent details that weren't mentioned above.`;
       );
     }
 
-    // 5. Call Gemini API (with automatic fallback to available flash models)
+    // 5. Call Gemini API (with automatic fallback to supported models)
     const modelsToTry = [
-      "gemini-2.5-flash-lite",
-      "gemini-1.5-flash",
+      "gemini-3.5-flash-lite",
       "gemini-2.0-flash",
+      "gemini-1.5-flash",
+      "gemini-2.5-flash",
     ];
 
     let draftText = "";
@@ -174,7 +175,7 @@ Do not invent details that weren't mentioned above.`;
           }
           lastErrorMsg = parsed?.error?.message || `Status ${geminiResponse.status}: ${errBody}`;
           console.warn(`Model ${model} returned error:`, lastErrorMsg);
-          continue; // Try next model
+          continue; // Try next model in list
         }
 
         const geminiData = await geminiResponse.json();
@@ -183,7 +184,7 @@ Do not invent details that weren't mentioned above.`;
 
         if (extracted) {
           draftText = extracted;
-          break; // Successfully got draft!
+          break; // Successfully got review draft
         }
       } catch (callErr) {
         lastErrorMsg = callErr instanceof Error ? callErr.message : String(callErr);

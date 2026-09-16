@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import TagInput from '../components/TagInput';
 import QRCodeDisplay from '../components/QRCodeDisplay';
+import StandeeDesigner from '../components/StandeeDesigner';
 import { api } from '../api/client';
 
 const CATEGORIES = [
@@ -35,6 +36,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [createdBusiness, setCreatedBusiness] = useState(null);
+  const [showStandeeStudio, setShowStandeeStudio] = useState(false);
 
   const isSubmitDisabled = !name.trim() || !email.trim() || !password || services.length === 0 || loading;
 
@@ -280,9 +282,16 @@ export default function SignupPage() {
             </div>
 
             <div className="quick-nav-actions">
+              <button
+                type="button"
+                className="btn-primary btn-lg"
+                onClick={() => setShowStandeeStudio(true)}
+              >
+                🎨 Open Standee & Poster Designer
+              </button>
               <Link
                 to={`/review/${createdBusiness.id}`}
-                className="btn-primary btn-lg"
+                className="btn-secondary btn-lg"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -290,7 +299,7 @@ export default function SignupPage() {
               </Link>
               <Link
                 to={`/dashboard/${createdBusiness.id}`}
-                className="btn-secondary btn-lg"
+                className="btn-outline btn-lg"
               >
                 📊 Open Business Dashboard
               </Link>
@@ -302,6 +311,15 @@ export default function SignupPage() {
               </button>
             </div>
           </div>
+
+          {/* Standee Designer Studio Modal */}
+          {showStandeeStudio && (
+            <StandeeDesigner
+              business={createdBusiness}
+              reviewUrl={createdBusiness.shareableUrl || `${window.location.origin}/review/${createdBusiness.id}`}
+              onClose={() => setShowStandeeStudio(false)}
+            />
+          )}
         </div>
       )}
     </div>

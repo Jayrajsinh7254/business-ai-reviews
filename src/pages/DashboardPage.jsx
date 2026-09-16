@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import StarRating from '../components/StarRating';
 import QRCodeDisplay from '../components/QRCodeDisplay';
+import StandeeDesigner from '../components/StandeeDesigner';
 import { api } from '../api/client';
 
 export default function DashboardPage() {
@@ -17,6 +18,7 @@ export default function DashboardPage() {
   // UI filters & modal state
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showStandeeStudio, setShowStandeeStudio] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -133,6 +135,13 @@ export default function DashboardPage() {
         <div className="dashboard-header-actions">
           <button
             type="button"
+            className="btn-primary"
+            onClick={() => setShowStandeeStudio(true)}
+          >
+            🎨 Design QR Standee
+          </button>
+          <button
+            type="button"
             className="btn-secondary"
             onClick={() => setShowQRModal(true)}
           >
@@ -140,7 +149,7 @@ export default function DashboardPage() {
           </button>
           <Link
             to={`/review/${businessId}`}
-            className="btn-primary"
+            className="btn-outline"
             target="_blank"
             rel="noreferrer"
           >
@@ -315,6 +324,15 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Standee Designer Studio Modal */}
+      {showStandeeStudio && (
+        <StandeeDesigner
+          business={business}
+          reviewUrl={reviewUrl}
+          onClose={() => setShowStandeeStudio(false)}
+        />
+      )}
 
       {/* QR Code Modal */}
       {showQRModal && (

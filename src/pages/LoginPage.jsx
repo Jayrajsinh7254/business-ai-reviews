@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { ROLES } from '../lib/rbac';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,13 +23,17 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const result = await api.login({
+      const user = await login({
         email: email.trim(),
         password,
       });
 
-      const bizId = result.businessId || result.business?.id || 'demo-1';
-      navigate(`/dashboard/${bizId}`, { replace: true });
+      if (user.role === ROLES.SUPER_ADMIN) {
+        navigate('/admin', { replace: true });
+      } else {
+        const bizId = user.businessId || 'demo-1';
+        navigate(`/dashboard/${bizId}`, { replace: true });
+      }
     } catch (err) {
       console.error('Login failed:', err);
       setError(err.message || 'Invalid email or password. Please try again.');
@@ -51,7 +57,7 @@ export default function LoginPage() {
           </div>
           <h1 className="page-title">Welcome Back</h1>
           <p className="page-subtitle">
-            Sign in to manage your AI review collector and view customer insights.
+            Sign in to manage your AI review collector, team permissions, and subscription.
           </p>
         </div>
 
@@ -119,30 +125,33 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {/* Demo Accounts Quick-Select */}
+            {/* Demo Accounts Quick-Select for All 3 Roles */}
             <div className="demo-accounts-box">
-              <div className="demo-header-label">Quick Demo Accounts:</div>
+              <div className="demo-header-label">Quick RBAC Demo Accounts:</div>
               <div className="demo-buttons-group">
                 <button
                   type="button"
-                  className="demo-pill-btn"
-                  onClick={() => handleQuickDemo('admin@apexauto.com', 'password123')}
+                  className="demo-pill-btn role-owner"
+                  onClick={() => handleQuickDemo('owner@apexauto.com', 'password123')}
+                  title="Log in as Business Owner"
                 >
-                  🔧 Apex Auto Care
+                  👑 Business Owner
                 </button>
                 <button
                   type="button"
-                  className="demo-pill-btn"
-                  onClick={() => handleQuickDemo('admin@lumina.com', 'password123')}
+                  className="demo-pill-btn role-staff"
+                  onClick={() => handleQuickDemo('staff@apexauto.com', 'password123')}
+                  title="Log in as Staff Member"
                 >
-                  ✨ Lumina Studio
+                  👔 Staff Member
                 </button>
                 <button
                   type="button"
-                  className="demo-pill-btn"
-                  onClick={() => handleQuickDemo('demo@reviewassist.ai', 'password123')}
+                  className="demo-pill-btn role-admin"
+                  onClick={() => handleQuickDemo('admin@reviewassist.ai', 'password123')}
+                  title="Log in as Super Admin"
                 >
-                  🚀 Instant Demo
+                  ⚡ Super Admin
                 </button>
               </div>
             </div>

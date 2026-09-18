@@ -12,6 +12,8 @@ const STORAGE_KEY_TOKEN = 'review_assist_token';
 const STORAGE_KEY_BUSINESSES = 'review_assist_businesses';
 const STORAGE_KEY_REVIEWS = 'review_assist_reviews';
 const STORAGE_KEY_USERS = 'review_assist_users';
+const STORAGE_KEY_SUBSCRIPTIONS = 'review_assist_subscriptions';
+const STORAGE_KEY_TEAM = 'review_assist_team';
 
 // Default initial demo business data
 const DEFAULT_BUSINESSES = {
@@ -22,6 +24,8 @@ const DEFAULT_BUSINESSES = {
     services: ['Full Synthetic Oil Change', 'Brake Pad Replacement', 'Engine Diagnostic', 'Tire Rotation & Balance', 'AC System Recharge'],
     googleReviewUrl: 'https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4',
     createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    planId: 'pro',
+    subscriptionStatus: 'active',
   },
   'demo-2': {
     id: 'demo-2',
@@ -30,30 +34,146 @@ const DEFAULT_BUSINESSES = {
     services: ['Balayage & Hair Styling', 'HydraFacial Glow', 'Keratin Smoothing Treatment', 'Gel Manicure & Pedicure'],
     googleReviewUrl: 'https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4',
     createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-  }
+    planId: 'starter',
+    subscriptionStatus: 'active',
+  },
+  'demo-3': {
+    id: 'demo-3',
+    name: 'Apex Auto - West Coast Hub',
+    category: 'automobile',
+    services: ['Complete Transmission Flush', 'EV Battery Diagnostics', 'Hybrid Service'],
+    googleReviewUrl: 'https://search.google.com/local/writereview',
+    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    planId: 'enterprise',
+    subscriptionStatus: 'active',
+  },
 };
 
 // Default initial demo users for mock login
 const DEFAULT_USERS = [
   {
+    email: 'admin@reviewassist.ai',
+    password: 'password123',
+    businessId: 'demo-1',
+    name: 'Alex Rivera (SaaS Admin)',
+    role: 'super_admin',
+    isSuperAdmin: true,
+  },
+  {
     email: 'admin@apexauto.com',
     password: 'password123',
     businessId: 'demo-1',
-    name: 'Apex Auto Admin',
+    name: 'Marcus Vance (Apex Owner)',
+    role: 'business_owner',
+  },
+  {
+    email: 'owner@apexauto.com',
+    password: 'password123',
+    businessId: 'demo-1',
+    name: 'Marcus Vance (Apex Owner)',
+    role: 'business_owner',
+  },
+  {
+    email: 'staff@apexauto.com',
+    password: 'password123',
+    businessId: 'demo-1',
+    name: 'Elena Rostova (Front Desk)',
+    role: 'business_staff',
   },
   {
     email: 'admin@lumina.com',
     password: 'password123',
     businessId: 'demo-2',
     name: 'Lumina Studio Admin',
+    role: 'business_owner',
   },
   {
     email: 'demo@reviewassist.ai',
     password: 'password123',
     businessId: 'demo-1',
     name: 'Demo User',
-  }
+    role: 'business_owner',
+  },
 ];
+
+const DEFAULT_SUBSCRIPTIONS = {
+  'demo-1': {
+    businessId: 'demo-1',
+    planId: 'pro',
+    status: 'active',
+    billingInterval: 'monthly',
+    amount: 49,
+    currentPeriodEnd: new Date(Date.now() + 24 * 24 * 60 * 60 * 1000).toISOString(),
+    aiGenerationsUsed: 48,
+    whatsappInvitesUsed: 72,
+    createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  'demo-2': {
+    businessId: 'demo-2',
+    planId: 'starter',
+    status: 'active',
+    billingInterval: 'monthly',
+    amount: 19,
+    currentPeriodEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    aiGenerationsUsed: 22,
+    whatsappInvitesUsed: 35,
+    createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  'demo-3': {
+    businessId: 'demo-3',
+    planId: 'enterprise',
+    status: 'active',
+    billingInterval: 'monthly',
+    amount: 99,
+    currentPeriodEnd: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(),
+    aiGenerationsUsed: 140,
+    whatsappInvitesUsed: 310,
+    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+};
+
+const DEFAULT_TEAM_MEMBERS = {
+  'demo-1': [
+    {
+      id: 'mem-1',
+      businessId: 'demo-1',
+      email: 'owner@apexauto.com',
+      name: 'Marcus Vance',
+      role: 'business_owner',
+      status: 'active',
+      invitedAt: new Date(Date.now() - 30 * 86400000).toISOString(),
+    },
+    {
+      id: 'mem-2',
+      businessId: 'demo-1',
+      email: 'staff@apexauto.com',
+      name: 'Elena Rostova',
+      role: 'business_staff',
+      status: 'active',
+      invitedAt: new Date(Date.now() - 15 * 86400000).toISOString(),
+    },
+    {
+      id: 'mem-3',
+      businessId: 'demo-1',
+      email: 'service@apexauto.com',
+      name: 'Liam Scott',
+      role: 'business_staff',
+      status: 'active',
+      invitedAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+    },
+  ],
+  'demo-2': [
+    {
+      id: 'mem-4',
+      businessId: 'demo-2',
+      email: 'admin@lumina.com',
+      name: 'Sophia Chang',
+      role: 'business_owner',
+      status: 'active',
+      invitedAt: new Date(Date.now() - 60 * 86400000).toISOString(),
+    },
+  ],
+};
 
 const DEFAULT_REVIEWS = {
   'demo-1': [
@@ -877,4 +997,160 @@ export const api = {
 
     return getStoredReviews(cleanId);
   },
+
+  /**
+   * GET business SaaS subscription
+   */
+  async getSubscription(businessId) {
+    const cleanId = businessId || 'demo-1';
+    try {
+      const data = localStorage.getItem(STORAGE_KEY_SUBSCRIPTIONS);
+      const parsed = data ? JSON.parse(data) : {};
+      if (parsed[cleanId]) return parsed[cleanId];
+    } catch {}
+
+    if (DEFAULT_SUBSCRIPTIONS[cleanId]) {
+      return DEFAULT_SUBSCRIPTIONS[cleanId];
+    }
+
+    return {
+      businessId: cleanId,
+      planId: 'pro',
+      status: 'active',
+      billingInterval: 'monthly',
+      amount: 49,
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      aiGenerationsUsed: 15,
+      whatsappInvitesUsed: 28,
+    };
+  },
+
+  /**
+   * UPDATE business SaaS subscription
+   */
+  async updateSubscription(businessId, subscriptionData) {
+    const cleanId = businessId || 'demo-1';
+    try {
+      const data = localStorage.getItem(STORAGE_KEY_SUBSCRIPTIONS);
+      const parsed = data ? JSON.parse(data) : { ...DEFAULT_SUBSCRIPTIONS };
+      parsed[cleanId] = {
+        ...(parsed[cleanId] || {}),
+        ...subscriptionData,
+        businessId: cleanId,
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY_SUBSCRIPTIONS, JSON.stringify(parsed));
+
+      // Also update stored businesses list planId
+      const bData = localStorage.getItem(STORAGE_KEY_BUSINESSES);
+      const bParsed = bData ? JSON.parse(bData) : { ...DEFAULT_BUSINESSES };
+      if (bParsed[cleanId]) {
+        bParsed[cleanId].planId = subscriptionData.planId;
+        bParsed[cleanId].subscriptionStatus = subscriptionData.status || 'active';
+        localStorage.setItem(STORAGE_KEY_BUSINESSES, JSON.stringify(bParsed));
+      }
+
+      return parsed[cleanId];
+    } catch (err) {
+      console.warn('Could not save subscription:', err);
+      return subscriptionData;
+    }
+  },
+
+  /**
+   * GET business team members
+   */
+  async getTeamMembers(businessId) {
+    const cleanId = businessId || 'demo-1';
+    try {
+      const data = localStorage.getItem(STORAGE_KEY_TEAM);
+      const parsed = data ? JSON.parse(data) : {};
+      if (parsed[cleanId]) return parsed[cleanId];
+    } catch {}
+
+    return DEFAULT_TEAM_MEMBERS[cleanId] || [
+      {
+        id: 'mem-default-1',
+        businessId: cleanId,
+        email: 'owner@business.com',
+        name: 'Workspace Owner',
+        role: 'business_owner',
+        status: 'active',
+        invitedAt: new Date().toISOString(),
+      },
+    ];
+  },
+
+  /**
+   * SAVE business team members
+   */
+  async saveTeamMembers(businessId, members) {
+    const cleanId = businessId || 'demo-1';
+    try {
+      const data = localStorage.getItem(STORAGE_KEY_TEAM);
+      const parsed = data ? JSON.parse(data) : { ...DEFAULT_TEAM_MEMBERS };
+      parsed[cleanId] = members;
+      localStorage.setItem(STORAGE_KEY_TEAM, JSON.stringify(parsed));
+      return members;
+    } catch (err) {
+      console.warn('Could not save team members:', err);
+      return members;
+    }
+  },
+
+  /**
+   * GET Super Admin SaaS Platform Overview Metrics
+   */
+  async getSaaSMetrics() {
+    const businesses = getStoredBusinesses();
+    const count = Object.keys(businesses).length;
+
+    return {
+      mrr: 18450,
+      activeSubscribers: Math.max(count * 82, 246),
+      churnRate: 1.4,
+      totalAiReviewsGenerated: 48920,
+      totalWhatsAppInvitesSent: 112450,
+      avgCustomerRating: 4.88,
+      planDistribution: {
+        starter: 42,
+        pro: 168,
+        enterprise: 36,
+      },
+    };
+  },
+
+  /**
+   * GET All Businesses (Super Admin)
+   */
+  async getAllBusinessesAdmin() {
+    const businesses = getStoredBusinesses();
+    const subsData = (() => {
+      try {
+        const d = localStorage.getItem(STORAGE_KEY_SUBSCRIPTIONS);
+        return d ? JSON.parse(d) : DEFAULT_SUBSCRIPTIONS;
+      } catch {
+        return DEFAULT_SUBSCRIPTIONS;
+      }
+    })();
+
+    return Object.values(businesses).map((b) => {
+      const sub = subsData[b.id] || DEFAULT_SUBSCRIPTIONS[b.id] || {
+        planId: b.planId || 'pro',
+        status: b.subscriptionStatus || 'active',
+        billingInterval: 'monthly',
+        amount: 49,
+      };
+
+      return {
+        ...b,
+        planId: sub.planId,
+        subscriptionStatus: sub.status,
+        billingInterval: sub.billingInterval,
+        amount: sub.amount,
+        reviewsCount: getStoredReviews(b.id).length,
+      };
+    });
+  },
 };
+

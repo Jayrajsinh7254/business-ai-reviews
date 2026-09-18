@@ -367,6 +367,73 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* 5.5 SAAS PRICING PREVIEW */}
+      <section className="home-pricing-preview-section" aria-label="Pricing Preview">
+        <div className="section-container">
+          <div className="section-header text-center">
+            <span className="section-tag">Flexible SaaS Pricing</span>
+            <h2 className="section-title">Simple Monthly Subscription Plans</h2>
+            <p className="section-desc">
+              All plans include full 14-day free trial, QR standees, AI review generation, and team roles.
+            </p>
+          </div>
+
+          <div className="home-pricing-cards-row">
+            {/* Starter */}
+            <div className="home-plan-card">
+              <div className="home-plan-head">
+                <h4>Starter</h4>
+                <div className="home-plan-price">
+                  <span className="price-num">$19</span>
+                  <span className="price-cycle">/ mo</span>
+                </div>
+                <p>1 location, 100 AI reviews/mo, QR standees, 1 staff seat.</p>
+              </div>
+              <Link to="/signup?plan=starter" className="btn-secondary btn-block">
+                Start 14-Day Trial
+              </Link>
+            </div>
+
+            {/* Pro */}
+            <div className="home-plan-card popular-home-card">
+              <div className="home-card-badge">★ Most Popular</div>
+              <div className="home-plan-head">
+                <h4>Pro Growth</h4>
+                <div className="home-plan-price">
+                  <span className="price-num">$49</span>
+                  <span className="price-cycle">/ mo</span>
+                </div>
+                <p>3 locations, Unlimited AI & WhatsApp, all standees, AI reply, 5 seats.</p>
+              </div>
+              <Link to="/signup?plan=pro" className="btn-primary btn-block btn-glow">
+                Start 14-Day Free Pro Trial
+              </Link>
+            </div>
+
+            {/* Enterprise */}
+            <div className="home-plan-card">
+              <div className="home-plan-head">
+                <h4>Enterprise</h4>
+                <div className="home-plan-price">
+                  <span className="price-num">$99</span>
+                  <span className="price-cycle">/ mo</span>
+                </div>
+                <p>Unlimited locations, unlimited seats, white-label, priority AI & SLA.</p>
+              </div>
+              <Link to="/signup?plan=enterprise" className="btn-secondary btn-block">
+                Contact & Scale
+              </Link>
+            </div>
+          </div>
+
+          <div className="home-pricing-footer text-center">
+            <Link to="/pricing" className="btn-link-view-all">
+              View Complete Feature Comparison Matrix &rarr;
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* 6. FAQ ACCORDION */}
       <section className="faq-section" aria-label="Frequently Asked Questions">
         <div className="section-container">

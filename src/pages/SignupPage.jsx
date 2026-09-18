@@ -4,7 +4,8 @@ import TagInput from '../components/TagInput';
 import QRCodeDisplay from '../components/QRCodeDisplay';
 import StandeeDesigner from '../components/StandeeDesigner';
 import WhatsAppInviteModal from '../components/WhatsAppInviteModal';
-import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { PLANS } from '../lib/plans';
 
 const CATEGORIES = [
   { value: 'automobile', label: 'Automobile (Repair, Detailing, Dealership)' },
@@ -29,6 +30,9 @@ const CATEGORY_SUGGESTIONS = {
 export default function SignupPage() {
   const [searchParams] = useSearchParams();
   const catParam = searchParams.get('cat');
+  const planParam = searchParams.get('plan') || 'pro';
+
+  const { signup } = useAuth();
 
   const initialCat = (() => {
     if (!catParam) return 'automobile';
@@ -44,6 +48,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [category, setCategory] = useState(initialCat);
+  const [selectedPlan, setSelectedPlan] = useState(planParam);
   const [googleReviewUrl, setGoogleReviewUrl] = useState('');
   const [services, setServices] = useState(CATEGORY_SUGGESTIONS[initialCat]?.slice(0, 2) || ['Oil Change', 'Brake Inspection']);
   const [loading, setLoading] = useState(false);
@@ -73,12 +78,13 @@ export default function SignupPage() {
     setError('');
 
     try {
-      const result = await api.signup({
+      const result = await signup({
         name: name.trim(),
         email: email.trim(),
         password,
         category,
         services,
+        planId: selectedPlan,
         googleReviewUrl: googleReviewUrl.trim(),
       });
 
@@ -108,12 +114,14 @@ export default function SignupPage() {
     setError('');
   };
 
+  const planObj = PLANS[selectedPlan.toUpperCase()] || PLANS.PRO;
+
   return (
     <div className="page-container signup-page">
       <div className="page-header text-center">
-        <h1 className="page-title">Business Registration</h1>
+        <h1 className="page-title">Business Registration & 14-Day Free Trial</h1>
         <p className="page-subtitle">
-          Create your AI-powered review collector in seconds and generate more 5-star Google reviews.
+          Create your AI-powered review collector in seconds and start converting customers into 5-star Google reviews.
         </p>
       </div>
 
@@ -121,6 +129,46 @@ export default function SignupPage() {
         <div className="card signup-card">
           <form onSubmit={handleSubmit} className="form-layout">
             {error && <div className="alert-banner alert-error">{error}</div>}
+
+            {/* Plan Selector Header */}
+            <div className="signup-plan-picker-box">
+              <label className="form-label">Selected SaaS Plan (14-Day Free Trial):</label>
+              <div className="signup-plan-options">
+                <div
+                  className={`signup-plan-option ${selectedPlan === 'starter' ? 'active' : ''}`}
+                  onClick={() => setSelectedPlan('starter')}
+                >
+                  <div className="plan-opt-radio"></div>
+                  <div>
+                    <strong>Starter ($19/mo)</strong>
+                    <span>1 Location • 100 AI Reviews/mo</span>
+                  </div>
+                </div>
+
+                <div
+                  className={`signup-plan-option ${selectedPlan === 'pro' ? 'active' : ''}`}
+                  onClick={() => setSelectedPlan('pro')}
+                >
+                  <span className="opt-popular-tag">Popular</span>
+                  <div className="plan-opt-radio"></div>
+                  <div>
+                    <strong>Pro Growth ($49/mo)</strong>
+                    <span>3 Locations • Unlimited AI & WhatsApp</span>
+                  </div>
+                </div>
+
+                <div
+                  className={`signup-plan-option ${selectedPlan === 'enterprise' ? 'active' : ''}`}
+                  onClick={() => setSelectedPlan('enterprise')}
+                >
+                  <div className="plan-opt-radio"></div>
+                  <div>
+                    <strong>Enterprise ($99/mo)</strong>
+                    <span>Unlimited Locations • White-Label</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Business Name */}
             <div className="form-group">
@@ -203,7 +251,7 @@ export default function SignupPage() {
               </div>
             </div>
 
-            {/* Google Review Link (Optional) */}
+            {/* Google Review Link */}
             <div className="form-group">
               <div className="form-label-row">
                 <label htmlFor="biz-google-url" className="form-label">
@@ -216,10 +264,10 @@ export default function SignupPage() {
                 className="form-input"
                 value={googleReviewUrl}
                 onChange={(e) => setGoogleReviewUrl(e.target.value)}
-                placeholder="e.g. https://g.page/r/... or Google Maps share link"
+                placeholder="e.g. https://search.google.com/local/writereview?placeid=..."
               />
               <span className="field-hint">
-                Leave empty to automatically open Google search for your business name.
+                Leave empty to automatically generate Google search for your business name.
               </span>
             </div>
 
@@ -240,7 +288,6 @@ export default function SignupPage() {
                 placeholder="Type service (e.g. Oil Change) and press Enter"
               />
 
-              {/* Quick suggestions based on category */}
               {CATEGORY_SUGGESTIONS[category] && (
                 <div className="suggestions-section">
                   <span className="suggestions-label">Quick suggestions:</span>
@@ -272,7 +319,7 @@ export default function SignupPage() {
                     <span className="spinner"></span> Creating Account & Business...
                   </span>
                 ) : (
-                  'Complete Signup & Generate QR Code'
+                  `Start 14-Day Free ${planObj.name} Trial & Generate QR Code`
                 )}
               </button>
             </div>
@@ -288,7 +335,7 @@ export default function SignupPage() {
           </div>
         </div>
       ) : (
-        /* Result State: Show Returned QR Code & Shareable Link */
+        /* Result State */
         <div className="success-onboarding-container">
           <div className="card success-card">
             <div className="success-badge-header">
@@ -344,7 +391,6 @@ export default function SignupPage() {
             </div>
           </div>
 
-          {/* WhatsApp & SMS Invite Modal */}
           {showWhatsAppModal && (
             <WhatsAppInviteModal
               business={createdBusiness}
@@ -353,7 +399,6 @@ export default function SignupPage() {
             />
           )}
 
-          {/* Standee Designer Studio Modal */}
           {showStandeeStudio && (
             <StandeeDesigner
               business={createdBusiness}

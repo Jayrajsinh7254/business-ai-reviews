@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { ROLES, getRoleBadgeInfo } from '../lib/rbac';
 import { api } from '../api/client';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const baseUrl = api.getBaseUrl();
+  const { user, role, logout } = useAuth();
+
   const token = api.getToken();
-  const storedUser = api.getCurrentUser();
-  const userBizId = storedUser?.businessId || 'demo-1';
+  const userBizId = user?.businessId || 'demo-1';
+  const roleBadge = getRoleBadgeInfo(role);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
@@ -21,7 +24,7 @@ export default function Navbar() {
           </div>
           <div className="brand-text">
             <span className="brand-name">ReviewAssist</span>
-            <span className="brand-tag">AI Powered</span>
+            <span className="brand-tag">SaaS Platform</span>
           </div>
         </Link>
 
@@ -35,6 +38,15 @@ export default function Navbar() {
           >
             Home
           </NavLink>
+
+          <NavLink
+            to="/pricing"
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={closeMobileMenu}
+          >
+            <span className="nav-icon">💎</span> Pricing
+          </NavLink>
+
           <NavLink
             to="/review/demo-1"
             className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
@@ -42,49 +54,53 @@ export default function Navbar() {
           >
             <span className="nav-icon">📱</span> Review Demo
           </NavLink>
-          {token ? (
+
+          <NavLink
+            to={`/dashboard/${userBizId}`}
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={closeMobileMenu}
+          >
+            <span className="nav-icon">📊</span> Dashboard
+          </NavLink>
+
+          {/* Super Admin SaaS Portal Link */}
+          {role === ROLES.SUPER_ADMIN && (
             <NavLink
-              to={`/dashboard/${userBizId}`}
+              to="/admin"
+              className={({ isActive }) => `nav-link nav-admin-link ${isActive ? 'active' : ''}`}
+              onClick={closeMobileMenu}
+            >
+              <span className="nav-icon">⚡</span> Admin Portal
+            </NavLink>
+          )}
+
+          {!user && (
+            <NavLink
+              to="/login"
               className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
               onClick={closeMobileMenu}
             >
-              <span className="nav-icon">📊</span> Dashboard
+              Log In
             </NavLink>
-          ) : (
-            <>
-              <NavLink
-                to="/dashboard/demo-1"
-                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-                onClick={closeMobileMenu}
-              >
-                Dashboard Demo
-              </NavLink>
-              <NavLink
-                to="/login"
-                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-                onClick={closeMobileMenu}
-              >
-                Log In
-              </NavLink>
-            </>
           )}
 
           <div className="mobile-nav-cta-row">
             <Link to="/signup" className="btn-primary btn-sm btn-nav-cta" onClick={closeMobileMenu}>
-              ✨ Get Started Free
+              ✨ Start 14-Day Free Trial
             </Link>
           </div>
         </nav>
 
         {/* Right CTA Actions */}
         <div className="navbar-right-group">
-          <div className="navbar-env-badge" title={`API Backend: ${baseUrl || 'Local Simulation'}`}>
-            <span className="env-dot"></span>
-            <span className="env-label">AI Ready</span>
+          {/* Active Role Indicator Pill */}
+          <div className={`nav-role-badge ${roleBadge.className}`} title={`Logged in as ${roleBadge.label}`}>
+            <span className="role-icon">{roleBadge.icon}</span>
+            <span className="role-label">{roleBadge.label}</span>
           </div>
 
           <Link to="/signup" className="btn-primary btn-sm btn-nav-cta desktop-only">
-            ✨ Get Started Free
+            ✨ Start 14-Day Free Trial
           </Link>
 
           {/* Mobile Hamburger Toggle */}

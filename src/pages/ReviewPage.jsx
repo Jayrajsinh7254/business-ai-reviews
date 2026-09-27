@@ -565,38 +565,75 @@ export default function ReviewPage() {
           </div>
         )}
 
-        {/* STEP 4: Success / Confirmation State */}
+        {/* STEP 4: Success / Confirmation State with 1-Click Paste Helper */}
         {currentStep === 4 && (
           <div className="step-content step-4 animate-fade-in text-center">
             <div className="celebration-circle">🎉</div>
-            <h2 className="success-heading">You are awesome!</h2>
+            <h2 className="success-heading">Review Ready & Copied!</h2>
             <p className="success-subtext">
-              Thank you for supporting <strong>{business?.name}</strong>. Your review has been copied to your clipboard so you can paste it directly onto Google.
+              We opened Google Reviews in a new tab for <strong>{business?.name}</strong>.
             </p>
 
+            {/* 3-Step Visual Action Card */}
+            <div className="google-paste-guide-card">
+              <h4 className="guide-card-title">⚡ 3-Second Finish on Google:</h4>
+              <div className="guide-steps-row">
+                <div className="guide-mini-step">
+                  <div className="guide-step-number">1</div>
+                  <div className="guide-step-body">
+                    <strong>Select {rating} Stars</strong>
+                    <div className="mini-stars-display">
+                      <StarRating rating={rating} readOnly size="sm" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="guide-step-arrow">→</div>
+
+                <div className="guide-mini-step">
+                  <div className="guide-step-number">2</div>
+                  <div className="guide-step-body">
+                    <strong>Tap "Paste"</strong>
+                    <span>Text is in your clipboard</span>
+                  </div>
+                </div>
+
+                <div className="guide-step-arrow">→</div>
+
+                <div className="guide-mini-step">
+                  <div className="guide-step-number">3</div>
+                  <div className="guide-step-body">
+                    <strong>Click "Post"</strong>
+                    <span>Done in 1 click!</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Review Quote Box */}
             <div className="review-preview-summary card-flat">
-              <StarRating rating={rating} readOnly size="sm" />
+              <div className="review-copied-badge">✓ Copied to Clipboard</div>
               <p className="review-summary-quote">"{draftText}"</p>
             </div>
 
             <div className="step-4-quick-actions">
               <button
                 type="button"
-                className="btn-primary btn-block"
-                onClick={handleCopyText}
-              >
-                {copied ? '✓ Copied to Clipboard!' : '📋 Re-copy Review Text'}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary btn-block"
+                className="btn-primary btn-block btn-lg"
                 onClick={() => {
                   const rawUrl = business?.googleReviewUrl;
                   const targetUrl = resolveGoogleReviewUrl(rawUrl, business?.name);
                   window.open(targetUrl, '_blank', 'noopener,noreferrer');
                 }}
               >
-                🚀 Re-open Google Reviews
+                🚀 Open Google Review Page Again
+              </button>
+              <button
+                type="button"
+                className={`btn-secondary btn-block ${copied ? 'btn-copied' : ''}`}
+                onClick={handleCopyText}
+              >
+                {copied ? '✓ Copied Again to Clipboard!' : '📋 Re-copy Review Text'}
               </button>
             </div>
 

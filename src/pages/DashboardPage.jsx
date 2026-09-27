@@ -7,6 +7,7 @@ import WhatsAppInviteModal from '../components/WhatsAppInviteModal';
 import AiReplyModal from '../components/AiReplyModal';
 import SubscriptionModal from '../components/SubscriptionModal';
 import TeamManagement from '../components/TeamManagement';
+import BillingPortal from '../components/BillingPortal';
 import RoleSwitcher from '../components/RoleSwitcher';
 import PermissionGate from '../components/PermissionGate';
 import { useAuth } from '../context/AuthContext';
@@ -197,7 +198,7 @@ export default function DashboardPage() {
               <span>{roleBadge.label}</span>
             </span>
             <span className="plan-pill-tag">
-              💎 {currentPlan.name} Plan (${currentPlan.monthlyPrice}/mo)
+              💎 {currentPlan.name} Plan (₹{currentPlan.monthlyPrice?.toLocaleString('en-IN')}/mo)
             </span>
             <span className="biz-id-badge">ID: {activeBusinessId}</span>
             {isDemoMode && <span className="demo-status-pill">Interactive Preview</span>}
@@ -631,143 +632,14 @@ export default function DashboardPage() {
           <PermissionGate
             permission={PERMISSIONS.BILLING_VIEW}
             fallback={
-              <div className="permission-denied-card text-center">
-                <div className="denied-icon-bubble">🔒</div>
-                <h3>Billing Access Restricted</h3>
-                <p>Only Business Owners and Admins have permission to manage subscriptions and invoices.</p>
+              <div className="permission-denied-box">
+                <span className="denied-icon">🔒</span>
+                <h4>Billing Access Restricted</h4>
+                <p>Only Business Owners and Admins can manage billing and subscriptions.</p>
               </div>
             }
           >
-            {/* Active Subscription Overview Card */}
-            <div className="billing-active-plan-card">
-              <div className="billing-plan-header">
-                <div className="billing-plan-info">
-                  <span className="billing-plan-tag">💎 Active SaaS Subscription</span>
-                  <h2 className="billing-plan-title">{currentPlan.name} Plan</h2>
-                  <p className="billing-plan-desc">{currentPlan.tagline}</p>
-                </div>
-
-                <div className="billing-price-box">
-                  <div className="billing-price-display">
-                    <span className="billing-currency">$</span>
-                    <span className="billing-amount">{currentPlan.monthlyPrice}</span>
-                    <span className="billing-cycle">/ month</span>
-                  </div>
-                  <span className="billing-status-badge">● Active Subscription</span>
-                </div>
-              </div>
-
-              {/* Usage Meters */}
-              <div className="billing-usage-meters-grid">
-                {/* Meter 1: AI Generations */}
-                <div className="usage-meter-box">
-                  <div className="meter-label-row">
-                    <span>AI Review Generations:</span>
-                    <strong>{subscription?.aiGenerationsUsed || 38} / {currentPlan.limits.aiReviewsPerMonth === Infinity ? 'Unlimited' : currentPlan.limits.aiReviewsPerMonth}</strong>
-                  </div>
-                  <div className="meter-track">
-                    <div
-                      className="meter-fill fill-purple"
-                      style={{
-                        width: currentPlan.limits.aiReviewsPerMonth === Infinity ? '25%' : `${Math.min(100, (38 / currentPlan.limits.aiReviewsPerMonth) * 100)}%`,
-                      }}
-                    ></div>
-                  </div>
-                </div>
-
-                {/* Meter 2: WhatsApp Invites */}
-                <div className="usage-meter-box">
-                  <div className="meter-label-row">
-                    <span>WhatsApp & SMS Invites:</span>
-                    <strong>{subscription?.whatsappInvitesUsed || 64} / {currentPlan.limits.whatsappInvitesPerMonth === Infinity ? 'Unlimited' : currentPlan.limits.whatsappInvitesPerMonth}</strong>
-                  </div>
-                  <div className="meter-track">
-                    <div
-                      className="meter-fill fill-green"
-                      style={{
-                        width: currentPlan.limits.whatsappInvitesPerMonth === Infinity ? '35%' : `${Math.min(100, (64 / currentPlan.limits.whatsappInvitesPerMonth) * 100)}%`,
-                      }}
-                    ></div>
-                  </div>
-                </div>
-
-                {/* Meter 3: Locations */}
-                <div className="usage-meter-box">
-                  <div className="meter-label-row">
-                    <span>Locations Included:</span>
-                    <strong>1 / {currentPlan.limits.locations === Infinity ? 'Unlimited' : currentPlan.limits.locations}</strong>
-                  </div>
-                  <div className="meter-track">
-                    <div
-                      className="meter-fill fill-cyan"
-                      style={{
-                        width: currentPlan.limits.locations === Infinity ? '15%' : `${(1 / currentPlan.limits.locations) * 100}%`,
-                      }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="billing-plan-actions-bar">
-                <button
-                  type="button"
-                  className="btn-primary btn-lg"
-                  onClick={() => setShowSubModal(true)}
-                >
-                  🚀 Upgrade or Change Plan
-                </button>
-                <Link to="/pricing" className="btn-secondary btn-lg">
-                  📋 View Full Pricing Comparison
-                </Link>
-              </div>
-            </div>
-
-            {/* Payment Method & Invoices Grid */}
-            <div className="billing-details-grid">
-              <div className="billing-card payment-method-card">
-                <h4 className="billing-card-title">Payment Method</h4>
-                <div className="payment-card-chip">
-                  <span className="card-logo-icon">💳</span>
-                  <div className="payment-card-info">
-                    <strong>Visa ending in 4242</strong>
-                    <span>Expires 12/2028 • Default Payment Method</span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn-secondary btn-sm btn-update-payment"
-                  onClick={() => showToastMsg('✓ Payment method updated.')}
-                >
-                  Update Card
-                </button>
-              </div>
-
-              <div className="billing-card invoices-card">
-                <h4 className="billing-card-title">Billing Receipts & Invoices</h4>
-                <div className="invoices-list">
-                  <div className="invoice-row">
-                    <div>
-                      <span className="invoice-date">Sep 1, 2026</span>
-                      <span className="invoice-plan">Pro Growth Plan</span>
-                    </div>
-                    <div className="invoice-right">
-                      <span className="invoice-amount">$49.00</span>
-                      <span className="invoice-status-paid">Paid</span>
-                    </div>
-                  </div>
-                  <div className="invoice-row">
-                    <div>
-                      <span className="invoice-date">Aug 1, 2026</span>
-                      <span className="invoice-plan">Pro Growth Plan</span>
-                    </div>
-                    <div className="invoice-right">
-                      <span className="invoice-amount">$49.00</span>
-                      <span className="invoice-status-paid">Paid</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <BillingPortal />
           </PermissionGate>
         </div>
       )}

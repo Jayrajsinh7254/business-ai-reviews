@@ -132,7 +132,10 @@ export default function SignupPage() {
 
             {/* Plan Selector Header */}
             <div className="signup-plan-picker-box">
-              <label className="form-label">Selected SaaS Plan (14-Day Free Trial):</label>
+              <div className="flex-between-wrap">
+                <label className="form-label">Selected Plan (14-Day Free Trial):</label>
+                <span className="no-card-badge">✨ No Debit/Credit Card Required</span>
+              </div>
               <div className="signup-plan-options">
                 <div
                   className={`signup-plan-option ${selectedPlan === 'starter' ? 'active' : ''}`}
@@ -140,7 +143,7 @@ export default function SignupPage() {
                 >
                   <div className="plan-opt-radio"></div>
                   <div>
-                    <strong>Starter ($19/mo)</strong>
+                    <strong>Starter (₹499/mo)</strong>
                     <span>1 Location • 100 AI Reviews/mo</span>
                   </div>
                 </div>
@@ -152,7 +155,7 @@ export default function SignupPage() {
                   <span className="opt-popular-tag">Popular</span>
                   <div className="plan-opt-radio"></div>
                   <div>
-                    <strong>Pro Growth ($49/mo)</strong>
+                    <strong>Pro Growth (₹1,299/mo)</strong>
                     <span>3 Locations • Unlimited AI & WhatsApp</span>
                   </div>
                 </div>
@@ -163,7 +166,7 @@ export default function SignupPage() {
                 >
                   <div className="plan-opt-radio"></div>
                   <div>
-                    <strong>Enterprise ($99/mo)</strong>
+                    <strong>Enterprise (₹2,999/mo)</strong>
                     <span>Unlimited Locations • White-Label</span>
                   </div>
                 </div>
@@ -322,6 +325,12 @@ export default function SignupPage() {
                   `Start 14-Day Free ${planObj.name} Trial & Generate QR Code`
                 )}
               </button>
+              <p className="form-terms-notice text-center">
+                By starting your trial, you agree to our{' '}
+                <Link to="/terms" target="_blank" rel="noreferrer">Terms of Service</Link>,{' '}
+                <Link to="/privacy" target="_blank" rel="noreferrer">Privacy Policy</Link>, and{' '}
+                <Link to="/google-guidelines" target="_blank" rel="noreferrer">Google Review Guidelines</Link>.
+              </p>
             </div>
           </form>
 

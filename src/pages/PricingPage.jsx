@@ -18,7 +18,8 @@ export default function PricingPage() {
     if (!user) {
       navigate(`/signup?plan=${planId}&interval=${billingInterval}`);
     } else {
-      setShowSubModal(true);
+      // Logged-in users go directly to the real Razorpay checkout page
+      navigate(`/checkout?plan=${planId}&interval=${billingInterval}&businessId=${user.businessId || 'demo-1'}`);
     }
   };
 
@@ -111,11 +112,14 @@ export default function PricingPage() {
                     <p className="tier-tagline">{plan.tagline}</p>
                     <div className="tier-price-box">
                       <span className="tier-currency">{plan.currency}</span>
-                      <span className="tier-price-val">{price}</span>
+                      <span className="tier-price-val">{price.toLocaleString('en-IN')}</span>
                       <span className="tier-period">/ month</span>
                     </div>
                     {billingInterval === 'annual' && (
-                      <span className="tier-billed-annually">Billed annually (${price * 12}/yr)</span>
+                      <span className="tier-billed-annually">
+                        Billed annually ₹{(price * 12).toLocaleString('en-IN')}/yr
+                        {' '}<span className="annual-save-tag">Save ₹{((plan.monthlyPrice - plan.annualPrice) * 12).toLocaleString('en-IN')}</span>
+                      </span>
                     )}
                   </div>
 
@@ -163,9 +167,9 @@ export default function PricingPage() {
               <thead>
                 <tr>
                   <th className="col-feature">Core Platform Features</th>
-                  <th>Starter ($19/mo)</th>
-                  <th className="col-highlight">Pro Growth ($49/mo)</th>
-                  <th>Enterprise ($99/mo)</th>
+                  <th>Starter (₹499/mo)</th>
+                  <th className="col-highlight">Pro Growth (₹1,299/mo)</th>
+                  <th>Enterprise (₹2,999/mo)</th>
                 </tr>
               </thead>
               <tbody>
@@ -306,7 +310,7 @@ export default function PricingPage() {
               </p>
               <div className="cta-buttons-group">
                 <Link to="/signup?plan=pro" className="btn-primary btn-xl">
-                  🚀 Start Free Business Trial
+                  🚀 Start Free 14-Day Trial — No Card Required
                 </Link>
                 <Link to="/dashboard/demo-1" className="btn-outline-white btn-xl">
                   📊 Explore Interactive Dashboard

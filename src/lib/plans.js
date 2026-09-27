@@ -1,6 +1,7 @@
 /**
  * SaaS Subscription Plans & Feature Gating
  * Defines pricing tiers, limits, and plan feature validation helpers.
+ * All pricing is in INR (Indian Rupees).
  */
 
 export const PLANS = {
@@ -8,11 +9,18 @@ export const PLANS = {
     id: 'starter',
     name: 'Starter',
     tagline: 'Ideal for solo practitioners and single local shops',
-    monthlyPrice: 19,
-    annualPrice: 15, // $15/mo billed annually ($180/yr)
-    currency: '$',
+    monthlyPrice: 499,
+    annualPrice: 399, // ₹399/mo billed annually (₹4,788/yr — save ₹1,200)
+    currency: '₹',
+    // Razorpay Plan IDs — create plans in Razorpay Dashboard → Plans
+    razorpayPlanIdMonthly: import.meta.env.VITE_RAZORPAY_PLAN_STARTER_MONTHLY || '',
+    razorpayPlanIdAnnual: import.meta.env.VITE_RAZORPAY_PLAN_STARTER_ANNUAL || '',
+    // Amount in paise (1 INR = 100 paise) for Razorpay API
+    monthlyAmountPaise: 49900,
+    annualAmountPaise: 39900,
     badge: null,
     color: '#6366f1',
+    isPopular: false,
     limits: {
       locations: 1,
       aiReviewsPerMonth: 100,
@@ -39,16 +47,20 @@ export const PLANS = {
     id: 'pro',
     name: 'Pro Growth',
     tagline: 'Most popular for growing local businesses and multi-service clinics',
-    monthlyPrice: 49,
-    annualPrice: 39, // $39/mo billed annually ($468/yr)
-    currency: '$',
+    monthlyPrice: 1299,
+    annualPrice: 999, // ₹999/mo billed annually (₹11,988/yr — save ₹3,600)
+    currency: '₹',
+    razorpayPlanIdMonthly: import.meta.env.VITE_RAZORPAY_PLAN_PRO_MONTHLY || '',
+    razorpayPlanIdAnnual: import.meta.env.VITE_RAZORPAY_PLAN_PRO_ANNUAL || '',
+    monthlyAmountPaise: 129900,
+    annualAmountPaise: 99900,
     badge: 'Most Popular',
     color: '#7c3aed',
     isPopular: true,
     limits: {
       locations: 3,
-      aiReviewsPerMonth: Infinity, // Unlimited
-      whatsappInvitesPerMonth: Infinity, // Unlimited
+      aiReviewsPerMonth: Infinity,
+      whatsappInvitesPerMonth: Infinity,
       teamSeats: 5,
       standeeTemplates: ['counter', 'table_tent', 'poster', 'card'],
       aiReplyCopilot: true,
@@ -73,11 +85,16 @@ export const PLANS = {
     id: 'enterprise',
     name: 'Enterprise / Agency',
     tagline: 'For franchises, multi-location brands, and marketing agencies',
-    monthlyPrice: 99,
-    annualPrice: 79, // $79/mo billed annually ($948/yr)
-    currency: '$',
+    monthlyPrice: 2999,
+    annualPrice: 2399, // ₹2,399/mo billed annually (₹28,788/yr — save ₹7,200)
+    currency: '₹',
+    razorpayPlanIdMonthly: import.meta.env.VITE_RAZORPAY_PLAN_ENTERPRISE_MONTHLY || '',
+    razorpayPlanIdAnnual: import.meta.env.VITE_RAZORPAY_PLAN_ENTERPRISE_ANNUAL || '',
+    monthlyAmountPaise: 299900,
+    annualAmountPaise: 239900,
     badge: 'Scale',
     color: '#06b6d4',
+    isPopular: false,
     limits: {
       locations: Infinity,
       aiReviewsPerMonth: Infinity,

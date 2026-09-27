@@ -69,11 +69,11 @@ export default function Footer() {
             © {currentYear} ReviewAssist Technologies Inc. All rights reserved.
           </p>
           <div className="footer-legal-links">
-            <span className="legal-link">Privacy Policy</span>
+            <Link to="/privacy" className="legal-link">Privacy Policy</Link>
             <span className="legal-dot">•</span>
-            <span className="legal-link">Terms of Service</span>
+            <Link to="/terms" className="legal-link">Terms of Service</Link>
             <span className="legal-dot">•</span>
-            <span className="legal-link">Google Guidelines</span>
+            <Link to="/google-guidelines" className="legal-link highlight-guidelines">Google Guidelines</Link>
           </div>
         </div>
       </div>

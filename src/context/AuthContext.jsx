@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { ROLES, hasPermission, PERMISSIONS } from '../lib/rbac';
+import { ROLES, hasPermission } from '../lib/rbac';
 import { getPlan, isFeatureAllowed } from '../lib/plans';
 import { api } from '../api/client';
 
@@ -56,12 +56,14 @@ export function AuthProvider({ children }) {
   const [business, setBusiness] = useState(null);
   const [subscription, setSubscription] = useState({
     planId: 'pro',
-    status: 'active',
+    status: 'trialing', // Free trial by default
     billingInterval: 'monthly',
-    amount: 49,
-    currentPeriodEnd: new Date(Date.now() + 24 * 24 * 60 * 60 * 1000).toISOString(),
+    amount: 1299, // INR
+    currentPeriodEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14-day trial
     aiGenerationsUsed: 38,
     whatsappInvitesUsed: 64,
+    razorpayPaymentId: null,
+    razorpayOrderId: null,
   });
   const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -165,16 +167,19 @@ export function AuthProvider({ children }) {
         isSuperAdmin: false,
       };
 
-      // Set selected plan or default to Pro 14-day trial
+      // Set selected plan or default to Pro 14-day trial — no card required
       const initialPlan = formData.planId || 'pro';
       const initialSub = {
         planId: initialPlan,
-        status: 'trialing',
+        status: 'trialing', // Free 14-day trial, no charge
         billingInterval: formData.billingInterval || 'monthly',
-        amount: initialPlan === 'starter' ? 19 : initialPlan === 'pro' ? 49 : 99,
+        // INR pricing
+        amount: initialPlan === 'starter' ? 499 : initialPlan === 'pro' ? 1299 : 2999,
         currentPeriodEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
         aiGenerationsUsed: 0,
         whatsappInvitesUsed: 0,
+        razorpayPaymentId: null,
+        razorpayOrderId: null,
       };
 
       persistUser(userData);
@@ -195,18 +200,26 @@ export function AuthProvider({ children }) {
     setBusiness(null);
   };
 
-  // Upgrade / Update Subscription Plan
-  const updateSubscriptionPlan = async (newPlanId, billingInterval = 'monthly') => {
+  // Upgrade / Update Subscription Plan — called after Razorpay payment verified
+  const updateSubscriptionPlan = async (newPlanId, billingInterval = 'monthly', paymentMeta = {}) => {
     const targetBizId = user?.businessId || 'demo-1';
     const planObj = getPlan(newPlanId);
+    const periodEnd = paymentMeta.periodEnd
+      ? new Date(paymentMeta.periodEnd).toISOString()
+      : new Date(Date.now() + (billingInterval === 'annual' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString();
+
     const updatedSub = {
       planId: planObj.id,
-      status: 'active',
+      status: 'active', // Activated after successful Razorpay payment
       billingInterval,
+      // INR amounts
       amount: billingInterval === 'annual' ? planObj.annualPrice : planObj.monthlyPrice,
-      currentPeriodEnd: new Date(Date.now() + (billingInterval === 'annual' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString(),
+      currentPeriodEnd: periodEnd,
       aiGenerationsUsed: subscription?.aiGenerationsUsed || 0,
       whatsappInvitesUsed: subscription?.whatsappInvitesUsed || 0,
+      // Razorpay payment metadata
+      razorpayPaymentId: paymentMeta.razorpayPaymentId || null,
+      razorpayOrderId: paymentMeta.razorpayOrderId || null,
     };
 
     setSubscription(updatedSub);
@@ -286,6 +299,9 @@ export function AuthProvider({ children }) {
     removeMember,
     changeMemberRole,
     refreshUserData: () => loadUserData(user?.businessId),
+    // Convenience: checks if trial is still active
+    isTrialing: subscription?.status === 'trialing',
+    isSubscriptionActive: ['active', 'trialing'].includes(subscription?.status),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

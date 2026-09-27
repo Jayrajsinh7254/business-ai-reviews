@@ -50,10 +50,28 @@ CREATE TABLE public.subscriptions (
     plan_id TEXT NOT NULL DEFAULT 'pro',
     status TEXT NOT NULL DEFAULT 'active',
     billing_interval TEXT NOT NULL DEFAULT 'monthly' CHECK (billing_interval IN ('monthly', 'annual')),
-    amount NUMERIC NOT NULL DEFAULT 49,
+    amount NUMERIC NOT NULL DEFAULT 499,
     current_period_start TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     current_period_end TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now() + interval '30 days') NOT NULL,
     cancel_at_period_end BOOLEAN NOT NULL DEFAULT false,
+    razorpay_order_id TEXT,
+    razorpay_payment_id TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 5b. Payment Events Log (Razorpay Webhook & Order Audit)
+CREATE TABLE IF NOT EXISTS public.payment_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    business_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    razorpay_order_id TEXT,
+    razorpay_payment_id TEXT,
+    amount_paise BIGINT DEFAULT 0,
+    currency TEXT DEFAULT 'INR',
+    plan_id TEXT,
+    billing_interval TEXT,
+    status TEXT DEFAULT 'pending',
+    raw_payload JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

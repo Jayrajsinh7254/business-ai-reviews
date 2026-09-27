@@ -1,20 +1,18 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { PLANS, PLAN_LIST } from '../lib/plans';
 import { useAuth } from '../context/AuthContext';
+import { initiateRazorpayCheckout } from '../lib/razorpay';
 
 export default function SubscriptionModal({ isOpen, onClose, selectedPlanId = null }) {
-  const { subscription, updateSubscriptionPlan } = useAuth();
+  const navigate = useNavigate();
+  const { user, business, subscription, updateSubscriptionPlan } = useAuth();
   const [billingInterval, setBillingInterval] = useState('monthly');
   const [chosenPlan, setChosenPlan] = useState(selectedPlanId || subscription?.planId || 'pro');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
-  const [simulatedCard, setSimulatedCard] = useState({
-    number: '•••• •••• •••• 4242',
-    expiry: '12/28',
-    cvc: '•••',
-    name: 'Business Owner Card',
-  });
 
   if (!isOpen) return null;
 
@@ -22,14 +20,37 @@ export default function SubscriptionModal({ isOpen, onClose, selectedPlanId = nu
 
   const handleSelectPlan = (planId) => {
     setChosenPlan(planId);
+    setPaymentError('');
   };
 
-  const handleConfirmSubscription = async () => {
+  const activePlanObj = PLANS[chosenPlan.toUpperCase()] || PLANS.PRO;
+  const price = billingInterval === 'annual' ? activePlanObj.annualPrice : activePlanObj.monthlyPrice;
+
+  const handleProceedToRazorpay = async () => {
+    if (chosenPlan === currentPlanId) {
+      onClose();
+      return;
+    }
+
     setIsProcessing(true);
+    setPaymentError('');
+
     try {
-      // Simulate network checkout latency
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      await updateSubscriptionPlan(chosenPlan, billingInterval);
+      const result = await initiateRazorpayCheckout({
+        businessId: user?.businessId || business?.id || 'demo-1',
+        planId: chosenPlan,
+        billingInterval,
+        customerName: user?.name || business?.name || '',
+        customerEmail: user?.email || business?.email || '',
+        planDisplayName: activePlanObj.name,
+        amountInr: price,
+      });
+
+      await updateSubscriptionPlan(chosenPlan, billingInterval, {
+        razorpayPaymentId: result.paymentId,
+        razorpayOrderId: result.orderId,
+        periodEnd: result.periodEnd,
+      });
 
       try {
         confetti({
@@ -45,14 +66,16 @@ export default function SubscriptionModal({ isOpen, onClose, selectedPlanId = nu
         onClose();
       }, 1800);
     } catch (err) {
-      console.error('Subscription update failed:', err);
+      if (err.message !== 'Payment cancelled by user') {
+        setPaymentError(err.message || 'Payment initiation failed. Opening checkout page...');
+        // If popup script failed, fallback to full checkout page
+        navigate(`/checkout?plan=${chosenPlan}&interval=${billingInterval}`);
+        onClose();
+      }
     } finally {
       setIsProcessing(false);
     }
   };
-
-  const activePlanObj = PLANS[chosenPlan.toUpperCase()] || PLANS.PRO;
-  const price = billingInterval === 'annual' ? activePlanObj.annualPrice : activePlanObj.monthlyPrice;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -118,9 +141,9 @@ export default function SubscriptionModal({ isOpen, onClose, selectedPlanId = nu
                       <div className="sub-card-header">
                         <h4 className="sub-plan-name">{plan.name}</h4>
                         <div className="sub-plan-price-row">
-                          <span className="price-currency">{plan.currency}</span>
-                          <span className="price-number">{planPrice}</span>
-                          <span className="price-period">/ month</span>
+                          <span className="price-currency">₹</span>
+                          <span className="price-number">{planPrice.toLocaleString('en-IN')}</span>
+                          <span className="price-period">/ mo</span>
                         </div>
                         <p className="sub-plan-tagline">{plan.tagline}</p>
                       </div>
@@ -153,33 +176,40 @@ export default function SubscriptionModal({ isOpen, onClose, selectedPlanId = nu
                 })}
               </div>
 
-              {/* Simulated Card & Summary Box */}
+              {paymentError && (
+                <div className="checkout-error-banner" style={{ marginTop: '12px' }}>
+                  <span>⚠️</span>
+                  <span>{paymentError}</span>
+                </div>
+              )}
+
+              {/* Razorpay Checkout Summary Bar */}
               <div className="checkout-summary-bar">
                 <div className="summary-left">
                   <div className="payment-method-chip">
                     <span className="card-brand-icon">💳</span>
-                    <span className="card-mask">Visa ending in 4242</span>
-                    <span className="card-test-badge">Live Sandbox</span>
+                    <span className="card-mask">Razorpay Secured</span>
+                    <span className="card-test-badge">UPI / Card / NetBanking</span>
                   </div>
                   <span className="summary-charge-desc">
-                    Total: <strong>${price}</strong> / {billingInterval === 'annual' ? 'month (billed annually)' : 'month'}. Cancel or change anytime.
+                    Total: <strong>₹{price.toLocaleString('en-IN')}</strong> / {billingInterval === 'annual' ? 'month (billed annually)' : 'month'}. Cancel anytime.
                   </span>
                 </div>
 
                 <button
                   type="button"
                   className="btn-primary btn-lg btn-confirm-sub"
-                  onClick={handleConfirmSubscription}
+                  onClick={handleProceedToRazorpay}
                   disabled={isProcessing}
                 >
                   {isProcessing ? (
                     <span className="btn-loading-state">
-                      <span className="spinner"></span> Processing...
+                      <span className="spinner"></span> Opening Razorpay...
                     </span>
                   ) : chosenPlan === currentPlanId ? (
-                    'Keep Active Plan'
+                    'Keep Current Plan'
                   ) : (
-                    `Confirm & Activate ${activePlanObj.name}`
+                    `Pay ₹${(billingInterval === 'annual' ? activePlanObj.annualPrice * 12 : activePlanObj.monthlyPrice).toLocaleString('en-IN')} via Razorpay`
                   )}
                 </button>
               </div>

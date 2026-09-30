@@ -23,6 +23,7 @@ export default function HomePage() {
         serviceType: demoService,
         whatStoodOut: demoNotes || 'friendly team and prompt service',
         rating: activeRating,
+        previousDraft: demoDraft || '',
       });
       if (res?.draftText) {
         setDemoDraft(res.draftText);
@@ -86,8 +87,8 @@ export default function HomePage() {
           </p>
 
           <div className="hero-cta-buttons">
-            <Link to="/signup" className="btn-primary btn-xl hero-btn-glow">
-              🚀 Start Free Business Setup
+            <Link to="/contact" className="btn-primary btn-xl hero-btn-glow">
+              🚀 Get Your QR Code — Free Setup
             </Link>
             <Link to="/review/demo-1" className="btn-secondary btn-xl">
               📱 Test Customer Flow
@@ -176,7 +177,13 @@ export default function HomePage() {
                   onClick={() => handleGenerateLiveDemo(demoRating)}
                   disabled={generatingDemo}
                 >
-                  {generatingDemo ? '✨ Crafting with AI...' : '✨ Re-Generate Review'}
+                  {generatingDemo ? (
+                    <span className="btn-inline-loader">
+                      <span className="spinner spinner-xs"></span> Crafting with AI...
+                    </span>
+                  ) : (
+                    '✨ Re-Generate Review'
+                  )}
                 </button>
               </div>
 
@@ -200,15 +207,24 @@ export default function HomePage() {
                   <div className="review-bubble-stars">
                     <StarRating rating={demoRating} readOnly size="sm" />
                   </div>
-                  <p className="review-bubble-text">
+                  <div className="sandbox-review-content">
                     {generatingDemo ? (
-                      <span className="demo-skeleton-loading">
-                        <span className="spinner"></span> Polishing review draft...
-                      </span>
+                      <div className="demo-ai-loader-box animate-fade-in">
+                        <div className="demo-ai-loader-header">
+                          <span className="pulse-dot"></span>
+                          <span className="loader-sparkle">✨</span>
+                          <span className="demo-loader-label">Refining {demoRating}-star review draft...</span>
+                        </div>
+                        <div className="demo-shimmer-skeleton">
+                          <div className="skeleton-bar-line bar-full"></div>
+                          <div className="skeleton-bar-line bar-90"></div>
+                          <div className="skeleton-bar-line bar-65"></div>
+                        </div>
+                      </div>
                     ) : (
-                      `"${demoDraft}"`
+                      <p className="review-bubble-text">"{demoDraft}"</p>
                     )}
-                  </p>
+                  </div>
                 </div>
 
                 <div className="sandbox-output-footer">
@@ -367,69 +383,70 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 5.5 SAAS PRICING PREVIEW */}
-      <section className="home-pricing-preview-section" aria-label="Pricing Preview">
+      {/* 5.5 HOW TO GET STARTED */}
+      <section className="home-get-started-section" aria-label="How to Get Started">
         <div className="section-container">
           <div className="section-header text-center">
-            <span className="section-tag">Flexible SaaS Pricing</span>
-            <h2 className="section-title">Simple Monthly Subscription Plans</h2>
+            <span className="section-tag">White-Glove Managed Service</span>
+            <h2 className="section-title">How to Get Your QR Review System</h2>
             <p className="section-desc">
-              All plans include full 14-day free trial, QR standees, AI review generation, and team roles.
+              Simple managed service. We personally configure and deliver your complete
+              ReviewAssist system — custom-branded for your business.
             </p>
           </div>
 
-          <div className="home-pricing-cards-row">
-            {/* Starter */}
-            <div className="home-plan-card">
-              <div className="home-plan-head">
-                <h4>Starter</h4>
-                <div className="home-plan-price">
-                  <span className="price-num">$19</span>
-                  <span className="price-cycle">/ mo</span>
-                </div>
-                <p>1 location, 100 AI reviews/mo, QR standees, 1 staff seat.</p>
-              </div>
-              <Link to="/signup?plan=starter" className="btn-secondary btn-block">
-                Start 14-Day Trial
-              </Link>
+          <div className="get-started-steps-row">
+            <div className="gs-step-card">
+              <div className="gs-step-num">01</div>
+              <div className="gs-step-icon">📋</div>
+              <h3 className="gs-step-title">Submit Your Details</h3>
+              <p className="gs-step-desc">
+                Fill in your business name, type, and Google profile link. Takes less than 2 minutes.
+              </p>
             </div>
+            <div className="gs-step-arrow">→</div>
 
-            {/* Pro */}
-            <div className="home-plan-card popular-home-card">
-              <div className="home-card-badge">★ Most Popular</div>
-              <div className="home-plan-head">
-                <h4>Pro Growth</h4>
-                <div className="home-plan-price">
-                  <span className="price-num">$49</span>
-                  <span className="price-cycle">/ mo</span>
-                </div>
-                <p>3 locations, Unlimited AI & WhatsApp, all standees, AI reply, 5 seats.</p>
-              </div>
-              <Link to="/signup?plan=pro" className="btn-primary btn-block btn-glow">
-                Start 14-Day Free Pro Trial
-              </Link>
+            <div className="gs-step-card">
+              <div className="gs-step-num">02</div>
+              <div className="gs-step-icon">⚙️</div>
+              <h3 className="gs-step-title">We Configure Everything</h3>
+              <p className="gs-step-desc">
+                Our team sets up your AI, connects your Google Business Profile, and designs your QR standee.
+              </p>
             </div>
+            <div className="gs-step-arrow">→</div>
 
-            {/* Enterprise */}
-            <div className="home-plan-card">
-              <div className="home-plan-head">
-                <h4>Enterprise</h4>
-                <div className="home-plan-price">
-                  <span className="price-num">$99</span>
-                  <span className="price-cycle">/ mo</span>
-                </div>
-                <p>Unlimited locations, unlimited seats, white-label, priority AI & SLA.</p>
-              </div>
-              <Link to="/signup?plan=enterprise" className="btn-secondary btn-block">
-                Contact & Scale
-              </Link>
+            <div className="gs-step-card">
+              <div className="gs-step-num">03</div>
+              <div className="gs-step-icon">🚀</div>
+              <h3 className="gs-step-title">Go Live in 24–48 hrs</h3>
+              <p className="gs-step-desc">
+                You receive your print-ready QR standee + dashboard access. Place it and start collecting reviews!
+              </p>
             </div>
           </div>
 
-          <div className="home-pricing-footer text-center">
-            <Link to="/pricing" className="btn-link-view-all">
-              View Complete Feature Comparison Matrix &rarr;
-            </Link>
+          <div className="get-started-cta-row">
+            <div className="gs-cta-card">
+              <div className="gs-cta-left">
+                <span className="gs-cta-badge">✨ Limited Spots Available</span>
+                <h3>Ready to Dominate Google Reviews?</h3>
+                <p>We personally onboard each business. Request your spot today — no commitment, no contracts.</p>
+                <div className="gs-cta-trust">
+                  <span>✓ Flexible payment terms</span>
+                  <span>✓ Custom branded QR standee</span>
+                  <span>✓ Full dashboard access</span>
+                </div>
+              </div>
+              <div className="gs-cta-right">
+                <Link to="/contact" className="btn-primary btn-xl btn-glow">
+                  🚀 Request Your QR Code Setup
+                </Link>
+                <Link to="/review/demo-1" className="btn-secondary btn-lg">
+                  📱 See How It Works First
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -472,11 +489,11 @@ export default function HomePage() {
             <div className="cta-content text-center">
               <h2 className="cta-headline">Ready to Get 5x More 5-Star Reviews?</h2>
               <p className="cta-subtext">
-                Set up your business profile in 2 minutes and generate your first QR code standee right now.
+                Contact us today — our team personally sets up your custom QR review system within 24–48 hours.
               </p>
               <div className="cta-buttons-group">
-                <Link to="/signup" className="btn-primary btn-xl">
-                  🚀 Register Your Business Free
+                <Link to="/contact" className="btn-primary btn-xl">
+                  🚀 Get Your QR Code — Free
                 </Link>
                 <Link to="/dashboard/demo-1" className="btn-outline-white btn-xl">
                   📊 Explore Demo Dashboard

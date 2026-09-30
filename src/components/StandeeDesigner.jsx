@@ -1,120 +1,125 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import QRCode from 'qrcode';
+import QRStandeeCard from './QRStandeeCard';
+import { exportHighResStandee } from '../utils/standeeExport';
 
 export default function StandeeDesigner({
   business,
   reviewUrl,
+  planId = 'starter',
+  userRole = 'business_owner',
+  onOpenUpgradeModal,
   onClose,
 }) {
-  const [template, setTemplate] = useState('portrait'); // 'portrait' | 'table_tent' | 'minimal' | 'sticker'
-  const [colorTheme, setColorTheme] = useState('indigo'); // 'indigo' | 'emerald' | 'cyan' | 'midnight' | 'amber'
-  const [headline, setHeadline] = useState('Review Us on Google');
-  const [tagline, setTagline] = useState('Scan with your phone camera — AI will help craft your review in 30 seconds!');
+  const isStarter = planId === 'starter';
+  const [template, setTemplate] = useState('portrait'); // 'portrait' (5x7) | 'table_tent' (4x6) | 'poster' (A4) | 'sticker' (4x4)
+  const [colorTheme, setColorTheme] = useState('google'); // 'google' | 'acrylic' | 'midnight' | 'emerald' | 'brand'
+  const [showBackdrop, setShowBackdrop] = useState(true);
+  const [showBase, setShowBase] = useState(true);
+  const [show30sFlow, setShow30sFlow] = useState(true);
+  const [headline, setHeadline] = useState('Review us on Google');
+  const [tagline, setTagline] = useState('Scan the above QR code with your smartphone and make our day by leaving us a review on Google!');
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const [orderSubmitted, setOrderSubmitted] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
 
-  const standeeCanvasRef = useRef(null);
-  const standeePreviewRef = useRef(null);
+  const standeeCardRef = useRef(null);
+  const canvasRef = useRef(null);
 
   const bizName = business?.name || 'Local Business';
   const bizCategory = business?.category || 'Service';
 
-  // Generate QR Canvas
+  const handleSelectTemplate = (tId) => {
+    if (isStarter && (tId === 'poster' || tId === 'sticker')) {
+      if (onOpenUpgradeModal) {
+        onOpenUpgradeModal();
+      } else {
+        alert('Wall Posters and POS Decals are exclusive to Pro Growth and Enterprise plans.');
+      }
+      return;
+    }
+    setTemplate(tId);
+  };
+
+  // Generate QR code data URL for high-res export
   useEffect(() => {
-    if (standeeCanvasRef.current && reviewUrl) {
-      QRCode.toCanvas(
-        standeeCanvasRef.current,
+    if (reviewUrl) {
+      QRCode.toDataURL(
         reviewUrl,
         {
-          width: 200,
+          width: 800,
           margin: 1,
           color: {
-            dark: colorTheme === 'midnight' ? '#0f172a' : '#0f172a',
+            dark: '#111827',
             light: '#ffffff',
           },
+          errorCorrectionLevel: 'H',
         },
-        (err) => {
-          if (err) console.error('Error generating standee QR:', err);
+        (err, url) => {
+          if (!err && url) setQrDataUrl(url);
         }
       );
     }
-  }, [reviewUrl, colorTheme, template]);
+  }, [reviewUrl]);
 
   // Handle Direct Print
   const handlePrint = () => {
     window.print();
   };
 
-  // Handle High-Res Image Download
-  const handleDownloadImage = () => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = 1200;
-    canvas.height = 1600;
-
-    // Background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Theme header banner
-    const themeGradients = {
-      indigo: ['#4f46e5', '#7c3aed'],
-      emerald: ['#059669', '#10b981'],
-      cyan: ['#0891b2', '#06b6d4'],
-      midnight: ['#0f172a', '#1e293b'],
-      amber: ['#d97706', '#f59e0b'],
-    };
-    const [c1, c2] = themeGradients[colorTheme] || themeGradients.indigo;
-
-    const grad = ctx.createLinearGradient(0, 0, canvas.width, 400);
-    grad.addColorStop(0, c1);
-    grad.addColorStop(1, c2);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvas.width, 360);
-
-    // Header text
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 56px Outfit, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(bizName, canvas.width / 2, 160);
-
-    ctx.font = '600 32px Plus Jakarta Sans, sans-serif';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.fillText(bizCategory.toUpperCase(), canvas.width / 2, 230);
-
-    // Main Headline
-    ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 64px Outfit, sans-serif';
-    ctx.fillText(headline, canvas.width / 2, 500);
-
-    // Stars
-    ctx.fillStyle = '#f59e0b';
-    ctx.font = '54px Outfit, sans-serif';
-    ctx.fillText('★ ★ ★ ★ ★', canvas.width / 2, 580);
-
-    // Subtitle
-    ctx.fillStyle = '#475569';
-    ctx.font = '32px Plus Jakarta Sans, sans-serif';
-    ctx.fillText(tagline.slice(0, 60), canvas.width / 2, 660);
-    if (tagline.length > 60) {
-      ctx.fillText(tagline.slice(60), canvas.width / 2, 710);
+  // Handle High-Res 300-DPI Standee Download
+  const handleDownloadImage = async () => {
+    setDownloading(true);
+    try {
+      await exportHighResStandee({
+        business,
+        reviewUrl,
+        qrDataUrl,
+        theme: colorTheme,
+        showBackdrop,
+        headline,
+        tagline,
+        show30sFlow,
+        format: template,
+      });
+    } catch (err) {
+      console.error('Standee export error:', err);
+      // Fallback: print if export fails
+      window.print();
+    } finally {
+      setDownloading(false);
     }
+  };
 
-    // Draw QR Code
-    if (standeeCanvasRef.current) {
-      ctx.drawImage(standeeCanvasRef.current, canvas.width / 2 - 250, 780, 500, 500);
+  // Handle Download Standalone QR Code Only
+  const [downloadingQrOnly, setDownloadingQrOnly] = useState(false);
+
+  const handleDownloadQrOnly = async () => {
+    if (!reviewUrl) return;
+    setDownloadingQrOnly(true);
+    try {
+      const standaloneQrUrl = await QRCode.toDataURL(reviewUrl, {
+        width: 1200,
+        margin: 2,
+        color: {
+          dark: colorTheme === 'midnight' ? '#0f172a' : '#111827',
+          light: '#ffffff',
+        },
+        errorCorrectionLevel: 'H',
+      });
+      const safeName = (bizName || 'business-qr').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+      const link = document.createElement('a');
+      link.download = `${safeName}-google-review-qr-code.png`;
+      link.href = standaloneQrUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Failed to download QR code only:', err);
+    } finally {
+      setDownloadingQrOnly(false);
     }
-
-    // Footer prompt
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 30px Plus Jakarta Sans, sans-serif';
-    ctx.fillText('⚡ Powered by ReviewAssist AI', canvas.width / 2, 1420);
-
-    // Download trigger
-    const link = document.createElement('a');
-    link.download = `${bizName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-qr-standee.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
   };
 
   return (
@@ -122,15 +127,20 @@ export default function StandeeDesigner({
       <div className="standee-studio-container">
         {/* Top Header */}
         <div className="standee-studio-header">
-          <div>
+          <div className="studio-header-titles">
             <span className="section-tag">Printable Marketing Station</span>
-            <h2 className="studio-title">QR Standee & Table-Tent Designer</h2>
+            <h2 className="studio-title">QR Standee & Table-Tent Studio</h2>
             <p className="studio-subtitle">
-              Customize and print counter standees, table tents, and cards for {bizName} in seconds.
+              Design, customize, and print 5-star Google review standees for <strong>{bizName}</strong> with 30-second AI review flow.
             </p>
           </div>
           {onClose && (
-            <button type="button" className="modal-close-btn" onClick={onClose}>
+            <button
+              type="button"
+              className="modal-close-btn"
+              onClick={onClose}
+              title="Close Studio"
+            >
               &times;
             </button>
           )}
@@ -151,7 +161,7 @@ export default function StandeeDesigner({
                 >
                   <span className="format-icon">🏢</span>
                   <span className="format-name">Counter Standee</span>
-                  <span className="format-sub">Acrylic 5x7"</span>
+                  <span className="format-sub">Acrylic 5x7" (Most Popular)</span>
                 </button>
 
                 <button
@@ -166,67 +176,112 @@ export default function StandeeDesigner({
 
                 <button
                   type="button"
-                  className={`format-btn ${template === 'minimal' ? 'active' : ''}`}
-                  onClick={() => setTemplate('minimal')}
+                  className={`format-btn ${template === 'poster' ? 'active' : ''} ${isStarter ? 'locked-feature' : ''}`}
+                  onClick={() => handleSelectTemplate('poster')}
                 >
-                  <span className="format-icon">🏷️</span>
-                  <span className="format-name">Minimal Card</span>
-                  <span className="format-sub">Clean Reception</span>
+                  <span className="format-icon">🪧</span>
+                  <div className="format-name-row">
+                    <span className="format-name">Wall Poster</span>
+                    {isStarter && <span className="pro-lock-pill">PRO</span>}
+                  </div>
+                  <span className="format-sub">A4 / Letter Frame</span>
                 </button>
 
                 <button
                   type="button"
-                  className={`format-btn ${template === 'sticker' ? 'active' : ''}`}
-                  onClick={() => setTemplate('sticker')}
+                  className={`format-btn ${template === 'sticker' ? 'active' : ''} ${isStarter ? 'locked-feature' : ''}`}
+                  onClick={() => handleSelectTemplate('sticker')}
                 >
-                  <span className="format-icon">🚪</span>
-                  <span className="format-name">Window Decal</span>
-                  <span className="format-sub">Square Sticker</span>
+                  <span className="format-icon">🏷️</span>
+                  <div className="format-name-row">
+                    <span className="format-name">POS Decal</span>
+                    {isStarter && <span className="pro-lock-pill">PRO</span>}
+                  </div>
+                  <span className="format-sub">4x4" Square Sticker</span>
                 </button>
               </div>
             </div>
 
-            {/* 2. Color Palette */}
+            {/* 2. Color Theme */}
             <div className="control-group">
-              <label className="control-label">2. Select Color Theme</label>
-              <div className="color-swatches-row">
+              <label className="control-label">2. Visual Theme & Style</label>
+              <div className="standee-theme-selector-grid">
                 {[
-                  { id: 'indigo', label: 'Indigo / Violet', hex: '#4f46e5' },
-                  { id: 'emerald', label: 'Emerald Mint', hex: '#059669' },
-                  { id: 'cyan', label: 'Ocean Cyan', hex: '#0891b2' },
-                  { id: 'midnight', label: 'Midnight Gold', hex: '#0f172a' },
-                  { id: 'amber', label: 'Sunset Amber', hex: '#d97706' },
-                ].map((c) => (
+                  { id: 'google', name: 'Google Official', desc: '4-Color Iconic Backdrop', badge: 'Recommended' },
+                  { id: 'acrylic', name: 'Crystal Acrylic', desc: 'Clean Minimal Translucent', badge: '' },
+                  { id: 'midnight', name: 'Obsidian Noir', desc: 'Dark Slate & Gold Luxury', badge: 'VIP' },
+                  { id: 'emerald', name: 'Emerald Mint', desc: 'Fresh Health & Clinic', badge: '' },
+                ].map((th) => (
                   <button
-                    key={c.id}
+                    key={th.id}
                     type="button"
-                    className={`color-swatch-btn ${colorTheme === c.id ? 'active' : ''}`}
-                    onClick={() => setColorTheme(c.id)}
-                    title={c.label}
-                    style={{ backgroundColor: c.hex }}
+                    className={`standee-theme-card-btn ${colorTheme === th.id ? 'active' : ''}`}
+                    onClick={() => {
+                      setColorTheme(th.id);
+                      if (th.id === 'google') setShowBackdrop(true);
+                    }}
                   >
-                    {colorTheme === c.id && <span className="swatch-check">✓</span>}
+                    <div className="theme-btn-top">
+                      <span className="theme-name">{th.name}</span>
+                      {th.badge && <span className="theme-badge">{th.badge}</span>}
+                    </div>
+                    <span className="theme-desc">{th.desc}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* 3. Text Customization */}
+            {/* 3. Toggles */}
             <div className="control-group">
-              <label className="control-label">3. Headline & Prompt</label>
-              <input
-                type="text"
-                className="form-input mb-2"
-                value={headline}
-                onChange={(e) => setHeadline(e.target.value)}
-                placeholder="e.g. Review Us on Google"
-              />
+              <label className="control-label">3. Layout Options</label>
+              <div className="standee-toggles-list">
+                <label className="standee-toggle-item">
+                  <input
+                    type="checkbox"
+                    checked={showBackdrop}
+                    onChange={(e) => setShowBackdrop(e.target.checked)}
+                  />
+                  <div>
+                    <strong>Google Geometric Backdrop</strong>
+                    <span className="toggle-sub">Show full multi-color diagonal border</span>
+                  </div>
+                </label>
+
+                <label className="standee-toggle-item">
+                  <input
+                    type="checkbox"
+                    checked={show30sFlow}
+                    onChange={(e) => setShow30sFlow(e.target.checked)}
+                  />
+                  <div>
+                    <strong>⚡ 30-Second AI Review Flow</strong>
+                    <span className="toggle-sub">1-Tap Scan ➔ AI Drafts 5★ Review</span>
+                  </div>
+                </label>
+
+                <label className="standee-toggle-item">
+                  <input
+                    type="checkbox"
+                    checked={showBase}
+                    onChange={(e) => setShowBase(e.target.checked)}
+                  />
+                  <div>
+                    <strong>Acrylic Desk Base Simulation</strong>
+                    <span className="toggle-sub">Show 3D base on counter mockup</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* 4. Text Customization */}
+            <div className="control-group">
+              <label className="control-label">4. Callout Message</label>
               <textarea
                 className="form-textarea"
                 rows="2"
                 value={tagline}
                 onChange={(e) => setTagline(e.target.value)}
-                placeholder="Call to action text..."
+                placeholder="Call to action message..."
               />
             </div>
 
@@ -237,21 +292,34 @@ export default function StandeeDesigner({
                 className="btn-primary btn-block btn-lg"
                 onClick={handlePrint}
               >
-                🖨️ Print Standee Now
+                🖨️ Print Standee (1-Click)
               </button>
+
               <button
                 type="button"
                 className="btn-secondary btn-block"
                 onClick={handleDownloadImage}
+                disabled={downloading}
               >
-                ⬇️ Download High-Res PNG (1200x1600)
+                {downloading ? '⏳ Rendering 300-DPI Image...' : '⬇️ Download High-Res Standee PNG (300 DPI)'}
               </button>
+
+              <button
+                type="button"
+                className="btn-secondary btn-block btn-download-qr-only"
+                onClick={handleDownloadQrOnly}
+                disabled={downloadingQrOnly}
+                title="Download high-resolution standalone QR code image only"
+              >
+                {downloadingQrOnly ? '⏳ Generating QR Code...' : '📱 Download Only QR Code (PNG)'}
+              </button>
+
               <button
                 type="button"
                 className="btn-order-acrylic btn-block"
                 onClick={() => setShowUpsellModal(true)}
               >
-                ✨ Order Laser Acrylic Standee ($29)
+                💎 Order Physical Acrylic Laser Standee ($29)
               </button>
             </div>
           </div>
@@ -259,62 +327,40 @@ export default function StandeeDesigner({
           {/* Right Live Standee Preview Area */}
           <div className="standee-preview-container">
             <div className="standee-preview-viewport">
-              {/* Standee Physical Acrylic Frame Simulation */}
-              <div
-                ref={standeePreviewRef}
-                className={`standee-card-rendered theme-${colorTheme} format-${template}`}
-                id="printable-standee-card"
-              >
-                {/* Acrylic Top Header */}
-                <div className="standee-header-band">
-                  <div className="standee-biz-icon">🏪</div>
-                  <h3 className="standee-biz-name">{bizName}</h3>
-                  <span className="standee-biz-category">{bizCategory}</span>
-                </div>
-
-                {/* Main Body */}
-                <div className="standee-body">
-                  <div className="standee-google-badge">
-                    <span className="google-g-icon">G</span>
-                    <span>Google Reviews</span>
-                  </div>
-
-                  <h2 className="standee-main-headline">{headline}</h2>
-
-                  <div className="standee-stars-row">
-                    ★★★★★
-                  </div>
-
-                  <p className="standee-tagline-text">{tagline}</p>
-
-                  {/* QR Box */}
-                  <div className="standee-qr-wrapper">
-                    <canvas ref={standeeCanvasRef} className="standee-canvas" />
-                    <div className="standee-scan-badge">
-                      <span>📱 Point Camera to Scan</span>
-                    </div>
-                  </div>
-
-                  {/* Bottom Trust Badge */}
-                  <div className="standee-footer-note">
-                    <span>⚡ AI Review Assistant in 30 Seconds</span>
-                  </div>
-                </div>
+              <div className="preview-scale-wrapper">
+                <QRStandeeCard
+                  business={business}
+                  reviewUrl={reviewUrl}
+                  theme={colorTheme}
+                  format={template}
+                  showBackdrop={showBackdrop}
+                  showBase={showBase}
+                  headline={headline}
+                  tagline={tagline}
+                  show30sFlow={show30sFlow}
+                  cardRef={standeeCardRef}
+                  canvasRef={canvasRef}
+                />
               </div>
 
-              {/* Acrylic Base Mockup */}
-              <div className="acrylic-stand-base"></div>
+              {/* Physical Standee Dimensions Hint */}
+              <div className="standee-dimension-tag">
+                {template === 'portrait' && '📐 5" × 7" Standard Acrylic Counter Display'}
+                {template === 'table_tent' && '📐 4" × 6" Foldable Dual-Sided Table Tent'}
+                {template === 'poster' && '📐 8.3" × 11.7" A4 Waiting Room / Wall Poster'}
+                {template === 'sticker' && '📐 4" × 4" Square POS Terminal Decal'}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Physical Standee Order Upsell Modal */}
+      {/* Physical Standee Order Modal */}
       {showUpsellModal && (
         <div className="modal-backdrop" onClick={() => setShowUpsellModal(false)}>
           <div className="modal-content upsell-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>📦 Order Custom Acrylic Standee</h3>
+              <h3>📦 Order Physical Acrylic Standee with NFC</h3>
               <button
                 type="button"
                 className="modal-close-btn"
@@ -328,9 +374,9 @@ export default function StandeeDesigner({
               {orderSubmitted ? (
                 <div className="text-center py-4">
                   <div className="celebration-circle">🎉</div>
-                  <h3 className="success-heading">Order Received!</h3>
+                  <h3 className="success-heading">Acrylic Standee Request Saved!</h3>
                   <p className="text-muted">
-                    We've saved your custom acrylic standee design for <strong>{bizName}</strong>. Our manufacturing team will contact you at <strong>{business?.email || 'your email'}</strong> with tracking details.
+                    We've saved your custom acrylic standee specifications for <strong>{bizName}</strong>. Our team will coordinate delivery with you directly.
                   </p>
                   <button
                     type="button"
@@ -345,35 +391,38 @@ export default function StandeeDesigner({
                 </div>
               ) : (
                 <div className="upsell-modal-body">
-                  <div className="upsell-badge">⭐ Premium Storefront Upgrade</div>
-                  <h4 className="upsell-title">High-Gloss Laser Acrylic Standee</h4>
+                  <div className="upsell-badge">⭐ Premium Storefront Acrylic Plaque</div>
+                  <h4 className="upsell-title">5mm High-Gloss Laser Cut Acrylic Standee</h4>
                   <p className="upsell-desc">
-                    Get a luxury scratch-resistant transparent acrylic standee customized with your {bizName} QR code and NFC tap chip shipped directly to your store counter.
+                    Get an ultra-premium, shatterproof transparent acrylic standee customized with your {bizName} QR code and an embedded contactless NFC smart chip.
                   </p>
 
                   <div className="upsell-features-list">
                     <div className="upsell-feature-item">
-                      <span>💎</span> <strong>High-Gloss 5mm Acrylic</strong> (Shatter-proof)
+                      <span>💎</span> <strong>5mm Heavyweight Crystal Acrylic</strong> (Shatter-proof & UV-protected)
                     </div>
                     <div className="upsell-feature-item">
-                      <span>📲</span> <strong>Built-in NFC Smart Chip</strong> (Tap phone to review)
+                      <span>📲</span> <strong>Embedded NFC Tap Chip</strong> (Customers tap phone to open Google Reviews)
                     </div>
                     <div className="upsell-feature-item">
-                      <span>🚚</span> <strong>Free Express Shipping</strong> (Delivered in 3–5 days)
+                      <span>⚡</span> <strong>Includes 30-Second AI Flow</strong> (Increases 5-star conversion by 4x)
+                    </div>
+                    <div className="upsell-feature-item">
+                      <span>🚚</span> <strong>Fast Doorstep Dispatch</strong> (Delivered ready-to-display)
                     </div>
                   </div>
 
                   <div className="upsell-price-row">
                     <div>
-                      <span className="price-tag">$29.00</span>
-                      <span className="price-sub">One-time payment</span>
+                      <span className="price-tag">$29.00 / ₹1,499</span>
+                      <span className="price-sub">One-time production & shipping</span>
                     </div>
                     <button
                       type="button"
                       className="btn-primary btn-lg"
                       onClick={() => setOrderSubmitted(true)}
                     >
-                      🚀 Confirm & Order Standee
+                      🚀 Request Standee Dispatch
                     </button>
                   </div>
                 </div>

@@ -23,22 +23,27 @@ export default function ReviewPage() {
   const [draftText, setDraftText] = useState('');
   const [rating, setRating] = useState(5);
 
+  // Negative Review Shield Interceptor Form Fields (for ratings <= 3)
+  const [customerName, setCustomerName] = useState('');
+  const [customerContact, setCustomerContact] = useState('');
+  const [preferredResolution, setPreferredResolution] = useState('phone_call');
+  const [submittingPrivate, setSubmittingPrivate] = useState(false);
+  const [privateFeedbackSubmitted, setPrivateFeedbackSubmitted] = useState(false);
+  const [bypassShieldToGoogle, setBypassShieldToGoogle] = useState(false);
+
   // Action states
   const [generatingDraft, setGeneratingDraft] = useState(false);
   const [postingReview, setPostingReview] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [toastMsg, setToastMsg] = useState('');
   const [copied, setCopied] = useState(false);
 
   const handleCopyText = async () => {
     try {
       await navigator.clipboard.writeText(draftText.trim());
       setCopied(true);
-      showToast('✓ Review copied to clipboard!');
       setTimeout(() => setCopied(false), 2500);
     } catch (err) {
       console.warn('Clipboard write error:', err);
-      showToast('Please select and copy the text manually.');
     }
   };
 
@@ -65,11 +70,6 @@ export default function ReviewPage() {
       loadBusiness();
     }
   }, [businessId]);
-
-  const showToast = (msg) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(''), 4000);
-  };
 
   const getEffectiveService = () => {
     if (serviceType === '__custom__' || (!business?.services || business.services.length === 0)) {
@@ -119,6 +119,48 @@ export default function ReviewPage() {
     }
   };
 
+  // Preferred resolution options for Shield Interceptor
+  const RESOLUTION_OPTIONS = [
+    { id: 'phone_call', label: '📞 Direct phone call from owner / manager' },
+    { id: 'refund_replace', label: '🎁 Free replacement or refund' },
+    { id: 'apology', label: '✉️ Apology & explanation of what happened' },
+    { id: 'feedback_only', label: '💬 Just sharing feedback to help you improve' },
+  ];
+
+  // Submit Private Feedback (Negative Review Shield Interceptor)
+  const handleSubmitPrivateFeedback = async (e) => {
+    if (e) e.preventDefault();
+    if (!whatStoodOut.trim()) {
+      setErrorMsg('Please describe what went wrong so management can assist you.');
+      return;
+    }
+
+    setSubmittingPrivate(true);
+    setErrorMsg('');
+
+    try {
+      const effectiveService = getEffectiveService();
+      const resolutionLabel = RESOLUTION_OPTIONS.find((r) => r.id === preferredResolution)?.label || preferredResolution;
+      await api.submitPrivateFeedback({
+        businessId,
+        serviceType: effectiveService,
+        rating,
+        issue: whatStoodOut.trim() + (whatCouldImprove.trim() ? `\n\nAdditional notes: ${whatCouldImprove.trim()}` : ''),
+        customerName: customerName.trim() || 'Anonymous Customer',
+        customerContact: customerContact.trim(),
+        preferredResolution: resolutionLabel,
+      });
+
+      setPrivateFeedbackSubmitted(true);
+      setCurrentStep(4);
+    } catch (err) {
+      console.error('Failed to submit private feedback:', err);
+      setErrorMsg('Could not submit private feedback. Please try again.');
+    } finally {
+      setSubmittingPrivate(false);
+    }
+  };
+
   // Step 3: Regenerate draft with rating adaptation
   const handleRegenerate = async (customRating) => {
     const activeRating = typeof customRating === 'number' ? customRating : rating;
@@ -133,9 +175,9 @@ export default function ReviewPage() {
         whatStoodOut: whatStoodOut.trim(),
         whatCouldImprove: whatCouldImprove.trim(),
         rating: activeRating,
+        previousDraft: draftText || '',
       });
       setDraftText(response.draftText || '');
-      showToast(`✨ Review tailored for ${activeRating}-star rating!`);
     } catch (err) {
       console.error('Failed to regenerate review:', err);
       setErrorMsg(err.message || 'Could not regenerate review. Please try again.');
@@ -202,9 +244,14 @@ export default function ReviewPage() {
   if (loadingBusiness) {
     return (
       <div className="mobile-review-viewport">
-        <div className="mobile-card loading-card text-center">
-          <div className="spinner spinner-lg"></div>
-          <p className="loading-text">Loading business review page...</p>
+        <div className="mobile-card loading-card text-center animate-fade-in">
+          <div className="loading-card-inner">
+            <div className="loading-badge-ring">
+              <span className="spinner spinner-brand"></span>
+            </div>
+            <h3 className="loading-brand-title">Preparing Review Page</h3>
+            <p className="loading-text">Loading business details & AI reviewer...</p>
+          </div>
         </div>
       </div>
     );
@@ -220,6 +267,60 @@ export default function ReviewPage() {
           <Link to="/signup" className="btn-primary btn-block">
             Register a Business
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const isInactive =
+    business?.status === 'inactive' ||
+    business?.subscriptionStatus === 'inactive' ||
+    (business?.paidUntil && new Date(business.paidUntil) < new Date());
+
+  if (isInactive) {
+    const directGoogleUrl = resolveGoogleReviewUrl(business?.googleReviewUrl, business?.name);
+    return (
+      <div className="mobile-review-viewport">
+        <div className="mobile-card service-inactive-card text-center animate-fade-in">
+          <div className="service-inactive-icon-wrap">
+            <span className="service-inactive-icon">⏸️</span>
+          </div>
+          <span className="service-inactive-badge">Review Service Paused</span>
+          <h2 className="service-inactive-biz-name">{business?.name || 'Local Business'}</h2>
+          <p className="service-inactive-desc">
+            This business's automated AI review collection is temporarily paused for scheduled maintenance or renewal.
+          </p>
+
+          <div className="service-inactive-card-box">
+            <div className="inactive-box-row">
+              <span className="inactive-box-label">Business:</span>
+              <span className="inactive-box-value">{business?.name || 'Business Partner'}</span>
+            </div>
+            <div className="inactive-box-row">
+              <span className="inactive-box-label">Status:</span>
+              <span className="inactive-status-pill">⏸️ Service Paused</span>
+            </div>
+          </div>
+
+          {business?.googleReviewUrl && (
+            <div className="service-inactive-google-cta">
+              <p className="inactive-direct-prompt">
+                You can still share your feedback directly on Google Maps:
+              </p>
+              <a
+                href={directGoogleUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary btn-block btn-direct-google"
+              >
+                ⭐ Review Directly on Google
+              </a>
+            </div>
+          )}
+
+          <div className="service-inactive-powered-by">
+            <span>Powered by <strong>ReviewAssist</strong></span>
+          </div>
         </div>
       </div>
     );
@@ -262,8 +363,6 @@ export default function ReviewPage() {
           )}
         </div>
 
-        {/* Global Toast Notification */}
-        {toastMsg && <div className="floating-toast">{toastMsg}</div>}
 
         {/* Error Alert */}
         {errorMsg && <div className="alert-banner alert-error">{errorMsg}</div>}
@@ -361,87 +460,216 @@ export default function ReviewPage() {
               <label className="form-label text-center" style={{ marginBottom: '0.25rem', fontWeight: 600 }}>
                 How would you rate your overall experience?
               </label>
-              <StarRating rating={rating} onChange={setRating} size="lg" />
-            </div>
-
-            {/* What stood out to you? (required) */}
-            <div className="form-group">
-              <label htmlFor="what-stood-out" className="form-label">
-                {rating >= 4
-                  ? 'What stood out to you?'
-                  : rating === 3
-                  ? 'What was good or what was average?'
-                  : 'What went wrong during your visit?'} <span className="required-star">*</span>
-              </label>
-              <textarea
-                id="what-stood-out"
-                rows="3"
-                className="form-textarea"
-                value={whatStoodOut}
-                onChange={(e) => setWhatStoodOut(e.target.value)}
-                placeholder={
-                  rating >= 4
-                    ? 'e.g. Fast service, super friendly team, very clean environment, great quality...'
-                    : rating === 3
-                    ? 'e.g. Service was okay, but wait time was longer than expected...'
-                    : 'e.g. Poor service, delayed response, rude behavior, issue not resolved...'
-                }
-                required
-              />
-              <span className="field-hint">
-                {rating <= 2
-                  ? 'Write your issues in any language or rough notes — AI will construct a firm, professional 1-2 star review.'
-                  : rating === 3
-                  ? 'Write your thoughts in any language — AI will construct a balanced 3-star review.'
-                  : 'Write in any language or rough notes — AI will convert it into an authentic 5-star review!'}
-              </span>
-            </div>
-
-            {/* Anything that could've been better? (optional) */}
-            <div className="form-group">
-              <label htmlFor="what-could-improve" className="form-label">
-                {rating >= 4
-                  ? "Anything that could've been better? "
-                  : 'Additional details or feedback '}
-                <span className="optional-tag">(Optional)</span>
-              </label>
-              <textarea
-                id="what-could-improve"
-                rows="2"
-                className="form-textarea"
-                value={whatCouldImprove}
-                onChange={(e) => setWhatCouldImprove(e.target.value)}
-                placeholder={
-                  rating >= 4
-                    ? 'e.g. Waiting area was a bit busy, parking was tight...'
-                    : 'e.g. Requested a refund, tried calling multiple times...'
-                }
+              <StarRating
+                rating={rating}
+                onChange={(r) => {
+                  setRating(r);
+                  setBypassShieldToGoogle(false);
+                }}
+                size="lg"
               />
             </div>
 
-            <div className="step-actions-split">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setCurrentStep(1)}
-              >
-                ← Back
-              </button>
-              <button
-                type="button"
-                className="btn-primary flex-1"
-                onClick={handleGenerateReview}
-                disabled={generatingDraft || !whatStoodOut.trim()}
-              >
-                {generatingDraft ? (
-                  <span className="btn-loading-state">
-                    <span className="spinner"></span> Generating {rating}-Star Review...
+            {/* BIFURCATION: Negative Review Shield Interceptor (rating <= 3 && !bypassShieldToGoogle) */}
+            {rating <= 3 && !bypassShieldToGoogle ? (
+              <form onSubmit={handleSubmitPrivateFeedback} className="shield-intercept-form animate-fade-in">
+                {/* Shield Alert Notice */}
+                <div className="shield-intercept-card">
+                  <div className="shield-card-header">
+                    <span className="shield-icon-lg">🛡️</span>
+                    <div className="shield-header-text">
+                      <span className="shield-badge">Private Resolution Channel</span>
+                      <h3 className="shield-title">We want to make this right!</h3>
+                      <p className="shield-desc">
+                        Your satisfaction is our priority. Since your visit wasn't 5-star, your feedback is sent <strong>directly & privately to management</strong> so we can resolve your issue immediately.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Complaint textarea */}
+                <div className="form-group">
+                  <label htmlFor="what-went-wrong" className="form-label">
+                    Please describe what went wrong during your visit <span className="required-star">*</span>
+                  </label>
+                  <textarea
+                    id="what-went-wrong"
+                    rows="3"
+                    className="form-textarea"
+                    value={whatStoodOut}
+                    onChange={(e) => setWhatStoodOut(e.target.value)}
+                    placeholder="e.g. Long wait time, staff miscommunication, billing discrepancy, service did not match expectations..."
+                    required
+                  />
+                  <span className="field-hint">
+                    Management reads every message directly and will use this to address the problem.
                   </span>
-                ) : (
-                  `✨ Generate ${rating}-Star Review →`
+                </div>
+
+                {/* Customer Contact */}
+                <div className="form-row-2">
+                  <div className="form-group">
+                    <label htmlFor="customer-name" className="form-label">
+                      Your Name (Optional)
+                    </label>
+                    <input
+                      id="customer-name"
+                      type="text"
+                      className="form-input"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="e.g. Vikram Sharma"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="customer-contact" className="form-label">
+                      Phone Number / WhatsApp <span className="required-star">*</span>
+                    </label>
+                    <input
+                      id="customer-contact"
+                      type="tel"
+                      className="form-input"
+                      value={customerContact}
+                      onChange={(e) => setCustomerContact(e.target.value)}
+                      placeholder="e.g. +91 98765 43210"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Preferred Resolution */}
+                <div className="form-group">
+                  <label className="form-label">Preferred Resolution:</label>
+                  <div className="resolution-options-list">
+                    {RESOLUTION_OPTIONS.map((opt) => (
+                      <label key={opt.id} className={`resolution-option-card ${preferredResolution === opt.id ? 'active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="preferredResolution"
+                          value={opt.id}
+                          checked={preferredResolution === opt.id}
+                          onChange={() => setPreferredResolution(opt.id)}
+                        />
+                        <span className="resolution-opt-label">{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="step-actions-split">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setCurrentStep(1)}
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-shield-submit flex-1"
+                    disabled={submittingPrivate || !whatStoodOut.trim() || !customerContact.trim()}
+                  >
+                    {submittingPrivate ? (
+                      <span className="btn-loading-state">
+                        <span className="spinner"></span> Sending to Management...
+                      </span>
+                    ) : (
+                      '🛡️ Submit Privately to Management'
+                    )}
+                  </button>
+                </div>
+
+                {/* Google Compliance Link */}
+                <div className="shield-compliance-footer">
+                  <button
+                    type="button"
+                    className="compliance-bypass-btn"
+                    onClick={() => setBypassShieldToGoogle(true)}
+                  >
+                    Prefer to post publicly on Google Maps instead? Click here →
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* Positive Flow (4-5 Stars or user explicitly chose to bypass) */
+              <div className="positive-flow-container">
+                {bypassShieldToGoogle && (
+                  <div className="bypass-notice-banner animate-fade-in">
+                    <span>⚠️ Public Google review mode selected for {rating}★ feedback.</span>
+                    <button
+                      type="button"
+                      className="btn-link-sm"
+                      onClick={() => setBypassShieldToGoogle(false)}
+                    >
+                      ← Return to Private Resolution
+                    </button>
+                  </div>
                 )}
-              </button>
-            </div>
+
+                {/* What stood out to you? (required) */}
+                <div className="form-group">
+                  <label htmlFor="what-stood-out" className="form-label">
+                    {rating >= 4 ? 'What did you love most about your visit?' : 'What went wrong?'} <span className="required-star">*</span>
+                  </label>
+                  <textarea
+                    id="what-stood-out"
+                    rows="3"
+                    className="form-textarea"
+                    value={whatStoodOut}
+                    onChange={(e) => setWhatStoodOut(e.target.value)}
+                    placeholder={
+                      rating >= 4
+                        ? 'e.g. Fast service, super friendly team, very clean environment, great quality...'
+                        : 'e.g. Issues faced during service...'
+                    }
+                    required
+                  />
+                  <span className="field-hint">
+                    Write in any language or rough notes — AI will construct an authentic review!
+                  </span>
+                </div>
+
+                {/* Anything that could've been better? (optional) */}
+                <div className="form-group">
+                  <label htmlFor="what-could-improve" className="form-label">
+                    Anything that could've been better? <span className="optional-tag">(Optional)</span>
+                  </label>
+                  <textarea
+                    id="what-could-improve"
+                    rows="2"
+                    className="form-textarea"
+                    value={whatCouldImprove}
+                    onChange={(e) => setWhatCouldImprove(e.target.value)}
+                    placeholder="e.g. Parking was tight, waiting area was busy..."
+                  />
+                </div>
+
+                <div className="step-actions-split">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setCurrentStep(1)}
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary flex-1"
+                    onClick={handleGenerateReview}
+                    disabled={generatingDraft || !whatStoodOut.trim()}
+                  >
+                    {generatingDraft ? (
+                      <span className="btn-loading-state">
+                        <span className="spinner"></span> Generating {rating}-Star Review...
+                      </span>
+                    ) : (
+                      `✨ Generate ${rating}-Star Review →`
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -491,19 +719,46 @@ export default function ReviewPage() {
                     onClick={() => handleRegenerate(rating)}
                     disabled={generatingDraft}
                   >
-                    {generatingDraft ? 'Regenerating...' : '🔄 Re-write'}
+                    {generatingDraft ? (
+                      <span className="btn-inline-loader">
+                        <span className="spinner spinner-xs spinner-brand"></span> Rewriting...
+                      </span>
+                    ) : (
+                      '🔄 Re-write'
+                    )}
                   </button>
                 </div>
               </div>
 
-              <textarea
-                id="draft-review-text"
-                rows="6"
-                className="form-textarea draft-textarea"
-                value={draftText}
-                onChange={(e) => setDraftText(e.target.value)}
-                placeholder="Your generated review will appear here..."
-              />
+              <div className="draft-textarea-container">
+                {generatingDraft && (
+                  <div className="draft-regenerating-overlay animate-fade-in">
+                    <div className="draft-ai-loader-card">
+                      <div className="draft-ai-loader-badge">
+                        <span className="pulse-dot"></span>
+                        <span className="loader-sparkle">✨</span>
+                        <span>AI Drafting Engine</span>
+                      </div>
+                      <p className="draft-ai-loader-msg">
+                        Polishing fresh {rating}-star review...
+                      </p>
+                      <div className="draft-ai-skeleton-bar">
+                        <div className="skeleton-bar-fill"></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <textarea
+                  id="draft-review-text"
+                  rows="6"
+                  className={`form-textarea draft-textarea ${generatingDraft ? 'is-loading' : ''}`}
+                  value={draftText}
+                  onChange={(e) => setDraftText(e.target.value)}
+                  placeholder="Your generated review will appear here..."
+                  disabled={generatingDraft}
+                />
+              </div>
             </div>
 
             {/* Post to Google Button */}
@@ -558,7 +813,13 @@ export default function ReviewPage() {
                   onClick={handleRegenerate}
                   disabled={generatingDraft}
                 >
-                  🔄 Regenerate
+                  {generatingDraft ? (
+                    <span className="btn-inline-loader">
+                      <span className="spinner spinner-xs"></span> Regenerating...
+                    </span>
+                  ) : (
+                    '🔄 Regenerate'
+                  )}
                 </button>
               </div>
             </div>
@@ -568,90 +829,177 @@ export default function ReviewPage() {
         {/* STEP 4: Success / Confirmation State with 1-Click Paste Helper */}
         {currentStep === 4 && (
           <div className="step-content step-4 animate-fade-in text-center">
-            <div className="celebration-circle">🎉</div>
-            <h2 className="success-heading">Review Ready & Copied!</h2>
-            <p className="success-subtext">
-              We opened Google Reviews in a new tab for <strong>{business?.name}</strong>.
-            </p>
+            {privateFeedbackSubmitted ? (
+              <div className="private-resolution-success-container">
+                <div className="shield-celebration-circle">🛡️</div>
+                <h2 className="success-heading">Feedback Sent to Management</h2>
+                <p className="success-subtext">
+                  Thank you for your honesty. The owner and management of <strong>{business?.name}</strong> have received your private report and will review it immediately.
+                </p>
 
-            {/* 3-Step Visual Action Card */}
-            <div className="google-paste-guide-card">
-              <h4 className="guide-card-title">⚡ 3-Second Finish on Google:</h4>
-              <div className="guide-steps-row">
-                <div className="guide-mini-step">
-                  <div className="guide-step-number">1</div>
-                  <div className="guide-step-body">
-                    <strong>Select {rating} Stars</strong>
-                    <div className="mini-stars-display">
-                      <StarRating rating={rating} readOnly size="sm" />
+                {/* Summary Card */}
+                <div className="shield-confirmation-card">
+                  <div className="shield-summary-row">
+                    <span className="shield-summary-label">Rating:</span>
+                    <span className="shield-summary-val">{rating} ★ ({rating <= 2 ? 'Needs Attention' : 'Fair'})</span>
+                  </div>
+                  <div className="shield-summary-row">
+                    <span className="shield-summary-label">Service:</span>
+                    <span className="shield-summary-val">{getEffectiveService()}</span>
+                  </div>
+                  <div className="shield-summary-row">
+                    <span className="shield-summary-label">Resolution Requested:</span>
+                    <span className="shield-summary-val">
+                      {RESOLUTION_OPTIONS.find((r) => r.id === preferredResolution)?.label || preferredResolution}
+                    </span>
+                  </div>
+                  <div className="shield-summary-quote">
+                    "{whatStoodOut}"
+                  </div>
+                </div>
+
+                {/* Direct WhatsApp button to owner if phone exists */}
+                {business?.phone && (
+                  <div className="shield-wa-direct-box">
+                    <p className="shield-wa-text">Need urgent resolution right away?</p>
+                    <a
+                      href={`https://wa.me/${business.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                        `Hi ${business?.name || ''}, I just submitted private feedback (${rating}★) regarding my recent visit (${getEffectiveService()}). Can we discuss this?`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-whatsapp-direct btn-block"
+                    >
+                      💬 Message Owner on WhatsApp
+                    </a>
+                  </div>
+                )}
+
+                {/* Google Compliance Link */}
+                <div className="shield-google-compliance-note">
+                  <span>We respect your choice. If you still wish to post on Google Maps:</span>
+                  <button
+                    type="button"
+                    className="compliance-google-link"
+                    onClick={() => {
+                      const rawUrl = business?.googleReviewUrl;
+                      const targetUrl = resolveGoogleReviewUrl(rawUrl, business?.name);
+                      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+                    }}
+                  >
+                    Open Public Google Reviews Page →
+                  </button>
+                </div>
+
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    className="btn-link"
+                    onClick={() => {
+                      setCurrentStep(1);
+                      setWhatStoodOut('');
+                      setWhatCouldImprove('');
+                      setDraftText('');
+                      setRating(5);
+                      setCustomerName('');
+                      setCustomerContact('');
+                      setPrivateFeedbackSubmitted(false);
+                      setBypassShieldToGoogle(false);
+                    }}
+                  >
+                    ← Start Over
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Standard 4-5 Star Google Review Success */
+              <div>
+                <div className="celebration-circle">🎉</div>
+                <h2 className="success-heading">Review Ready & Copied!</h2>
+                <p className="success-subtext">
+                  We opened Google Reviews in a new tab for <strong>{business?.name}</strong>.
+                </p>
+
+                {/* 3-Step Visual Action Card */}
+                <div className="google-paste-guide-card">
+                  <h4 className="guide-card-title">⚡ 3-Second Finish on Google:</h4>
+                  <div className="guide-steps-row">
+                    <div className="guide-mini-step">
+                      <div className="guide-step-number">1</div>
+                      <div className="guide-step-body">
+                        <strong>Select {rating} Stars</strong>
+                        <div className="mini-stars-display">
+                          <StarRating rating={rating} readOnly size="sm" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="guide-step-arrow">→</div>
+
+                    <div className="guide-mini-step">
+                      <div className="guide-step-number">2</div>
+                      <div className="guide-step-body">
+                        <strong>Tap "Paste"</strong>
+                        <span>Text is in your clipboard</span>
+                      </div>
+                    </div>
+
+                    <div className="guide-step-arrow">→</div>
+
+                    <div className="guide-mini-step">
+                      <div className="guide-step-number">3</div>
+                      <div className="guide-step-body">
+                        <strong>Click "Post"</strong>
+                        <span>Done in 1 click!</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="guide-step-arrow">→</div>
-
-                <div className="guide-mini-step">
-                  <div className="guide-step-number">2</div>
-                  <div className="guide-step-body">
-                    <strong>Tap "Paste"</strong>
-                    <span>Text is in your clipboard</span>
-                  </div>
+                {/* Review Quote Box */}
+                <div className="review-preview-summary card-flat">
+                  <div className="review-copied-badge">✓ Copied to Clipboard</div>
+                  <p className="review-summary-quote">"{draftText}"</p>
                 </div>
 
-                <div className="guide-step-arrow">→</div>
+                <div className="step-4-quick-actions">
+                  <button
+                    type="button"
+                    className="btn-primary btn-block btn-lg"
+                    onClick={() => {
+                      const rawUrl = business?.googleReviewUrl;
+                      const targetUrl = resolveGoogleReviewUrl(rawUrl, business?.name);
+                      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+                    }}
+                  >
+                    🚀 Open Google Review Page Again
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-secondary btn-block ${copied ? 'btn-copied' : ''}`}
+                    onClick={handleCopyText}
+                  >
+                    {copied ? '✓ Copied Again to Clipboard!' : '📋 Re-copy Review Text'}
+                  </button>
+                </div>
 
-                <div className="guide-mini-step">
-                  <div className="guide-step-number">3</div>
-                  <div className="guide-step-body">
-                    <strong>Click "Post"</strong>
-                    <span>Done in 1 click!</span>
-                  </div>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    className="btn-link"
+                    onClick={() => {
+                      setCurrentStep(1);
+                      setWhatStoodOut('');
+                      setWhatCouldImprove('');
+                      setDraftText('');
+                      setRating(5);
+                    }}
+                  >
+                    Write Another Review
+                  </button>
                 </div>
               </div>
-            </div>
-
-            {/* Review Quote Box */}
-            <div className="review-preview-summary card-flat">
-              <div className="review-copied-badge">✓ Copied to Clipboard</div>
-              <p className="review-summary-quote">"{draftText}"</p>
-            </div>
-
-            <div className="step-4-quick-actions">
-              <button
-                type="button"
-                className="btn-primary btn-block btn-lg"
-                onClick={() => {
-                  const rawUrl = business?.googleReviewUrl;
-                  const targetUrl = resolveGoogleReviewUrl(rawUrl, business?.name);
-                  window.open(targetUrl, '_blank', 'noopener,noreferrer');
-                }}
-              >
-                🚀 Open Google Review Page Again
-              </button>
-              <button
-                type="button"
-                className={`btn-secondary btn-block ${copied ? 'btn-copied' : ''}`}
-                onClick={handleCopyText}
-              >
-                {copied ? '✓ Copied Again to Clipboard!' : '📋 Re-copy Review Text'}
-              </button>
-            </div>
-
-            <div className="mt-4">
-              <button
-                type="button"
-                className="btn-link"
-                onClick={() => {
-                  setCurrentStep(1);
-                  setWhatStoodOut('');
-                  setWhatCouldImprove('');
-                  setDraftText('');
-                  setRating(5);
-                }}
-              >
-                Write Another Review
-              </button>
-            </div>
+            )}
           </div>
         )}
       </div>

@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
+import { isFeatureAllowed } from '../lib/plans';
+import { hasPermission, PERMISSIONS } from '../lib/rbac';
 
 export default function WhatsAppInviteModal({
   business,
   reviewUrl,
+  planId = 'starter',
+  userRole = 'business_owner',
+  onOpenUpgradeModal,
   onClose,
 }) {
   const [customerName, setCustomerName] = useState('');
@@ -11,6 +16,9 @@ export default function WhatsAppInviteModal({
   const [templateType, setTemplateType] = useState('friendly'); // 'friendly' | 'short' | 'offer'
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState('');
+
+  const isAllowedByPlan = isFeatureAllowed(planId, 'whatsappInviter');
+  const isAllowedByRole = hasPermission(userRole, PERMISSIONS.CAMPAIGN_SEND_WHATSAPP);
 
   const bizName = business?.name || 'our business';
 
@@ -75,7 +83,10 @@ export default function WhatsAppInviteModal({
           <div className="whatsapp-modal-title-row">
             <span className="whatsapp-icon-circle">💬</span>
             <div>
-              <h3>Send WhatsApp & SMS Review Invite</h3>
+              <div className="modal-title-badge-wrap">
+                <h3>Send WhatsApp & SMS Review Invite</h3>
+                {!isAllowedByPlan && <span className="launchpad-pro-badge">PRO ONLY</span>}
+              </div>
               <p className="modal-subtitle-text">
                 Invite recent customers to leave a review directly on their phone
               </p>
@@ -89,7 +100,51 @@ export default function WhatsAppInviteModal({
         <div className="modal-body">
           {toast && <div className="floating-toast">{toast}</div>}
 
-          <div className="form-grid-2">
+          {!isAllowedByPlan ? (
+            <div className="feature-locked-modal-state text-center">
+              <div className="locked-shield-icon">🔒</div>
+              <h3 className="locked-state-heading">WhatsApp Review Inviter is a Pro Feature</h3>
+              <p className="locked-state-desc">
+                Your business is currently on the <strong>Starter (Basic)</strong> plan. Sending automated WhatsApp & SMS review requests directly to customer phones is available exclusively on the <strong>Pro Growth</strong> and <strong>Enterprise</strong> tiers.
+              </p>
+
+              <div className="locked-feature-perks-card">
+                <div className="locked-perk-line"><span>✓</span> Unlimited 1-Click WhatsApp Review Requests</div>
+                <div className="locked-perk-line"><span>✓</span> 3 High-Conversion Psychological Message Templates</div>
+                <div className="locked-perk-line"><span>✓</span> 3.2x Average Increase in 5-Star Google Reviews</div>
+              </div>
+
+              <div className="locked-state-actions">
+                <button
+                  type="button"
+                  className="btn-primary btn-lg"
+                  onClick={onOpenUpgradeModal}
+                >
+                  💎 Upgrade to Pro Growth (₹1,299/mo)
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary btn-lg"
+                  onClick={onClose}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          ) : !isAllowedByRole ? (
+            <div className="feature-locked-modal-state text-center">
+              <div className="locked-shield-icon">⚠️</div>
+              <h3 className="locked-state-heading">Role Permission Restricted</h3>
+              <p className="locked-state-desc">
+                Your current role (Staff Member) does not have permission to dispatch bulk WhatsApp or SMS review invitations. Please contact your business owner.
+              </p>
+              <button type="button" className="btn-secondary btn-lg" onClick={onClose}>
+                Close
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="form-grid-2">
             <div className="form-group">
               <label className="form-label">Customer Name</label>
               <input
@@ -189,8 +244,10 @@ export default function WhatsAppInviteModal({
               </button>
             </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
+  </div>
+</div>
   );
 }

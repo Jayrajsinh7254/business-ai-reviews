@@ -99,12 +99,29 @@ CREATE TABLE public.reviews (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 7b. Create Leads / Contact Requests Table (Visitor QR Onboarding Inquiries)
+CREATE TABLE IF NOT EXISTS public.leads (
+    id TEXT PRIMARY KEY DEFAULT ('lead-' || substr(md5(random()::text), 1, 8)),
+    owner_name TEXT NOT NULL,
+    business_name TEXT NOT NULL,
+    business_type TEXT,
+    locations TEXT,
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    google_profile_url TEXT,
+    message TEXT,
+    status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'in_progress', 'done')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- 8. Indexes for High-Performance Queries
 CREATE INDEX IF NOT EXISTS idx_businesses_user_id ON public.businesses(user_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_business_id ON public.subscriptions(business_id);
 CREATE INDEX IF NOT EXISTS idx_team_members_business_id ON public.team_members(business_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_business_id ON public.reviews(business_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_created_at ON public.reviews(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_leads_created_at ON public.leads(created_at DESC);
 
 -- 9. Enable Row Level Security (RLS)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -112,6 +129,19 @@ ALTER TABLE public.businesses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can submit a lead"
+    ON public.leads FOR INSERT
+    WITH CHECK (true);
+
+CREATE POLICY "Admins or authenticated can view leads"
+    ON public.leads FOR SELECT
+    USING (true);
+
+CREATE POLICY "Admins or authenticated can update leads"
+    ON public.leads FOR UPDATE
+    USING (true);
 
 -- 10. RLS Policies
 

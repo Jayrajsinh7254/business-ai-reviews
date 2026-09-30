@@ -36,21 +36,17 @@ export const DEMO_PROFILES = {
 };
 
 export function AuthProvider({ children }) {
-  // Initialize user from localStorage or default to Business Owner
+  // Initialize user from localStorage or null (no unauthenticated auto-login)
   const [user, setUser] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_AUTH_STATE);
       if (saved) return JSON.parse(saved);
     } catch {}
     const cur = api.getCurrentUser();
-    if (cur) {
-      return {
-        ...DEMO_PROFILES[ROLES.BUSINESS_OWNER],
-        ...cur,
-        role: cur.role || ROLES.BUSINESS_OWNER,
-      };
+    if (cur && cur.email) {
+      return cur;
     }
-    return DEMO_PROFILES[ROLES.BUSINESS_OWNER];
+    return null;
   });
 
   const [business, setBusiness] = useState(null);
@@ -86,7 +82,11 @@ export function AuthProvider({ children }) {
 
   // Load business & subscription data for active user
   const loadUserData = useCallback(async (bizId) => {
-    const targetBizId = bizId || user?.businessId || 'demo-1';
+    const targetBizId = bizId || user?.businessId;
+    if (!targetBizId) {
+      setBusiness(null);
+      return;
+    }
     try {
       const [bizData, subData, teamData] = await Promise.allSettled([
         api.getBusiness(targetBizId),
@@ -109,15 +109,21 @@ export function AuthProvider({ children }) {
   }, [user?.businessId]);
 
   useEffect(() => {
-    loadUserData(user?.businessId);
+    if (user?.businessId) {
+      loadUserData(user?.businessId);
+    }
   }, [user?.businessId, loadUserData]);
 
-  // Role Switcher for instant live interactive demo testing
+  // Role Switcher: only permitted for Business Owner to preview staff experience
   const switchRole = (newRole) => {
-    if (!DEMO_PROFILES[newRole]) return;
+    if (!user) return;
+    const originalRole = user.originalRole || user.role;
+    if (originalRole !== ROLES.BUSINESS_OWNER) return;
+
     const profile = {
-      ...DEMO_PROFILES[newRole],
-      businessId: user?.businessId || 'demo-1',
+      ...user,
+      originalRole,
+      role: newRole,
     };
     persistUser(profile);
   };
@@ -127,19 +133,28 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const res = await api.login({ email, password });
+      const roleFromRes = res.user?.role || res.role;
       const determinedRole =
-        email.toLowerCase().includes('admin@reviewassist')
+        roleFromRes ||
+        (email.toLowerCase().includes('admin@reviewassist')
           ? ROLES.SUPER_ADMIN
           : email.toLowerCase().includes('staff')
           ? ROLES.BUSINESS_STAFF
-          : ROLES.BUSINESS_OWNER;
+          : ROLES.BUSINESS_OWNER);
+
+      const determinedBizId =
+        res.businessId ||
+        res.business?.id ||
+        res.user?.businessId ||
+        (determinedRole === ROLES.SUPER_ADMIN ? 'demo-1' : null);
 
       const userData = {
         id: res.user?.id || `user-${Date.now()}`,
         email: res.user?.email || email,
-        name: res.user?.name || (determinedRole === ROLES.SUPER_ADMIN ? 'Super Admin' : 'Business Owner'),
+        name: res.user?.name || (determinedRole === ROLES.SUPER_ADMIN ? 'Super Admin' : res.business?.name || 'Business User'),
         role: determinedRole,
-        businessId: res.businessId || res.business?.id || 'demo-1',
+        originalRole: determinedRole,
+        businessId: determinedBizId,
         isSuperAdmin: determinedRole === ROLES.SUPER_ADMIN,
       };
 
@@ -280,6 +295,15 @@ export function AuthProvider({ children }) {
     return isFeatureAllowed(subscription?.planId, featureKey);
   };
 
+  const switchPlan = (newPlanId) => {
+    const planObj = getPlan(newPlanId);
+    setSubscription((prev) => ({
+      ...prev,
+      planId: planObj.id,
+      amount: planObj.monthlyPrice,
+    }));
+  };
+
   const value = {
     user,
     role: user?.role || ROLES.CUSTOMER,
@@ -291,6 +315,7 @@ export function AuthProvider({ children }) {
     can: checkPermission,
     isFeatureUnlocked,
     switchRole,
+    switchPlan,
     login,
     signup,
     logout,

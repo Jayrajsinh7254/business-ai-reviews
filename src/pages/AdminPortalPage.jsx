@@ -6,8 +6,9 @@ import { api } from '../api/client';
 import { PLANS } from '../lib/plans';
 
 export default function AdminPortalPage() {
-  const { role, switchRole } = useAuth();
+  const { role } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = React.useState(false);
 
   const [metrics, setMetrics] = useState(null);
   const [businesses, setBusinesses] = useState([]);
@@ -70,27 +71,24 @@ export default function AdminPortalPage() {
     navigate(`/dashboard/${bizId}`);
   };
 
-  // If user is not super admin, display RBAC Access Guard with 1-click test button
+  // If user is not super admin, redirect to admin login page
   if (!isSuperAdmin) {
     return (
       <div className="page-container admin-portal-page">
         <div className="admin-access-denied-card text-center">
           <div className="denied-icon-bubble">🔒</div>
-          <h2 className="denied-title">Super Admin Access Required</h2>
+          <h2 className="denied-title">Admin Access Required</h2>
           <p className="denied-desc">
-            The SaaS Platform Management Portal is restricted to <strong>Super Admin</strong> accounts with platform oversight privileges.
+            This area is restricted to <strong>Super Admin</strong> accounts only.
+            Please sign in with your admin credentials to continue.
           </p>
 
           <div className="admin-denied-actions">
-            <button
-              type="button"
-              className="btn-primary btn-lg"
-              onClick={() => switchRole(ROLES.SUPER_ADMIN)}
-            >
-              ⚡ Switch to Super Admin Profile (Alex Rivera)
-            </button>
+            <Link to="/admin/login" className="btn-primary btn-lg">
+              🔐 Go to Admin Login
+            </Link>
             <Link to="/dashboard" className="btn-secondary btn-lg">
-              Return to Business Dashboard
+              Return to Dashboard
             </Link>
           </div>
         </div>

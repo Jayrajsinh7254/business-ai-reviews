@@ -183,6 +183,29 @@ export default function SubscriptionModal({ isOpen, onClose, selectedPlanId = nu
                 </div>
               )}
 
+              {/* External / Offline Payment Option */}
+              <div className="offline-payment-callout">
+                <div className="offline-payment-info">
+                  <span className="offline-icon">🤝</span>
+                  <div>
+                    <strong className="offline-title">Direct / Offline Payment (UPI or Hand-to-Hand)</strong>
+                    <p className="offline-desc">
+                      Pay via direct UPI QR, bank transfer, or offline invoice. Admin will activate your tier instantly.
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={`https://wa.me/919999999999?text=${encodeURIComponent(
+                    `Hi ReviewAssist Admin, I would like to activate/renew the ${activePlanObj.name} plan (${billingInterval === 'annual' ? `₹${(activePlanObj.annualPrice * 12).toLocaleString('en-IN')}/yr` : `₹${activePlanObj.monthlyPrice.toLocaleString('en-IN')}/mo`}) for ${business?.name || user?.name || 'my business'}. Please share the UPI QR code or bank transfer details.`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-offline-wa"
+                >
+                  💬 Pay Offline via WhatsApp / UPI
+                </a>
+              </div>
+
               {/* Razorpay Checkout Summary Bar */}
               <div className="checkout-summary-bar">
                 <div className="summary-left">

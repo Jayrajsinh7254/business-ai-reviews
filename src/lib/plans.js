@@ -13,8 +13,8 @@ export const PLANS = {
     annualPrice: 399, // ₹399/mo billed annually (₹4,788/yr — save ₹1,200)
     currency: '₹',
     // Razorpay Plan IDs — create plans in Razorpay Dashboard → Plans
-    razorpayPlanIdMonthly: import.meta.env.VITE_RAZORPAY_PLAN_STARTER_MONTHLY || '',
-    razorpayPlanIdAnnual: import.meta.env.VITE_RAZORPAY_PLAN_STARTER_ANNUAL || '',
+    razorpayPlanIdMonthly: import.meta.env?.VITE_RAZORPAY_PLAN_STARTER_MONTHLY || '',
+    razorpayPlanIdAnnual: import.meta.env?.VITE_RAZORPAY_PLAN_STARTER_ANNUAL || '',
     // Amount in paise (1 INR = 100 paise) for Razorpay API
     monthlyAmountPaise: 49900,
     annualAmountPaise: 39900,
@@ -24,7 +24,8 @@ export const PLANS = {
     limits: {
       locations: 1,
       aiReviewsPerMonth: 100,
-      whatsappInvitesPerMonth: 100,
+      whatsappInviter: false,
+      whatsappInvitesPerMonth: 0,
       teamSeats: 1,
       standeeTemplates: ['counter', 'table_tent'],
       aiReplyCopilot: false,
@@ -35,10 +36,10 @@ export const PLANS = {
     },
     features: [
       '1 Business Location',
-      '100 AI-Crafted Reviews / month',
-      '100 Direct WhatsApp Invites / month',
+      '100 AI Customer Reviews / month',
       'Standard QR Standees & Table Tents',
       'Real-time Analytics Dashboard',
+      'Private Negative Review Shield',
       '1 Staff Seat',
       'Email Support',
     ],
@@ -50,8 +51,8 @@ export const PLANS = {
     monthlyPrice: 1299,
     annualPrice: 999, // ₹999/mo billed annually (₹11,988/yr — save ₹3,600)
     currency: '₹',
-    razorpayPlanIdMonthly: import.meta.env.VITE_RAZORPAY_PLAN_PRO_MONTHLY || '',
-    razorpayPlanIdAnnual: import.meta.env.VITE_RAZORPAY_PLAN_PRO_ANNUAL || '',
+    razorpayPlanIdMonthly: import.meta.env?.VITE_RAZORPAY_PLAN_PRO_MONTHLY || '',
+    razorpayPlanIdAnnual: import.meta.env?.VITE_RAZORPAY_PLAN_PRO_ANNUAL || '',
     monthlyAmountPaise: 129900,
     annualAmountPaise: 99900,
     badge: 'Most Popular',
@@ -60,6 +61,7 @@ export const PLANS = {
     limits: {
       locations: 3,
       aiReviewsPerMonth: Infinity,
+      whatsappInviter: true,
       whatsappInvitesPerMonth: Infinity,
       teamSeats: 5,
       standeeTemplates: ['counter', 'table_tent', 'poster', 'card'],
@@ -73,8 +75,8 @@ export const PLANS = {
       'Up to 3 Business Locations',
       'Unlimited AI Review Generations',
       'Unlimited WhatsApp & SMS Review Invites',
-      'AI Review Auto-Reply Copilot (1-click responses)',
-      'All QR Standee, Poster & Table Tent Styles',
+      'AI Review Auto-Reply Copilot Studio',
+      'All QR Standee, Poster & Decal Styles',
       'Custom Brand Colors & Logo Integration',
       'Up to 5 Team & Staff Seats (RBAC)',
       'CSV / Excel Review & Customer Export',
@@ -88,8 +90,8 @@ export const PLANS = {
     monthlyPrice: 2999,
     annualPrice: 2399, // ₹2,399/mo billed annually (₹28,788/yr — save ₹7,200)
     currency: '₹',
-    razorpayPlanIdMonthly: import.meta.env.VITE_RAZORPAY_PLAN_ENTERPRISE_MONTHLY || '',
-    razorpayPlanIdAnnual: import.meta.env.VITE_RAZORPAY_PLAN_ENTERPRISE_ANNUAL || '',
+    razorpayPlanIdMonthly: import.meta.env?.VITE_RAZORPAY_PLAN_ENTERPRISE_MONTHLY || '',
+    razorpayPlanIdAnnual: import.meta.env?.VITE_RAZORPAY_PLAN_ENTERPRISE_ANNUAL || '',
     monthlyAmountPaise: 299900,
     annualAmountPaise: 239900,
     badge: 'Scale',
@@ -98,6 +100,7 @@ export const PLANS = {
     limits: {
       locations: Infinity,
       aiReviewsPerMonth: Infinity,
+      whatsappInviter: true,
       whatsappInvitesPerMonth: Infinity,
       teamSeats: Infinity,
       standeeTemplates: ['counter', 'table_tent', 'poster', 'card', 'custom_dimension'],

@@ -3,9 +3,13 @@ import QRCode from 'qrcode';
 
 /**
  * QRCodeDisplay Component
- * Generates an SVG or Canvas QR code for a given URL, with copy and download actions.
+ * Generates an interactive, responsive Canvas QR code with copy & download actions.
  */
-export default function QRCodeDisplay({ url, title = 'Scan to Review', subtitle = 'Point camera here to open review page' }) {
+export default function QRCodeDisplay({
+  url,
+  title = 'Your Business QR Code',
+  subtitle = 'Customers scan this on counter stands or table cards',
+}) {
   const canvasRef = useRef(null);
   const [copied, setCopied] = useState(false);
 
@@ -15,7 +19,7 @@ export default function QRCodeDisplay({ url, title = 'Scan to Review', subtitle 
         canvasRef.current,
         url,
         {
-          width: 220,
+          width: 240,
           margin: 2,
           color: {
             dark: '#0f172a',
@@ -44,7 +48,7 @@ export default function QRCodeDisplay({ url, title = 'Scan to Review', subtitle 
     const pngUrl = canvasRef.current.toDataURL('image/png');
     const downloadLink = document.createElement('a');
     downloadLink.href = pngUrl;
-    downloadLink.download = `review-assist-qr-${Date.now()}.png`;
+    downloadLink.download = `review-qr-${Date.now()}.png`;
     document.body.appendChild(downloadLink);
     downloadLink.click();
     document.body.removeChild(downloadLink);
@@ -52,35 +56,43 @@ export default function QRCodeDisplay({ url, title = 'Scan to Review', subtitle 
 
   return (
     <div className="qr-display-card">
-      <div className="qr-header">
+      <div className="qr-card-header text-center">
         <h3 className="qr-title">{title}</h3>
         <p className="qr-subtitle">{subtitle}</p>
       </div>
 
-      <div className="qr-canvas-frame">
-        <canvas ref={canvasRef} className="qr-canvas" />
+      <div className="qr-canvas-wrapper">
+        <div className="qr-canvas-frame">
+          <canvas ref={canvasRef} className="qr-canvas" />
+        </div>
       </div>
 
-      <div className="qr-link-box">
+      <div className="qr-url-copy-box">
         <input
           type="text"
           readOnly
           value={url}
           className="qr-link-input"
           onClick={(e) => e.target.select()}
+          title="Click to select review URL"
         />
         <button
           type="button"
           onClick={handleCopy}
           className={`qr-copy-btn ${copied ? 'copied' : ''}`}
         >
-          {copied ? '✓ Copied!' : 'Copy Link'}
+          {copied ? '✓ Copied' : 'Copy Link'}
         </button>
       </div>
 
-      <div className="qr-actions">
-        <button type="button" onClick={handleDownload} className="btn-secondary-sm">
-          ⬇ Download QR Image
+      <div className="qr-download-action-row">
+        <button
+          type="button"
+          onClick={handleDownload}
+          className="btn-primary btn-block btn-download-qr"
+          title="Download standalone high-resolution QR code image"
+        >
+          <span>📱</span> Download Only QR Code (PNG)
         </button>
       </div>
     </div>

@@ -131,7 +131,7 @@ export default function PrivacyPolicyPage() {
               You maintain complete control over your business data:
             </p>
             <ul>
-              <li><strong>Access & Correction:</strong> You can review and update your profile, branding, and services directly from the dashboard settings.</li>
+              <li><strong>Access & Correction:</strong> You can review your business profile details or request corrections by contacting support. Each subscription is tied to a specific business identity.</li>
               <li><strong>Data Deletion:</strong> You may request complete erasure of your business profile, historical reviews, and team members by contacting support.</li>
               <li><strong>Opt-Out of Communications:</strong> Transactional emails and invoices will still be sent as necessary for active subscriptions.</li>
             </ul>
@@ -143,10 +143,10 @@ export default function PrivacyPolicyPage() {
               For privacy-related inquiries, data requests, or compliance questions, please contact our Data Protection Officer:
             </p>
             <div className="legal-contact-card">
-              <p><strong>ReviewAssist Technologies Privacy Team</strong></p>
-              <p>Email: <a href="mailto:privacy@reviewassist.ai">privacy@reviewassist.ai</a></p>
-              <p>Support: <a href="mailto:support@reviewassist.ai">support@reviewassist.ai</a></p>
-              <p>Address: Bengaluru, Karnataka, India</p>
+              <p><strong>ReviewAssist Privacy Team</strong></p>
+              <p>Email: <a href="mailto:support.reviewassist@gmail.com">support.reviewassist@gmail.com</a></p>
+              <p>WhatsApp: <a href="https://wa.me/919537370561" target="_blank" rel="noopener noreferrer">+91 95373 70561</a></p>
+              <p>Location: India</p>
             </div>
           </section>
         </div>

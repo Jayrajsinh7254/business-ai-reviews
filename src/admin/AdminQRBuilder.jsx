@@ -2,27 +2,24 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import QRCode from 'qrcode';
 import confetti from 'canvas-confetti';
-import { api } from '../api/client';
+import { api, isValidGoogleReviewLink, isGenericOrEmptyServices } from '../api/client';
 import QRStandeeCard from '../components/QRStandeeCard';
 import { exportHighResStandee } from '../utils/standeeExport';
+import { createQRDataUrlWithCenterLogo, SAMPLE_BRAND_LOGO } from '../utils/qrLogoHelper';
+import { CATEGORIES, getCategoryServices } from '../lib/categories';
 
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
-const CATEGORY_OPTIONS = [
-  { id: 'automobile', label: 'Automobile & Garage' },
-  { id: 'restaurant', label: 'Restaurant & Cafe' },
-  { id: 'dental', label: 'Dental & Clinic' },
-  { id: 'salon', label: 'Salon & Spa' },
-  { id: 'gym', label: 'Gym & Fitness' },
-  { id: 'medical', label: 'Medical & Healthcare' },
-  { id: 'retail', label: 'Retail & Store' },
-  { id: 'other', label: 'Other Local Business' },
-];
+const CATEGORY_OPTIONS = CATEGORIES.map((c) => ({
+  id: c.id,
+  label: `${c.icon} ${c.label}`,
+  rawLabel: c.label,
+}));
 
 const PLAN_OPTIONS = [
-  { id: 'starter', name: 'Starter', price: '₹499/mo', desc: '1 loc • 1 seat • basic' },
-  { id: 'pro', name: 'Pro Growth', price: '₹1,299/mo', desc: '3 loc • 5 seats • AI reply' },
-  { id: 'enterprise', name: 'Enterprise', price: '₹2,999/mo', desc: 'unlimited • custom voice' },
+  { id: 'starter', name: 'Starter', price: '₹299/mo', desc: '1 loc • 1 seat • was ₹499' },
+  { id: 'pro', name: 'Pro Growth', price: '₹499/mo', desc: '3 loc • 5 seats • was ₹699' },
+  { id: 'enterprise', name: 'Enterprise', price: '₹799/mo', desc: 'unlimited • custom voice • was ₹1,199' },
 ];
 
 export default function AdminQRBuilder() {
@@ -35,22 +32,67 @@ export default function AdminQRBuilder() {
       ? initialBizName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').substring(0, 18) + '-' + Math.random().toString(36).substring(2, 6)
       : `biz-${Date.now().toString(36)}`);
 
+  const rawBizType = params.get('bizType') || '';
+  const matchedCat = CATEGORY_OPTIONS.find(
+    (c) => c.id === rawBizType || c.rawLabel.toLowerCase() === rawBizType.toLowerCase()
+  );
+  const initialCategory = matchedCat ? matchedCat.id : (rawBizType || 'it_marketing');
+  const paramServices = params.get('services') ? params.get('services').split(',').map((s) => s.trim()).filter(Boolean) : null;
+  const initialServices = (paramServices && paramServices.length > 0 && !isGenericOrEmptyServices(paramServices))
+    ? paramServices
+    : getCategoryServices(initialCategory);
+
   const [form, setForm] = useState({
     businessName: initialBizName,
     businessId: initialBizId,
     ownerName: params.get('owner') || '',
     ownerEmail: params.get('email') || '',
     ownerPhone: params.get('phone') || '',
-    category: params.get('bizType') || 'automobile',
+    logoUrl: params.get('logo') || '',
+    category: initialCategory,
+    customCategory: '',
+    services: initialServices,
     planId: params.get('planId') || 'pro',
     paidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     password: 'welcome123',
     accentColor: '#6366f1',
     tagline: 'Scan the above QR code with your smartphone and make our day by leaving us a review on Google!',
+    googleReviewLink: params.get('google') || params.get('googleUrl') || params.get('googleLink') || params.get('googleProfileUrl') || 'https://g.page/r/example/review',
     leadId: params.get('leadId') || '',
   });
 
-  const [standeeTheme, setStandeeTheme] = useState('google'); // 'google' | 'acrylic' | 'midnight' | 'emerald'
+  // Sync form if URL query params change while mounted
+  useEffect(() => {
+    if (params.get('name') || params.get('email')) {
+      const name = params.get('name') || '';
+      const bizId = params.get('bizId') || (name
+        ? name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').substring(0, 18) + '-' + Math.random().toString(36).substring(2, 6)
+        : `biz-${Date.now().toString(36)}`);
+      const pRawType = params.get('bizType') || '';
+      const pMatched = CATEGORY_OPTIONS.find((c) => c.id === pRawType || c.rawLabel.toLowerCase() === pRawType.toLowerCase());
+      const resolvedCat = pMatched ? pMatched.id : (pRawType || initialCategory);
+      const pServices = params.get('services') ? params.get('services').split(',').map((s) => s.trim()).filter(Boolean) : null;
+      const resolvedServices = (pServices && pServices.length > 0 && !isGenericOrEmptyServices(pServices))
+        ? pServices
+        : getCategoryServices(resolvedCat);
+
+      setForm((prev) => ({
+        ...prev,
+        businessName: name || prev.businessName,
+        businessId: bizId || prev.businessId,
+        ownerName: params.get('owner') || prev.ownerName,
+        ownerEmail: params.get('email') || prev.ownerEmail,
+        ownerPhone: params.get('phone') || prev.ownerPhone,
+        logoUrl: params.get('logo') || prev.logoUrl,
+        category: resolvedCat,
+        services: resolvedServices,
+        googleReviewLink: params.get('google') || params.get('googleUrl') || params.get('googleLink') || params.get('googleProfileUrl') || prev.googleReviewLink,
+        leadId: params.get('leadId') || prev.leadId,
+      }));
+    }
+  }, [params]);
+
+  const [standeeTheme, setStandeeTheme] = useState('google-quadrant'); // 'google-quadrant' | 'google' | 'acrylic' | 'midnight' | 'emerald'
   const [standeeFormat, setStandeeFormat] = useState('portrait'); // 'portrait' | 'table_tent' | 'poster' | 'sticker'
   const [showBackdrop, setShowBackdrop] = useState(true);
   const [show30sFlow, setShow30sFlow] = useState(true);
@@ -61,23 +103,160 @@ export default function AdminQRBuilder() {
   const [savingOnboard, setSavingOnboard] = useState(false);
   const [onboardingKit, setOnboardingKit] = useState(null); // { client, user, reviewUrl, dashboardUrl }
   const [toastMsg, setToastMsg] = useState('');
+  const [customHost, setCustomHost] = useState('');
+  const [bizIdManuallyEdited, setBizIdManuallyEdited] = useState(Boolean(params.get('bizId')));
 
   const canvasRef = useRef(null);
   const previewRef = useRef(null);
 
-  const reviewUrl = `${BASE_URL}/review/${form.businessId}`;
-  const dashboardUrl = `${BASE_URL}/dashboard/${form.businessId}`;
+  // Clean slug & metadata-carrying review URL
+  const cleanBizSlug = (form.businessId || 'biz-local').trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'biz-local';
+  const reviewParams = new URLSearchParams();
+  if (form.businessName) reviewParams.set('name', form.businessName);
+  if (form.category) reviewParams.set('cat', form.category);
+  if (form.services && form.services.length > 0) reviewParams.set('services', form.services.join(','));
+  if (form.googleReviewLink) reviewParams.set('google', form.googleReviewLink);
+  if (form.ownerPhone) reviewParams.set('phone', form.ownerPhone);
+  const querySuffix = reviewParams.toString() ? `?${reviewParams.toString()}` : '';
+
+  const targetOrigin = (customHost && customHost.trim()) ? customHost.trim().replace(/\/+$/, '') : BASE_URL;
+  const reviewUrl = `${targetOrigin}/review/${cleanBizSlug}${querySuffix}`;
+  const displayReviewUrl = `${targetOrigin}/review/${cleanBizSlug}`;
+  const dashboardUrl = `${targetOrigin}/dashboard/${cleanBizSlug}`;
 
   const showToast = (msg) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(''), 3000);
   };
 
+  const [newServiceInput, setNewServiceInput] = useState('');
+
   const handleChange = (field, val) => {
-    setForm((f) => ({ ...f, [field]: val }));
+    setForm((f) => {
+      let updatedBizId = f.businessId;
+      if (field === 'businessName' && !bizIdManuallyEdited) {
+        const slug = val
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '')
+          .substring(0, 18);
+        if (slug) {
+          const prevSuffix = f.businessId.match(/-([a-z0-9]{3,6})$/)?.[1] || Math.random().toString(36).substring(2, 6);
+          updatedBizId = `${slug}-${prevSuffix}`;
+        }
+      }
+
+      // If category changed, update services to new category preset services
+      let updatedServices = f.services;
+      if (field === 'category') {
+        updatedServices = getCategoryServices(val);
+      }
+
+      return {
+        ...f,
+        [field]: val,
+        ...(field === 'category' ? { services: updatedServices } : {}),
+        ...(field === 'businessName' && !bizIdManuallyEdited ? { businessId: updatedBizId } : {}),
+      };
+    });
     if (field === 'businessId') {
+      setBizIdManuallyEdited(true);
       setQrGenerated(false);
     }
+    if (field === 'businessName' || field === 'logoUrl') {
+      setQrGenerated(false);
+    }
+  };
+
+  const handleAddService = (e) => {
+    if (e) e.preventDefault();
+    const clean = newServiceInput.trim();
+    if (!clean) return;
+    if (!form.services.some((s) => s.toLowerCase() === clean.toLowerCase())) {
+      setForm((f) => ({ ...f, services: [...f.services, clean] }));
+    }
+    setNewServiceInput('');
+  };
+
+  const handleRemoveService = (serviceToRemove) => {
+    setForm((f) => ({
+      ...f,
+      services: f.services.filter((s) => s !== serviceToRemove),
+    }));
+  };
+
+  const handleToggleSuggestedService = (srv) => {
+    setForm((f) => {
+      const exists = f.services.some((s) => s.toLowerCase() === srv.toLowerCase());
+      const updated = exists
+        ? f.services.filter((s) => s.toLowerCase() !== srv.toLowerCase())
+        : [...f.services, srv];
+      return { ...f, services: updated };
+    });
+  };
+
+  const handleResetServicesToCategory = () => {
+    const srvs = getCategoryServices(form.category === 'other' ? (form.customCategory || 'other') : form.category);
+    setForm((f) => ({ ...f, services: srvs }));
+    showToast('✓ Reset services to industry presets');
+  };
+
+  // Auto-persist active business profile so scanning QR immediately works without requiring full onboarding submission first
+  useEffect(() => {
+    if (form.businessName && form.businessId) {
+      try {
+        const effectiveCategory = form.category === 'other'
+          ? (form.customCategory?.trim() || 'Custom Business')
+          : (CATEGORY_OPTIONS.find((c) => c.id === form.category)?.rawLabel || form.category);
+
+        const newBiz = {
+          id: form.businessId,
+          name: form.businessName,
+          category: effectiveCategory,
+          services: form.services && form.services.length > 0 ? form.services : ['Customer Service', 'Quality & Value', 'Overall Experience', 'Timely Support'],
+          email: form.ownerEmail || '',
+          phone: form.ownerPhone || '',
+          logoUrl: form.logoUrl || '',
+          shareableUrl: displayReviewUrl,
+          dashboardUrl: dashboardUrl,
+          google_review_link: form.googleReviewLink || 'https://g.page/r/example/review',
+          googleReviewLink: form.googleReviewLink || 'https://g.page/r/example/review',
+          google_review_url: form.googleReviewLink || 'https://g.page/r/example/review',
+          googleReviewUrl: form.googleReviewLink || 'https://g.page/r/example/review',
+          status: 'active',
+          subscriptionStatus: 'active',
+          planId: form.planId || 'pro',
+          paidUntil: form.paidUntil,
+          tagline: form.tagline,
+        };
+        api.saveStoredBusiness(newBiz);
+      } catch (e) {
+        console.warn('Auto-save business preview notice:', e);
+      }
+    }
+  }, [form.businessName, form.businessId, form.category, form.services, form.logoUrl, form.planId, form.paidUntil, form.tagline, form.ownerEmail, form.ownerPhone, form.customCategory, form.googleReviewLink, displayReviewUrl, dashboardUrl]);
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        handleChange('logoUrl', ev.target.result);
+        showToast('✓ Logo uploaded & centered in QR!');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUseSampleLogo = () => {
+    handleChange('logoUrl', SAMPLE_BRAND_LOGO);
+    showToast('✓ Reference brand emblem applied!');
+  };
+
+  const handleRemoveLogo = () => {
+    handleChange('logoUrl', '');
+    showToast('Logo removed');
   };
 
   const generateQR = async () => {
@@ -98,13 +277,13 @@ export default function AdminQRBuilder() {
     }
   };
 
-  // Auto-generate QR when businessId changes
+  // Auto-generate QR when businessId or reviewUrl changes
   useEffect(() => {
     if (form.businessId) {
       generateQR();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.businessId]);
+  }, [form.businessId, reviewUrl]);
 
   const generateNewBizId = () => {
     const slug = form.businessName
@@ -115,6 +294,7 @@ export default function AdminQRBuilder() {
       .substring(0, 18);
     const rand = Math.random().toString(36).substring(2, 6);
     const newId = slug ? `${slug}-${rand}` : `biz-${rand}`;
+    setBizIdManuallyEdited(true);
     handleChange('businessId', newId);
   };
 
@@ -131,53 +311,38 @@ export default function AdminQRBuilder() {
   const handleDownloadQR = async () => {
     if (!reviewUrl) return;
     try {
-      let qrOnlyUrl = '';
-      if (canvasRef.current) {
-        qrOnlyUrl = canvasRef.current.toDataURL('image/png');
-      } else {
-        qrOnlyUrl = await QRCode.toDataURL(reviewUrl, {
-          width: 1200,
-          margin: 2,
-          color: {
-            dark: '#111827',
-            light: '#ffffff',
-          },
-          errorCorrectionLevel: 'H',
-        });
-      }
+      const qrOnlyUrl = await createQRDataUrlWithCenterLogo(reviewUrl, form.logoUrl, 1200);
       const safeName = (form.businessName || 'client-qr').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
       const link = document.createElement('a');
-      link.download = `${safeName}-google-review-qr-only.png`;
+      link.download = `${safeName}-google-review-qr-with-logo.png`;
       link.href = qrOnlyUrl;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      showToast('✓ Standalone QR code PNG downloaded!');
+      showToast('✓ QR Code with logo PNG downloaded!');
     } catch (err) {
       console.error('Failed to download QR only:', err);
+      showToast('⚠️ Could not download QR code.');
     }
   };
 
   const handleDownloadHighResStandee = async () => {
     setExporting(true);
     try {
-      let qrDataUrl = '';
-      if (canvasRef.current) {
-        qrDataUrl = canvasRef.current.toDataURL('image/png');
-      } else {
-        qrDataUrl = await QRCode.toDataURL(reviewUrl, { width: 800, margin: 1, errorCorrectionLevel: 'H' });
-      }
+      const qrDataUrl = await createQRDataUrlWithCenterLogo(reviewUrl, form.logoUrl, 1000);
 
       await exportHighResStandee({
         business: {
           name: form.businessName || 'Local Business',
           category: form.category,
+          logoUrl: form.logoUrl,
         },
         reviewUrl,
         qrDataUrl,
+        logoUrl: form.logoUrl,
         theme: standeeTheme,
         showBackdrop,
-        headline: 'Review us on Google',
+        headline: "WE'D LOVE YOUR FEEDBACK",
         tagline: form.tagline || 'Scan the above QR code with your smartphone and make our day by leaving us a review on Google!',
         show30sFlow,
         format: standeeFormat,
@@ -226,26 +391,40 @@ export default function AdminQRBuilder() {
       await generateQR();
 
       // 2. Register business and user credentials
+      const effectiveCategory = form.category === 'other'
+        ? (form.customCategory?.trim() || 'Custom Business')
+        : (CATEGORY_OPTIONS.find((c) => c.id === form.category)?.rawLabel || form.category);
+
       const result = api.saveClientAccount({
         businessId: form.businessId,
         businessName: form.businessName,
         email: form.ownerEmail,
         password: form.password,
         ownerName: form.ownerName,
-        category: form.category,
+        category: effectiveCategory,
         planId: form.planId,
         paidUntil: form.paidUntil,
         phone: form.ownerPhone,
         tagline: form.tagline,
+        services: form.services,
+        logoUrl: form.logoUrl,
+        google_review_link: (form.googleReviewLink || '').trim(),
+        googleReviewLink: (form.googleReviewLink || '').trim(),
+        googleReviewUrl: (form.googleReviewLink || '').trim(),
       });
 
-      // 3. If converted from a lead, mark lead as converted in storage
+      // 3. If converted from a lead, mark lead as done in both Supabase and storage
       if (form.leadId) {
+        try {
+          await api.updateLeadStatus(form.leadId, 'done');
+        } catch (statusErr) {
+          console.warn('Could not update lead status in Supabase:', statusErr);
+        }
         try {
           const rawLeads = localStorage.getItem('reviewassist_admin_leads');
           if (rawLeads) {
             const leads = JSON.parse(rawLeads);
-            const updated = leads.map((l) => (l.id === form.leadId ? { ...l, status: 'converted' } : l));
+            const updated = leads.map((l) => (l.id === form.leadId ? { ...l, status: 'done' } : l));
             localStorage.setItem('reviewassist_admin_leads', JSON.stringify(updated));
           }
         } catch {}
@@ -279,13 +458,13 @@ export default function AdminQRBuilder() {
   const getWhatsAppWelcomeMessage = () => {
     const ownerGreeting = form.ownerName ? `Hi ${form.ownerName}!` : 'Hello!';
     return encodeURIComponent(
-      `🎉 ${ownerGreeting} Welcome to ReviewAssist!\n\n` +
-      `Your automated Google review collection service for *${form.businessName}* is now active.\n\n` +
-      `⭐ *Customer Review Link (for your QR standee):*\n${reviewUrl}\n\n` +
-      `📊 *Your Private Business Dashboard:*\n${dashboardUrl}\n` +
-      `• Login Email: ${form.ownerEmail}\n` +
-      `• Password: ${form.password}\n\n` +
-      `We've attached your high-resolution QR standee file. Print and display it at your front counter/tables to start collecting 5-star Google reviews!`
+      `🎉 ${ownerGreeting} Greetings from ReviewAssist!\n\n` +
+      `Your custom Google review collection system and Standee for *${form.businessName}* are ready.\n\n` +
+      `⭐ *Your Live Customer Review Link:*\n${reviewUrl}\n\n` +
+      `🪧 *Custom Acrylic Standee Kit:*\n` +
+      `We have crafted your high-resolution 300-DPI Standee with your business logo centered inside the QR code.\n\n` +
+      `Print and place this Standee on your reception counter or billing desk. Customers can simply point their phone camera to leave 5-star Google reviews in 30 seconds!\n\n` +
+      `Let us know on WhatsApp if you need physical acrylic standee printing or any changes!`
     );
   };
 
@@ -421,8 +600,63 @@ export default function AdminQRBuilder() {
                 </button>
               </div>
               <span className="admin-form-hint">
-                Customer review URL: <code className="admin-url-code">{reviewUrl}</code>
+                Customer review URL: <code className="admin-url-code">{displayReviewUrl}</code>
               </span>
+
+              {/* Instant Test & Copy Action Row */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <a
+                  href={reviewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="admin-btn-secondary"
+                  style={{
+                    textDecoration: 'none',
+                    padding: '8px 14px',
+                    fontSize: '0.85rem',
+                    background: '#2563eb',
+                    color: '#ffffff',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                  title="Open the customer review collection flow in a new browser tab"
+                >
+                  📱 Test Live Review Flow ↗
+                </a>
+
+                <button
+                  type="button"
+                  className="admin-btn-secondary"
+                  onClick={handleCopyLink}
+                  style={{ padding: '8px 14px', fontSize: '0.85rem', fontWeight: 600 }}
+                  title="Copy review URL to clipboard"
+                >
+                  {copied ? '✓ Copied!' : '📋 Copy Link'}
+                </button>
+              </div>
+
+              {/* Mobile LAN IP Testing Helper (when running on localhost) */}
+              {typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+                <div style={{ marginTop: '10px', background: 'rgba(99, 102, 241, 0.08)', border: '1px dashed rgba(99, 102, 241, 0.3)', borderRadius: '8px', padding: '10px 12px' }}>
+                  <div style={{ fontSize: '0.78rem', color: '#6366f1', fontWeight: 600, marginBottom: '4px' }}>
+                    📱 Mobile Phone Scanning on Local Wi-Fi
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted, #94a3b8)', lineHeight: 1.4, marginBottom: '6px' }}>
+                    Smartphones scanning QR from monitor need your PC’s local IP (e.g. <code>http://192.168.1.5:5173</code>) instead of localhost.
+                  </div>
+                  <input
+                    type="text"
+                    className="admin-form-input"
+                    style={{ fontSize: '0.8rem', padding: '5px 8px', height: 'auto' }}
+                    placeholder="Optional: http://192.168.x.x:5173 or leave blank for default"
+                    value={customHost}
+                    onChange={(e) => setCustomHost(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="admin-form-row">
@@ -474,6 +708,243 @@ export default function AdminQRBuilder() {
                   ))}
                 </select>
               </div>
+            </div>
+
+            {/* Logo Upload & Brand Integration */}
+            <div className="admin-form-group" style={{ marginTop: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label className="admin-form-label" style={{ marginBottom: 0 }}>
+                  🏢 Business Logo (Centers Inside QR &amp; Standee Top)
+                </label>
+                <span style={{ background: '#ecfdf5', color: '#059669', fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                  BRAND INTEGRATION
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', background: '#f8fafc', padding: '12px 14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                {form.logoUrl ? (
+                  <div style={{ position: 'relative', width: '58px', height: '58px', borderRadius: '12px', overflow: 'hidden', border: '2px solid #cbd5e1', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <img src={form.logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  </div>
+                ) : (
+                  <div style={{ width: '58px', height: '58px', borderRadius: '12px', border: '2px dashed #cbd5e1', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', flexShrink: 0 }}>
+                    🏷️
+                  </div>
+                )}
+
+                <div style={{ flex: 1 }}>
+                  <input
+                    type="file"
+                    id="admin-logo-file-picker"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={handleLogoUpload}
+                  />
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <label htmlFor="admin-logo-file-picker" className="admin-btn-secondary" style={{ cursor: 'pointer', padding: '6px 12px', fontSize: '0.82rem', margin: 0 }}>
+                      📁 Upload Logo
+                    </label>
+                    <button type="button" className="admin-btn-secondary" style={{ padding: '6px 12px', fontSize: '0.82rem' }} onClick={handleUseSampleLogo}>
+                      ✨ Use Sample Emblem
+                    </button>
+                    {form.logoUrl && (
+                      <button type="button" className="admin-btn-secondary" style={{ padding: '6px 12px', fontSize: '0.82rem', color: '#dc2626' }} onClick={handleRemoveLogo}>
+                        ✕ Remove
+                      </button>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '0.74rem', color: '#64748b', display: 'block', marginTop: '4px' }}>
+                    Logo will be placed into the center of the QR code with Level-H error protection.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {form.category === 'other' && (
+              <div className="admin-form-group animate-fade-in" style={{ marginTop: '0.75rem' }}>
+                <label className="admin-form-label">
+                  Specify Custom Industry / Business Type <span className="required-star">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="admin-form-input"
+                  value={form.customCategory || ''}
+                  onChange={(e) => handleChange('customCategory', e.target.value)}
+                  placeholder="e.g. IT & Digital Marketing, Photography Studio, Pet Grooming, Solar Energy, Logistics..."
+                  required
+                />
+                <span className="admin-form-hint" style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginTop: '0.25rem' }}>
+                  AI review prompts and standee badges will be customized specifically for this industry.
+                </span>
+              </div>
+            )}
+
+            {/* Services Offered for Reviewers (Step 1 Options) */}
+            <div className="admin-form-group" style={{ marginTop: '0.95rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label className="admin-form-label" style={{ marginBottom: 0 }}>
+                  🛠️ Services Offered (Shown in Review Step 1 Dropdown) <span className="required-star">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleResetServicesToCategory}
+                  className="admin-btn-secondary"
+                  style={{ fontSize: '0.72rem', padding: '3px 8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                  title="Reset to recommended industry presets"
+                >
+                  ↺ Reset Defaults
+                </button>
+              </div>
+
+              {/* Active Services Chips */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px', minHeight: '34px', padding: '6px 8px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                {form.services && form.services.length > 0 ? (
+                  form.services.map((srv, idx) => (
+                    <span
+                      key={idx}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: '#e0e7ff',
+                        color: '#3730a3',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        padding: '4px 9px',
+                        borderRadius: '16px',
+                        border: '1px solid #c7d2fe',
+                      }}
+                    >
+                      {srv}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveService(srv)}
+                        style={{
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#4f46e5',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          padding: '0 2px',
+                          fontSize: '0.85rem',
+                          lineHeight: 1,
+                        }}
+                        title={`Remove ${srv}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <span style={{ fontSize: '0.8rem', color: '#dc2626', fontStyle: 'italic', padding: '4px' }}>
+                    ⚠️ No services added. Reviewers will have to type manually.
+                  </span>
+                )}
+              </div>
+
+              {/* Add custom service input */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                <input
+                  type="text"
+                  className="admin-form-input"
+                  style={{ flex: 1 }}
+                  placeholder="Type a custom service and click Add (e.g. Mobile App Dev, SEO)..."
+                  value={newServiceInput}
+                  onChange={(e) => setNewServiceInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddService();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="admin-btn-secondary"
+                  onClick={handleAddService}
+                  style={{ whiteSpace: 'nowrap', padding: '6px 14px', fontWeight: 600, fontSize: '0.82rem' }}
+                >
+                  + Add Service
+                </button>
+              </div>
+
+              {/* Suggested Industry Presets Quick-Add Chips */}
+              {(() => {
+                const presets = getCategoryServices(form.category === 'other' ? (form.customCategory || 'other') : form.category);
+                const unadded = presets.filter((p) => !form.services.some((s) => s.toLowerCase() === p.toLowerCase()));
+                if (unadded.length === 0) return null;
+                return (
+                  <div style={{ marginTop: '4px' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>
+                      Suggested for this category (tap to add):
+                    </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {unadded.slice(0, 8).map((p, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleToggleSuggestedService(p)}
+                          style={{
+                            background: '#f1f5f9',
+                            border: '1px dashed #cbd5e1',
+                            borderRadius: '12px',
+                            padding: '3px 8px',
+                            fontSize: '0.74rem',
+                            color: '#475569',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          + {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Google Review Destination Link */}
+            <div className="admin-form-group" style={{ marginTop: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <label className="admin-form-label" style={{ marginBottom: 0 }}>
+                  Google Review Link <span className="required-star">*</span>
+                </label>
+                {isValidGoogleReviewLink(form.googleReviewLink) ? (
+                  <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700 }}>
+                    ✓ Valid Google Link
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '0.72rem', color: '#dc2626', fontWeight: 700 }}>
+                    ⚠️ Google Link Required
+                  </span>
+                )}
+              </div>
+              <div className="admin-input-with-action">
+                <input
+                  type="url"
+                  className="admin-form-input"
+                  placeholder="Paste the business's Google review link"
+                  value={form.googleReviewLink}
+                  onChange={(e) => handleChange('googleReviewLink', e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="admin-input-action-btn"
+                  onClick={() => {
+                    if (form.googleReviewLink) {
+                      window.open(form.googleReviewLink, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                  title="Test destination link in new tab"
+                  disabled={!isValidGoogleReviewLink(form.googleReviewLink)}
+                >
+                  ↗ Test
+                </button>
+              </div>
+              <span className="admin-form-hint" style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginTop: '0.25rem' }}>
+                Find it in Google Business Profile &rarr; Get more reviews &rarr; Share review form
+              </span>
             </div>
 
             <h2 className="admin-card-section-title" style={{ marginTop: '1.5rem' }}>
@@ -621,7 +1092,8 @@ export default function AdminQRBuilder() {
               <div className="admin-ctrl-pill-group">
                 <span className="admin-ctrl-label">Style:</span>
                 {[
-                  { id: 'google', label: 'Google Official' },
+                  { id: 'google-quadrant', label: '⭐ Google 4-Color (Reference)' },
+                  { id: 'google', label: 'Google Backdrop' },
                   { id: 'midnight', label: 'Obsidian Noir' },
                   { id: 'acrylic', label: 'Clean Acrylic' },
                 ].map((t) => (
@@ -631,7 +1103,7 @@ export default function AdminQRBuilder() {
                     className={`admin-ctrl-btn ${standeeTheme === t.id ? 'active' : ''}`}
                     onClick={() => {
                       setStandeeTheme(t.id);
-                      if (t.id === 'google') setShowBackdrop(true);
+                      if (t.id === 'google' || t.id === 'google-quadrant') setShowBackdrop(true);
                     }}
                   >
                     {t.label}
@@ -667,15 +1139,19 @@ export default function AdminQRBuilder() {
               <QRStandeeCard
                 business={{
                   name: form.businessName || 'Your Business Name',
-                  category: CATEGORY_OPTIONS.find((c) => c.id === form.category)?.label || form.category,
+                  category: form.category === 'other'
+                    ? (form.customCategory?.trim() || 'Custom Business')
+                    : (CATEGORY_OPTIONS.find((c) => c.id === form.category)?.rawLabel || form.category),
                   website: reviewUrl,
+                  logoUrl: form.logoUrl,
                 }}
                 reviewUrl={reviewUrl}
+                logoUrl={form.logoUrl}
                 theme={standeeTheme}
                 format={standeeFormat}
                 showBackdrop={showBackdrop}
                 showBase={true}
-                headline="Review us on Google"
+                headline="WE'D LOVE YOUR FEEDBACK"
                 tagline={form.tagline}
                 show30sFlow={show30sFlow}
                 accentColor={form.accentColor}
@@ -686,14 +1162,25 @@ export default function AdminQRBuilder() {
           </div>
 
           {/* Action Buttons Toolbar */}
-          <div className="admin-qr-action-buttons">
+          <div className="admin-qr-action-buttons" style={{ flexWrap: 'wrap', gap: '8px' }}>
+            <a
+              href={waWelcomeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="admin-btn-primary"
+              style={{ background: '#16a34a', color: '#fff', textDecoration: 'none' }}
+              title="Send review link and standee kit to client via WhatsApp"
+            >
+              💬 WhatsApp Standee Kit
+            </a>
+
             <button
               type="button"
               className="admin-btn-secondary"
               onClick={handleCopyLink}
               title="Copy customer review link"
             >
-              {copied ? '✓ Copied!' : '🔗 Copy Review Link'}
+              {copied ? '✓ Copied!' : '🔗 Copy Link'}
             </button>
 
             <button
@@ -702,7 +1189,7 @@ export default function AdminQRBuilder() {
               onClick={handlePrintStandee}
               title="Direct 1-click print"
             >
-              🖨️ Print Standee
+              🖨️ Print
             </button>
 
             <button

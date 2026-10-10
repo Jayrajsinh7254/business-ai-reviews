@@ -11,8 +11,8 @@ const STORAGE_AUTH_STATE = 'reviewassist_auth_state';
 export const DEMO_PROFILES = {
   [ROLES.SUPER_ADMIN]: {
     id: 'user-admin-01',
-    email: 'admin@reviewassist.ai',
-    name: 'Alex Rivera (SaaS Admin)',
+    email: 'support.reviewassist@gmail.com',
+    name: 'Jayrajsinh Chavda (Super Admin)',
     role: ROLES.SUPER_ADMIN,
     businessId: 'demo-1',
     isSuperAdmin: true,
@@ -51,13 +51,14 @@ export function AuthProvider({ children }) {
 
   const [business, setBusiness] = useState(null);
   const [subscription, setSubscription] = useState({
-    planId: 'pro',
+    planId: 'starter',
     status: 'trialing', // Free trial by default
     billingInterval: 'monthly',
-    amount: 1299, // INR
-    currentPeriodEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14-day trial
-    aiGenerationsUsed: 38,
-    whatsappInvitesUsed: 64,
+    amount: 499, // INR
+    currentPeriodEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7-day trial
+    trialStartedAt: new Date().toISOString(),
+    aiGenerationsUsed: 0,
+    whatsappInvitesUsed: 0,
     razorpayPaymentId: null,
     razorpayOrderId: null,
   });
@@ -182,15 +183,18 @@ export function AuthProvider({ children }) {
         isSuperAdmin: false,
       };
 
-      // Set selected plan or default to Pro 14-day trial — no card required
-      const initialPlan = formData.planId || 'pro';
+      // Set selected plan or default to Starter 7-day trial — no card required
+      const initialPlan = formData.planId || 'starter';
+      const trialStartedAt = new Date().toISOString();
       const initialSub = {
+        businessId: res.business?.id || 'demo-1',
         planId: initialPlan,
-        status: 'trialing', // Free 14-day trial, no charge
+        status: 'trialing', // Free 7-day trial, no charge required
         billingInterval: formData.billingInterval || 'monthly',
         // INR pricing
         amount: initialPlan === 'starter' ? 499 : initialPlan === 'pro' ? 1299 : 2999,
-        currentPeriodEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        trialStartedAt,
         aiGenerationsUsed: 0,
         whatsappInvitesUsed: 0,
         razorpayPaymentId: null,
@@ -201,6 +205,9 @@ export function AuthProvider({ children }) {
       setSubscription(initialSub);
       if (res.business) {
         setBusiness(res.business);
+      }
+      if (api.updateSubscription && res.business?.id) {
+        await api.updateSubscription(res.business.id, initialSub);
       }
       return res;
     } finally {
@@ -304,6 +311,14 @@ export function AuthProvider({ children }) {
     }));
   };
 
+  // Trial time calculations
+  const trialEnd = subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd) : null;
+  const trialDaysLeft = trialEnd
+    ? Math.max(0, Math.ceil((trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const isTrialExpired =
+    subscription?.status === 'trialing' && trialEnd && trialEnd.getTime() < Date.now();
+
   const value = {
     user,
     role: user?.role || ROLES.CUSTOMER,
@@ -324,9 +339,11 @@ export function AuthProvider({ children }) {
     removeMember,
     changeMemberRole,
     refreshUserData: () => loadUserData(user?.businessId),
-    // Convenience: checks if trial is still active
+    // Trial helpers
     isTrialing: subscription?.status === 'trialing',
-    isSubscriptionActive: ['active', 'trialing'].includes(subscription?.status),
+    isTrialExpired,
+    trialDaysLeft,
+    isSubscriptionActive: ['active', 'trialing'].includes(subscription?.status) && !isTrialExpired,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

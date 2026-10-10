@@ -13,7 +13,8 @@ dist-ssr
 *.local
 
 # Environment variables
-.env
+# .env contains only placeholder templates — safe to commit
+# .env.local and .env.*.local contain REAL secrets — never commit
 .env.local
 .env.*.local
 

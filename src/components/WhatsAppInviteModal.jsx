@@ -7,6 +7,7 @@ export default function WhatsAppInviteModal({
   reviewUrl,
   planId = 'starter',
   userRole = 'business_owner',
+  isInactive = false,
   onOpenUpgradeModal,
   onClose,
 }) {
@@ -17,6 +18,10 @@ export default function WhatsAppInviteModal({
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState('');
 
+  const effectiveInactive =
+    isInactive ||
+    business?.status === 'inactive' ||
+    business?.subscriptionStatus === 'inactive';
   const isAllowedByPlan = isFeatureAllowed(planId, 'whatsappInviter');
   const isAllowedByRole = hasPermission(userRole, PERMISSIONS.CAMPAIGN_SEND_WHATSAPP);
 
@@ -120,7 +125,7 @@ export default function WhatsAppInviteModal({
                   className="btn-primary btn-lg"
                   onClick={onOpenUpgradeModal}
                 >
-                  💎 Upgrade to Pro Growth (₹1,299/mo)
+                  💎 Upgrade to Pro Growth (₹499/mo)
                 </button>
                 <button
                   type="button"
@@ -144,6 +149,26 @@ export default function WhatsAppInviteModal({
             </div>
           ) : (
             <>
+              {effectiveInactive && (
+                <div style={{
+                  background: 'linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%)',
+                  border: '1px solid #fecaca',
+                  borderRadius: '10px',
+                  padding: '12px 16px',
+                  marginBottom: '16px',
+                  color: '#991b1b',
+                  fontSize: '0.86rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
+                  <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>⛔</span>
+                  <div>
+                    <strong>Review Service is Inactive:</strong> Your business service is paused by administration. Customer scans show a paused screen, and outbound WhatsApp invites are temporarily suspended until reactivated.
+                  </div>
+                </div>
+              )}
+
               <div className="form-grid-2">
             <div className="form-group">
               <label className="form-label">Customer Name</label>
@@ -153,6 +178,7 @@ export default function WhatsAppInviteModal({
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="e.g. Sarah Jenkins"
+                disabled={effectiveInactive}
               />
             </div>
 
@@ -164,6 +190,7 @@ export default function WhatsAppInviteModal({
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="e.g. +1 555 123 4567 or +91 9876543210"
+                disabled={effectiveInactive}
               />
             </div>
           </div>
@@ -176,6 +203,7 @@ export default function WhatsAppInviteModal({
               value={service}
               onChange={(e) => setService(e.target.value)}
               placeholder="e.g. Brake Repair, Haircut, Dinner..."
+              disabled={effectiveInactive}
             />
           </div>
 
@@ -187,6 +215,7 @@ export default function WhatsAppInviteModal({
                 type="button"
                 className={`template-pill-btn ${templateType === 'friendly' ? 'active' : ''}`}
                 onClick={() => setTemplateType('friendly')}
+                disabled={effectiveInactive}
               >
                 🌟 Warm & Friendly
               </button>
@@ -194,6 +223,7 @@ export default function WhatsAppInviteModal({
                 type="button"
                 className={`template-pill-btn ${templateType === 'short' ? 'active' : ''}`}
                 onClick={() => setTemplateType('short')}
+                disabled={effectiveInactive}
               >
                 ⚡ Short & Quick
               </button>
@@ -201,6 +231,7 @@ export default function WhatsAppInviteModal({
                 type="button"
                 className={`template-pill-btn ${templateType === 'offer' ? 'active' : ''}`}
                 onClick={() => setTemplateType('offer')}
+                disabled={effectiveInactive}
               >
                 🎁 Loyalty / Discount Offer
               </button>
@@ -222,9 +253,11 @@ export default function WhatsAppInviteModal({
               type="button"
               className="btn-whatsapp-send btn-block"
               onClick={handleSendWhatsApp}
+              disabled={effectiveInactive}
+              style={effectiveInactive ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
             >
               <span className="wa-btn-icon">🟢</span>
-              Launch & Send in WhatsApp
+              {effectiveInactive ? 'Service Paused — Reactivate to Send' : 'Launch & Send in WhatsApp'}
             </button>
 
             <div className="whatsapp-sub-actions">
@@ -232,6 +265,8 @@ export default function WhatsAppInviteModal({
                 type="button"
                 className="btn-secondary flex-1"
                 onClick={handleSendSMS}
+                disabled={effectiveInactive}
+                style={effectiveInactive ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
               >
                 📱 Send via SMS
               </button>

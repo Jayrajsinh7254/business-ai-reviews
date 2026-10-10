@@ -33,6 +33,7 @@ CREATE TABLE public.businesses (
     category TEXT NOT NULL,
     services TEXT[] NOT NULL DEFAULT '{}',
     google_review_url TEXT,
+    google_review_link TEXT NOT NULL DEFAULT 'https://g.page/r/example/review',
     email TEXT,
     plan_id TEXT NOT NULL DEFAULT 'pro' CHECK (plan_id IN ('starter', 'pro', 'enterprise')),
     subscription_status TEXT NOT NULL DEFAULT 'active' CHECK (subscription_status IN ('trialing', 'active', 'past_due', 'canceled')),
@@ -130,18 +131,31 @@ ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_events ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Anyone can submit a lead"
     ON public.leads FOR INSERT
     WITH CHECK (true);
 
-CREATE POLICY "Admins or authenticated can view leads"
+CREATE POLICY "Allow select on leads"
     ON public.leads FOR SELECT
     USING (true);
 
-CREATE POLICY "Admins or authenticated can update leads"
+CREATE POLICY "Allow update on leads"
     ON public.leads FOR UPDATE
     USING (true);
+
+CREATE POLICY "Allow delete on leads"
+    ON public.leads FOR DELETE
+    USING (true);
+
+CREATE POLICY "Super Admins or business owners can view payment events"
+    ON public.payment_events FOR SELECT
+    TO authenticated
+    USING (
+        EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'super_admin') OR
+        EXISTS (SELECT 1 FROM public.businesses WHERE businesses.id = payment_events.business_id AND businesses.user_id = auth.uid())
+    );
 
 -- 10. RLS Policies
 
@@ -163,6 +177,14 @@ CREATE POLICY "Users can update their own profile"
 CREATE POLICY "Public businesses are viewable by everyone"
     ON public.businesses FOR SELECT
     USING (true);
+
+-- Anonymous public customers can select only safe public fields:
+-- name, category, services, google_review_link, id, status, subscription_status, created_at.
+-- Email and private credentials are protected from anonymous access.
+REVOKE SELECT ON public.businesses FROM anon;
+GRANT SELECT (id, name, category, services, google_review_link, status, subscription_status, created_at)
+ON public.businesses TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.businesses TO authenticated;
 
 CREATE POLICY "Users can create their business"
     ON public.businesses FOR INSERT

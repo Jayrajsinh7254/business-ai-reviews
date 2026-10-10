@@ -3,19 +3,30 @@ import { useAuth } from '../context/AuthContext';
 import { ROLES, PERMISSIONS, getRoleBadgeInfo } from '../lib/rbac';
 import { getPlan } from '../lib/plans';
 
-export default function TeamManagement({ onOpenUpgradeModal }) {
-  const { teamMembers, user, hasPermission, inviteMember, removeMember, changeMemberRole, subscription } = useAuth();
+export default function TeamManagement({
+  onOpenUpgradeModal,
+  planId: propPlanId,
+  business: propBusiness,
+  subscription: propSubscription,
+}) {
+  const auth = useAuth();
+  const { teamMembers, user, hasPermission, inviteMember, removeMember, changeMemberRole } = auth;
+  const business = propBusiness || auth.business;
+  const subscription = propSubscription || auth.subscription;
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
   const [inviteRole, setInviteRole] = useState(ROLES.BUSINESS_STAFF);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [invitedSuccess, setInvitedSuccess] = useState(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
-  const canManageTeam = hasPermission(PERMISSIONS.TEAM_INVITE);
-  const currentPlan = getPlan(subscription?.planId);
+  const canManageTeam = hasPermission(PERMISSIONS.TEAM_INVITE) || user?.isSuperAdmin;
+  const currentPlan = getPlan(propPlanId || business?.planId || subscription?.planId || 'pro');
   const maxSeats = currentPlan.limits.teamSeats;
   const currentSeatCount = teamMembers.length;
   const isSeatLimitReached = maxSeats !== Infinity && currentSeatCount >= maxSeats;
@@ -41,15 +52,29 @@ export default function TeamManagement({ onOpenUpgradeModal }) {
     setErrorMsg('');
 
     try {
+      const cleanEmail = inviteEmail.trim().toLowerCase();
       await inviteMember({
         name: inviteName.trim(),
-        email: inviteEmail.trim().toLowerCase(),
+        email: cleanEmail,
         role: inviteRole,
+        phone: invitePhone.trim(),
       });
 
-      showToast(`✓ Invitation sent to ${inviteEmail}!`);
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const inviteUrl = `${origin}/login?email=${encodeURIComponent(cleanEmail)}&staff=true`;
+
+      setInvitedSuccess({
+        name: inviteName.trim(),
+        email: cleanEmail,
+        phone: invitePhone.trim(),
+        role: inviteRole,
+        inviteUrl,
+      });
+
+      showToast(`✓ Added ${inviteName.trim()} to team!`);
       setInviteName('');
       setInviteEmail('');
+      setInvitePhone('');
       setInviteRole(ROLES.BUSINESS_STAFF);
       setShowInviteModal(false);
     } catch (err) {
@@ -57,6 +82,13 @@ export default function TeamManagement({ onOpenUpgradeModal }) {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard?.writeText(text);
+    setCopiedLink(true);
+    showToast('✓ Login link copied to clipboard!');
+    setTimeout(() => setCopiedLink(false), 3000);
   };
 
   const handleRemove = async (memberId, memberName) => {
@@ -187,7 +219,7 @@ export default function TeamManagement({ onOpenUpgradeModal }) {
                   </td>
                   <td>
                     <span className="date-muted">
-                      {new Date(member.invitedAt || Date.now()).toLocaleDateString('en-US', {
+                      {new Date(member.invitedAt || '2026-01-01').toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric',
@@ -197,14 +229,42 @@ export default function TeamManagement({ onOpenUpgradeModal }) {
                   {canManageTeam && (
                     <td className="text-right">
                       {!isOwner && !isCurrentUser ? (
-                        <button
-                          type="button"
-                          className="btn-action-revoke"
-                          onClick={() => handleRemove(member.id, member.name)}
-                          title="Revoke workspace access"
-                        >
-                          Revoke Access
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            className="btn-action-revoke"
+                            style={{ color: '#25D366', borderColor: '#25D366' }}
+                            onClick={() => {
+                              const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                              const inviteUrl = `${origin}/login?email=${encodeURIComponent(member.email)}&staff=true`;
+                              const msg = `Hi ${member.name}! Here is your staff login link for ${business?.name || 'ReviewAssist'}: ${inviteUrl}`;
+                              window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                            }}
+                            title="Share login invite via WhatsApp"
+                          >
+                            💬 WhatsApp
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-action-revoke"
+                            onClick={() => {
+                              const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                              const inviteUrl = `${origin}/login?email=${encodeURIComponent(member.email)}&staff=true`;
+                              copyToClipboard(inviteUrl);
+                            }}
+                            title="Copy staff login link"
+                          >
+                            📋 Link
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-action-revoke"
+                            onClick={() => handleRemove(member.id, member.name)}
+                            title="Revoke workspace access"
+                          >
+                            Revoke
+                          </button>
+                        </div>
                       ) : (
                         <span className="owner-locked-tag">Workspace Owner</span>
                       )}
@@ -286,7 +346,7 @@ export default function TeamManagement({ onOpenUpgradeModal }) {
 
               <div className="form-group">
                 <label className="form-label">
-                  Email Address <span className="required-star">*</span>
+                  Work Email Address <span className="required-star">*</span>
                 </label>
                 <input
                   type="email"
@@ -295,6 +355,19 @@ export default function TeamManagement({ onOpenUpgradeModal }) {
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="staff@yourbusiness.com"
                   required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
+                  Staff WhatsApp Phone <span style={{ color: '#64748b', fontWeight: 'normal' }}>(Optional)</span>
+                </label>
+                <input
+                  type="tel"
+                  className="form-input"
+                  value={invitePhone}
+                  onChange={(e) => setInvitePhone(e.target.value)}
+                  placeholder="+91 98765 43210 (for 1-click WhatsApp invite)"
                 />
               </div>
 
@@ -319,10 +392,97 @@ export default function TeamManagement({ onOpenUpgradeModal }) {
                   className="btn-primary btn-block btn-lg"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? 'Sending Invitation...' : 'Send Workspace Invite'}
+                  {isSubmitting ? 'Adding Staff Member...' : '+ Add Staff & Generate Invite Link'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Post-Invite Share Modal */}
+      {invitedSuccess && (
+        <div className="modal-backdrop" onClick={() => setInvitedSuccess(null)}>
+          <div className="modal-content modal-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>🎉 Staff Member Added!</h3>
+              <button type="button" className="modal-close-btn" onClick={() => setInvitedSuccess(null)}>
+                &times;
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ textAlign: 'center', padding: '20px' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '8px' }}>👔</div>
+              <h4 style={{ margin: '0 0 4px', fontSize: '1.2rem', color: '#1e293b' }}>{invitedSuccess.name}</h4>
+              <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: '0.88rem' }}>
+                Added to <strong>{business?.name || 'ReviewAssist'}</strong> as a <strong>Staff Member</strong>.
+              </p>
+
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  textAlign: 'left',
+                  marginBottom: '16px',
+                  fontSize: '0.85rem',
+                }}
+              >
+                <div style={{ fontWeight: 600, color: '#334155', marginBottom: '4px' }}>Staff Access Link:</div>
+                <div
+                  style={{
+                    fontFamily: 'monospace',
+                    background: '#fff',
+                    padding: '8px 10px',
+                    borderRadius: '4px',
+                    border: '1px solid #cbd5e1',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    color: '#475569',
+                    fontSize: '0.8rem',
+                  }}
+                >
+                  {invitedSuccess.inviteUrl}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <a
+                  href={`https://wa.me/${invitedSuccess.phone ? invitedSuccess.phone.replace(/[^0-9]/g, '') : ''}?text=${encodeURIComponent(
+                    `Hi ${invitedSuccess.name}! You've been added to our ${business?.name || 'ReviewAssist'} workspace to help collect customer reviews. Click here to sign in to your staff portal: ${invitedSuccess.inviteUrl}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary"
+                  style={{
+                    background: '#25D366',
+                    borderColor: '#25D366',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    textDecoration: 'none',
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>💬</span> Send Invite via WhatsApp
+                </a>
+
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => copyToClipboard(invitedSuccess.inviteUrl)}
+                >
+                  {copiedLink ? '✓ Copied to Clipboard!' : '📋 Copy Direct Login Link'}
+                </button>
+              </div>
+
+              <p style={{ margin: '14px 0 0', fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.4 }}>
+                Staff members can collect reviews, generate standees, and send WhatsApp invites, with billing and owner settings safely locked.
+              </p>
+            </div>
           </div>
         </div>
       )}

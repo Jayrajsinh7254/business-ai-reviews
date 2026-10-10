@@ -204,7 +204,7 @@ export default function AiReplyModal({
                   className="btn-primary btn-lg"
                   onClick={onOpenUpgradeModal}
                 >
-                  💎 Upgrade to Pro Growth (₹1,299/mo)
+                  💎 Upgrade to Pro Growth (₹499/mo)
                 </button>
                 <button
                   type="button"

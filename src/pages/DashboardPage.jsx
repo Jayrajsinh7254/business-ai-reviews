@@ -11,15 +11,17 @@ import TeamManagement from '../components/TeamManagement';
 import BillingPortal from '../components/BillingPortal';
 import RoleSwitcher from '../components/RoleSwitcher';
 import PermissionGate from '../components/PermissionGate';
+import TrialExpiredModal from '../components/TrialExpiredModal';
 import { useAuth } from '../context/AuthContext';
 import { ROLES, PERMISSIONS, getRoleBadgeInfo } from '../lib/rbac';
 import { getPlan, isFeatureAllowed } from '../lib/plans';
+import { CATEGORIES } from '../lib/categories';
 import { api } from '../api/client';
 
 export default function DashboardPage() {
   const { businessId: paramBizId } = useParams();
   const navigate = useNavigate();
-  const { user, role, hasPermission, subscription } = useAuth();
+  const { user, role, hasPermission, subscription, isTrialing, isTrialExpired, trialDaysLeft } = useAuth();
 
   const isSuperAdmin = role === ROLES.SUPER_ADMIN;
   // Rule 5: Client is strictly locked to their own business. Cannot view other businesses or demo dashboard.
@@ -308,8 +310,17 @@ export default function DashboardPage() {
               <span>{roleBadge.icon}</span>
               <span>{roleBadge.label}</span>
             </span>
-            <span className="plan-pill-tag">
-              💎 {currentPlan.name} Plan (₹{currentPlan.monthlyPrice?.toLocaleString('en-IN')}/mo)
+            <span className={`plan-pill-tag ${isTrialing ? 'trial-tag' : ''}`}>
+              {isTrialing
+                ? `🎁 ${currentPlan.name} (7-Day Trial)`
+                : `💎 ${currentPlan.name} Plan (₹${currentPlan.monthlyPrice?.toLocaleString('en-IN')}/mo)`}
+            </span>
+            <span className="plan-quota-badge">
+              {currentPlan.id === 'starter'
+                ? '📊 100 AI Reviews / mo • 1 Seat'
+                : currentPlan.id === 'pro'
+                ? '⚡ Unlimited AI • 5 Seats • WhatsApp'
+                : '🚀 Unlimited Multi-Location'}
             </span>
             <span className="biz-id-badge">ID: {activeBusinessId}</span>
             {isDemoMode && <span className="demo-status-pill">Interactive Preview</span>}
@@ -400,6 +411,64 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* =========================================================
+          TRIAL EXPIRED MODAL — blocks access when 7-day trial ends
+          (Never shown to Super Admin)
+          ========================================================= */}
+      {!isSuperAdmin && isTrialExpired && (
+        <TrialExpiredModal businessName={business?.name} />
+      )}
+
+      {/* =========================================================
+          TRIAL COUNTDOWN BANNER — visible when user is on trial
+          ========================================================= */}
+      {!isSuperAdmin && isTrialing && !isTrialExpired && (
+        <div
+          className={`trial-countdown-banner ${
+            trialDaysLeft <= 1 ? 'trial-banner-red'
+            : trialDaysLeft <= 3 ? 'trial-banner-orange'
+            : 'trial-banner-green'
+          }`}
+        >
+          <div className="trial-banner-left">
+            <span className="trial-banner-icon">
+              {trialDaysLeft <= 1 ? '🔴' : trialDaysLeft <= 3 ? '🟡' : '🎁'}
+            </span>
+            <div>
+              <strong className="trial-banner-headline">
+                {trialDaysLeft === 0
+                  ? 'Your Free Trial Expires Today!'
+                  : `Free Trial: ${trialDaysLeft} Day${trialDaysLeft === 1 ? '' : 's'} Remaining`}
+              </strong>
+              <span className="trial-banner-sub">
+                {trialDaysLeft <= 2
+                  ? 'Upgrade now to avoid any interruption to your review collection service.'
+                  : 'You are on a 7-day free trial. No card needed yet — upgrade anytime.'}
+              </span>
+            </div>
+          </div>
+          <div className="trial-banner-actions">
+            <a
+              href={`https://wa.me/919537370561?text=${encodeURIComponent(
+                `Hi ReviewAssist! I want to upgrade my plan for ${business?.name || 'my business'} before my trial ends.`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-trial-banner-wa"
+            >
+              💬 Upgrade via WhatsApp
+            </a>
+            <button
+              type="button"
+              className="btn-trial-banner-upgrade"
+              onClick={() => navigate('/pricing')}
+            >
+              💎 View Plans
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Service Inactive Warning Banner */}
       {isInactive && (
         <div className="dashboard-inactive-warning-banner animate-fade-in">
@@ -416,7 +485,7 @@ export default function DashboardPage() {
           </div>
           <div className="inactive-banner-actions">
             <a
-              href={`https://wa.me/919999999999?text=${encodeURIComponent(
+              href={`https://wa.me/919537370561?text=${encodeURIComponent(
                 `Hi ReviewAssist team, I need to renew the subscription for ${business?.name || activeBusinessId}. Please send offline UPI / Bank payment details.`
               )}`}
               target="_blank"
@@ -1025,14 +1094,21 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Business Category</label>
+                  <label className="form-label">Business Category / Industry</label>
                   <input
                     type="text"
+                    list="category-presets"
                     className="form-input"
                     value={settingsCategory}
                     onChange={(e) => setSettingsCategory(e.target.value)}
                     disabled={!hasPermission(PERMISSIONS.BIZ_UPDATE_PROFILE)}
+                    placeholder="e.g. IT & Digital Marketing, Automobile, Photography Studio..."
                   />
+                  <datalist id="category-presets">
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat.id} value={cat.label} />
+                    ))}
+                  </datalist>
                 </div>
               </div>
 

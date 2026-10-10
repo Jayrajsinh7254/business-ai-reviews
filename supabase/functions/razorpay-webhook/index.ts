@@ -120,7 +120,7 @@ serve(async (req) => {
         await supabase.from("subscriptions").update({ status: "canceled" }).eq("business_id", businessId);
         await supabase
           .from("businesses")
-          .update({ subscription_status: "canceled" })\
+          .update({ subscription_status: "canceled" })
           .eq("id", businessId);
         break;
       }

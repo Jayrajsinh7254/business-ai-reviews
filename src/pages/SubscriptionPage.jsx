@@ -7,7 +7,6 @@ import SubscriptionModal from '../components/SubscriptionModal';
 
 export default function SubscriptionPage() {
   const { user, business, subscription, updateSubscriptionPlan } = useAuth();
-  const navigate = useNavigate();
 
   const [billingInterval, setBillingInterval] = useState(subscription?.billingInterval || 'monthly');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -34,8 +33,8 @@ export default function SubscriptionPage() {
 
   const daysRemaining = Math.max(0, Math.ceil((trialEnd - Date.now()) / (1000 * 60 * 60 * 24)));
 
-  const aiUsed = subscription?.aiGenerationsUsed || 38;
-  const waUsed = subscription?.whatsappInvitesUsed || 64;
+  const aiUsed = business?.aiCreditsUsed || subscription?.aiGenerationsUsed || 0;
+  const waUsed = business?.whatsappInvitesUsed || subscription?.whatsappInvitesUsed || 0;
   const aiLimit = currentPlanObj.limits.aiReviewsPerMonth === Infinity ? null : currentPlanObj.limits.aiReviewsPerMonth;
   const waLimit = currentPlanObj.limits.whatsappInvitesPerMonth === Infinity ? null : currentPlanObj.limits.whatsappInvitesPerMonth;
 
@@ -47,7 +46,7 @@ export default function SubscriptionPage() {
     setSuccessMsg('');
 
     const targetPlan = PLANS[targetPlanId.toUpperCase()] || PLANS.PRO;
-    const amountToPay = billingInterval === 'annual' ? targetPlan.annualPrice : targetPlan.monthlyPrice;
+    const amountToPay = billingInterval === 'annual' ? (targetPlan.annualTotalAmount || targetPlan.annualPrice * 12) : targetPlan.monthlyPrice;
 
     try {
       const result = await initiateRazorpayCheckout({
@@ -90,7 +89,7 @@ export default function SubscriptionPage() {
             <div className="sub-badge-row">
               <span className="sub-header-badge">💳 Subscription & Billing Hub</span>
               {currentStatus === 'trialing' && (
-                <span className="sub-trial-badge">🎁 14-Day Free Trial ({daysRemaining} Days Left)</span>
+                <span className="sub-trial-badge">🎁 7-Day Free Trial ({daysRemaining} Days Left)</span>
               )}
               {currentStatus === 'active' && (
                 <span className="sub-active-badge">✓ Active Paid Subscription</span>
@@ -154,7 +153,7 @@ export default function SubscriptionPage() {
               <div className="sub-trial-notice-box">
                 <div className="sub-trial-icon">🎁</div>
                 <div className="sub-trial-text">
-                  <strong>14-Day Free Trial In Progress</strong>
+                  <strong>7-Day Free Trial In Progress</strong>
                   <p>
                     Your trial gives you unrestricted access to Pro Growth features until{' '}
                     <strong>{nextBillingDate}</strong> with zero upfront debit/credit card charge.
@@ -315,7 +314,7 @@ export default function SubscriptionPage() {
                   className={`sub-toggle-btn ${billingInterval === 'annual' ? 'active' : ''}`}
                   onClick={() => setBillingInterval('annual')}
                 >
-                  Annual Billing <span className="save-tag">Save 20% + 2 Months Free</span>
+                  Annual Billing <span className="save-tag">Save up to 60% + Free Standee 🪔</span>
                 </button>
               </div>
             </div>
@@ -325,7 +324,6 @@ export default function SubscriptionPage() {
             {PLAN_LIST.map((plan) => {
               const isCurrent = currentPlanId === plan.id;
               const price = billingInterval === 'annual' ? plan.annualPrice : plan.monthlyPrice;
-              const annualSavings = (plan.monthlyPrice - plan.annualPrice) * 12;
 
               return (
                 <div
@@ -344,11 +342,25 @@ export default function SubscriptionPage() {
                       <span className="sub-tier-curr">₹</span>
                       <span className="sub-tier-num">{price.toLocaleString('en-IN')}</span>
                       <span className="sub-tier-per">/ mo</span>
+                      {plan.originalMonthlyPrice && (
+                        <span style={{ textDecoration: 'line-through', color: '#94a3b8', fontSize: '0.95rem', marginLeft: '6px' }}>
+                          ₹{plan.originalMonthlyPrice}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ marginTop: '4px', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: billingInterval === 'annual' ? '#15803d' : '#ea580c', background: billingInterval === 'annual' ? '#f0fdf4' : '#fff7ed', padding: '2px 6px', borderRadius: '4px' }}>
+                        🪔 {billingInterval === 'annual' ? plan.annualSavingsText : plan.diwaliDiscountText}
+                      </span>
                     </div>
                     {billingInterval === 'annual' && (
-                      <span className="sub-tier-annual-note">
-                        Billed annually ₹{(price * 12).toLocaleString('en-IN')}{' '}
-                        <span className="annual-save-chip">Save ₹{annualSavings.toLocaleString('en-IN')}</span>
+                      <span className="sub-tier-annual-note" style={{ display: 'block' }}>
+                        Billed annually ₹{(plan.annualTotalAmount || price * 12).toLocaleString('en-IN')}{' '}
+                        {plan.annualPerk && (
+                          <span style={{ display: 'block', fontSize: '0.75rem', color: '#059669', fontWeight: 600, marginTop: '2px' }}>
+                            {plan.annualPerk}
+                          </span>
+                        )}
                       </span>
                     )}
                   </div>
@@ -424,7 +436,7 @@ export default function SubscriptionPage() {
                   </td>
                   <td>28 Sep 2026</td>
                   <td>Pro Growth (Monthly)</td>
-                  <td>₹1,299</td>
+                  <td>₹499</td>
                   <td>
                     <span className="sub-invoice-status paid">Paid ✓</span>
                   </td>
@@ -435,7 +447,7 @@ export default function SubscriptionPage() {
                     <button
                       type="button"
                       className="btn-link-sm"
-                      onClick={() => handleDownloadInvoice('INV-2026-0901', 1299, '28 Sep 2026')}
+                      onClick={() => handleDownloadInvoice('INV-2026-0901', 499, '28 Sep 2026')}
                     >
                       📥 PDF Receipt
                     </button>
@@ -447,7 +459,7 @@ export default function SubscriptionPage() {
                   </td>
                   <td>14 Aug 2026</td>
                   <td>Starter Plan (Monthly)</td>
-                  <td>₹499</td>
+                  <td>₹299</td>
                   <td>
                     <span className="sub-invoice-status paid">Paid ✓</span>
                   </td>
@@ -458,7 +470,7 @@ export default function SubscriptionPage() {
                     <button
                       type="button"
                       className="btn-link-sm"
-                      onClick={() => handleDownloadInvoice('INV-2026-0814', 499, '14 Aug 2026')}
+                      onClick={() => handleDownloadInvoice('INV-2026-0814', 299, '14 Aug 2026')}
                     >
                       📥 PDF Receipt
                     </button>

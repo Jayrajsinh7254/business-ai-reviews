@@ -24,6 +24,7 @@ export default function HomePage() {
         whatStoodOut: demoNotes || 'friendly team and prompt service',
         rating: activeRating,
         previousDraft: demoDraft || '',
+        seed: Date.now() + Math.floor(Math.random() * 1000000),
       });
       if (res?.draftText) {
         setDemoDraft(res.draftText);
@@ -345,8 +346,14 @@ export default function HomePage() {
 
           <div className="industry-pills-grid">
             <div className="industry-pill-card">
+              <span className="industry-icon">💻</span>
+              <h4>IT &amp; Digital Marketing</h4>
+              <p>Turn project milestones and client deliverables into glowing reviews citing ROI, traffic, and technical expertise.</p>
+            </div>
+
+            <div className="industry-pill-card">
               <span className="industry-icon">🚗</span>
-              <h4>Auto Care & Garages</h4>
+              <h4>Auto Care &amp; Garages</h4>
               <p>Highlight quick turnaround, honest diagnostics, and certified technicians.</p>
             </div>
 

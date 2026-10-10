@@ -143,8 +143,8 @@ export default function AdminPortalPage() {
           </div>
           <div className="metric-body">
             <span className="metric-label">Monthly Recurring Revenue (MRR)</span>
-            <span className="metric-value">${metrics?.mrr ? metrics.mrr.toLocaleString() : '18,450'}</span>
-            <span className="metric-subtext trend-positive">↑ +14.2% from last month</span>
+            <span className="metric-value">₹{metrics?.mrr ? metrics.mrr.toLocaleString('en-IN') : '0'}</span>
+            <span className="metric-subtext trend-positive">Real-time subscriber MRR</span>
           </div>
         </div>
 
@@ -155,8 +155,8 @@ export default function AdminPortalPage() {
           </div>
           <div className="metric-body">
             <span className="metric-label">Active Subscribed Businesses</span>
-            <span className="metric-value">{metrics?.activeSubscribers || 246}</span>
-            <span className="metric-subtext">Across 8 local industries</span>
+            <span className="metric-value">{metrics?.activeSubscribers ?? 0}</span>
+            <span className="metric-subtext">Active subscribed tenants</span>
           </div>
         </div>
 
@@ -167,8 +167,8 @@ export default function AdminPortalPage() {
           </div>
           <div className="metric-body">
             <span className="metric-label">Total AI Reviews Generated</span>
-            <span className="metric-value">{metrics?.totalAiReviewsGenerated?.toLocaleString() || '48,920'}</span>
-            <span className="metric-subtext">Gemini 2.5 AI throughput</span>
+            <span className="metric-value">{metrics?.totalAiReviewsGenerated?.toLocaleString() ?? 0}</span>
+            <span className="metric-subtext">Platform review throughput</span>
           </div>
         </div>
 
@@ -179,8 +179,8 @@ export default function AdminPortalPage() {
           </div>
           <div className="metric-body">
             <span className="metric-label">Monthly Churn Rate</span>
-            <span className="metric-value">{metrics?.churnRate || 1.4}%</span>
-            <span className="metric-subtext trend-positive">Healthy SaaS benchmark (&lt; 2%)</span>
+            <span className="metric-value">{metrics?.churnRate ?? 0}%</span>
+            <span className="metric-subtext trend-positive">Platform retention</span>
           </div>
         </div>
       </div>
@@ -193,17 +193,25 @@ export default function AdminPortalPage() {
             <p className="plan-dist-subtitle">Active tenant distribution across monthly tiers</p>
           </div>
           <div className="plan-dist-chips">
-            <span className="plan-chip starter-chip">Starter: 42 businesses (17%)</span>
-            <span className="plan-chip pro-chip">Pro Growth: 168 businesses (68%)</span>
-            <span className="plan-chip enterprise-chip">Enterprise: 36 businesses (15%)</span>
+            <span className="plan-chip starter-chip">Starter: {metrics?.planDistribution?.starter ?? 0} businesses</span>
+            <span className="plan-chip pro-chip">Pro Growth: {metrics?.planDistribution?.pro ?? 0} businesses</span>
+            <span className="plan-chip enterprise-chip">Enterprise: {metrics?.planDistribution?.enterprise ?? 0} businesses</span>
           </div>
         </div>
 
-        <div className="plan-dist-progress-bar">
-          <div className="dist-segment starter-segment" style={{ width: '17%' }} title="Starter Plan: 17%"></div>
-          <div className="dist-segment pro-segment" style={{ width: '68%' }} title="Pro Growth: 68%"></div>
-          <div className="dist-segment enterprise-segment" style={{ width: '15%' }} title="Enterprise Plan: 15%"></div>
-        </div>
+        {(() => {
+          const totalActive = (metrics?.planDistribution?.starter || 0) + (metrics?.planDistribution?.pro || 0) + (metrics?.planDistribution?.enterprise || 0);
+          const starterPct = totalActive > 0 ? Math.round(((metrics?.planDistribution?.starter || 0) / totalActive) * 100) : 0;
+          const proPct = totalActive > 0 ? Math.round(((metrics?.planDistribution?.pro || 0) / totalActive) * 100) : 0;
+          const entPct = totalActive > 0 ? Math.round(((metrics?.planDistribution?.enterprise || 0) / totalActive) * 100) : 0;
+          return (
+            <div className="plan-dist-progress-bar">
+              <div className="dist-segment starter-segment" style={{ width: `${starterPct}%` }} title={`Starter: ${starterPct}%`} />
+              <div className="dist-segment pro-segment" style={{ width: `${proPct}%` }} title={`Pro Growth: ${proPct}%`} />
+              <div className="dist-segment enterprise-segment" style={{ width: `${entPct}%` }} title={`Enterprise: ${entPct}%`} />
+            </div>
+          );
+        })()}
       </div>
 
       {/* All Tenant Businesses Table */}

@@ -29,8 +29,8 @@ export default function PricingPage() {
       a: 'Yes, absolutely! ReviewAssist offers month-to-month flexibility with zero lock-in contracts. You can upgrade, downgrade, or cancel your subscription directly from your dashboard billing settings in 1 click.',
     },
     {
-      q: 'How does the 14-day free trial work?',
-      a: 'When you register your business, you get full 14-day access to our Pro Growth Plan with unlimited AI review generations, customized standee printing, and WhatsApp invite automation without being charged upfront.',
+      q: 'How does the 7-day free trial work?',
+      a: 'When you register your business, you get full 7-day access to our Pro Growth Plan with unlimited AI review generations, customized standee printing, and WhatsApp invite automation without being charged upfront.',
     },
     {
       q: 'What happens when my staff invites customers via WhatsApp or SMS?',
@@ -51,10 +51,30 @@ export default function PricingPage() {
       {/* 1. Header Hero */}
       <section className="pricing-hero-section text-center">
         <div className="section-container">
+          {/* Diwali Festive Announcement Banner */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.4)',
+              color: '#b45309',
+              borderRadius: '999px',
+              padding: '8px 22px',
+              marginBottom: '16px',
+              fontWeight: 700,
+              fontSize: '0.9rem',
+            }}
+          >
+            <span style={{ fontSize: '1.25rem' }}>🪔</span>
+            <span>DIWALI FESTIVE SALE — Flat Discounts on All Monthly & Annual Plans!</span>
+          </div>
+
           <div className="pricing-hero-badge animate-fade-in">
             <span className="badge-sparkle">💎</span>
             <span>Simple, Transparent SaaS Pricing</span>
-            <span className="badge-pill">14-Day Free Trial</span>
+            <span className="badge-pill">7-Day Free Trial</span>
           </div>
 
           <h1 className="pricing-headline">
@@ -63,7 +83,7 @@ export default function PricingPage() {
           </h1>
 
           <p className="pricing-subheadline">
-            Get more 5-star reviews on autopilot. Start free for 14 days, upgrade as you grow, cancel anytime.
+            Get more 5-star reviews on autopilot. Start free for 7 days, upgrade as you grow, cancel anytime.
           </p>
 
           {/* Billing Interval Toggle */}
@@ -81,7 +101,7 @@ export default function PricingPage() {
                 className={`pricing-toggle-btn ${billingInterval === 'annual' ? 'active' : ''}`}
                 onClick={() => setBillingInterval('annual')}
               >
-                Annual Billing <span className="save-badge">Save 20% + 2 Mo Free</span>
+                Annual Billing <span className="save-badge">Save up to 60% + Diwali Standee 🪔</span>
               </button>
             </div>
           </div>
@@ -110,16 +130,63 @@ export default function PricingPage() {
                   <div className="tier-card-header">
                     <h3 className="tier-name">{plan.name}</h3>
                     <p className="tier-tagline">{plan.tagline}</p>
+
                     <div className="tier-price-box">
-                      <span className="tier-currency">{plan.currency}</span>
-                      <span className="tier-price-val">{price.toLocaleString('en-IN')}</span>
-                      <span className="tier-period">/ month</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+                          <span className="tier-currency">{plan.currency}</span>
+                          <span className="tier-price-val">{price.toLocaleString('en-IN')}</span>
+                          <span className="tier-period">/ month</span>
+                          <span
+                            style={{
+                              textDecoration: 'line-through',
+                              color: '#94a3b8',
+                              fontSize: '1.05rem',
+                              fontWeight: 500,
+                            }}
+                          >
+                            ₹{plan.originalMonthlyPrice}
+                          </span>
+                        </div>
+
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            color: billingInterval === 'annual' ? '#15803d' : '#ea580c',
+                            background: billingInterval === 'annual' ? '#f0fdf4' : '#fff7ed',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            width: 'fit-content',
+                            border: billingInterval === 'annual' ? '1px solid #dcfce7' : '1px solid #ffedd5',
+                          }}
+                        >
+                          🪔 {billingInterval === 'annual' ? plan.annualSavingsText : plan.diwaliDiscountText}
+                        </span>
+                      </div>
                     </div>
+
                     {billingInterval === 'annual' && (
-                      <span className="tier-billed-annually">
-                        Billed annually ₹{(price * 12).toLocaleString('en-IN')}/yr
-                        {' '}<span className="annual-save-tag">Save ₹{((plan.monthlyPrice - plan.annualPrice) * 12).toLocaleString('en-IN')}</span>
-                      </span>
+                      <div style={{ marginTop: '8px' }}>
+                        <span className="tier-billed-annually" style={{ display: 'block', fontSize: '0.85rem' }}>
+                          Billed annually: <strong>₹{plan.annualTotalAmount?.toLocaleString('en-IN')}/yr</strong>
+                        </span>
+                        <div
+                          style={{
+                            marginTop: '6px',
+                            fontSize: '0.78rem',
+                            color: '#0369a1',
+                            background: '#f0f9ff',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            border: '1px solid #e0f2fe',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {plan.annualPerk}
+                        </div>
+                      </div>
                     )}
                   </div>
 
@@ -131,7 +198,7 @@ export default function PricingPage() {
                     >
                       {isCurrent ? '✓ Current Plan' : `Get Started with ${plan.name}`}
                     </button>
-                    <span className="tier-guarantee-note">14-day free trial • No credit card required</span>
+                    <span className="tier-guarantee-note">7-day free trial • No credit card required</span>
                   </div>
 
                   <div className="tier-features-divider">
@@ -167,9 +234,9 @@ export default function PricingPage() {
               <thead>
                 <tr>
                   <th className="col-feature">Core Platform Features</th>
-                  <th>Starter (₹499/mo)</th>
-                  <th className="col-highlight">Pro Growth (₹1,299/mo)</th>
-                  <th>Enterprise (₹2,999/mo)</th>
+                  <th>Starter (₹299/mo)</th>
+                  <th className="col-highlight">Pro Growth (₹499/mo)</th>
+                  <th>Enterprise (₹799/mo)</th>
                 </tr>
               </thead>
               <tbody>
@@ -198,7 +265,7 @@ export default function PricingPage() {
                     <strong>WhatsApp & SMS 1-Click Inviter</strong>
                     <span>Direct review requests to customer phones</span>
                   </td>
-                  <td>100 invites / mo</td>
+                  <td className="text-muted"><span className="feature-not-included">— (Pro &amp; Enterprise)</span></td>
                   <td className="col-highlight"><span className="tag-unlimited">Unlimited</span></td>
                   <td><span className="tag-unlimited">Unlimited</span></td>
                 </tr>
@@ -304,13 +371,13 @@ export default function PricingPage() {
           <div className="bottom-cta-card">
             <div className="cta-glow-bg"></div>
             <div className="cta-content text-center">
-              <h2 className="cta-headline">Start Your 14-Day Free Pro Trial Today</h2>
+              <h2 className="cta-headline">Start Your 7-Day Free Pro Trial Today</h2>
               <p className="cta-subtext">
                 Set up your business profile in 2 minutes and start collecting 5-star Google reviews immediately.
               </p>
               <div className="cta-buttons-group">
                 <Link to="/signup?plan=pro" className="btn-primary btn-xl">
-                  🚀 Start Free 14-Day Trial — No Card Required
+                  🚀 Start Free 7-Day Trial — No Card Required
                 </Link>
                 <Link to="/dashboard/demo-1" className="btn-outline-white btn-xl">
                   📊 Explore Interactive Dashboard

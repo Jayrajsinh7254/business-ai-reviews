@@ -58,21 +58,21 @@ export default function TermsOfServicePage() {
           </section>
 
           <section className="legal-section">
-            <h2>3. Subscriptions, 14-Day Free Trial & Razorpay Billing</h2>
+            <h2>3. Subscriptions, 7-Day Free Trial & Razorpay Billing</h2>
 
-            <h3>A. 14-Day Card-Free Trial</h3>
+            <h3>A. 7-Day Card-Free Trial</h3>
             <p>
-              New registered businesses receive an unrestricted <strong>14-day free trial</strong> of the selected plan. <strong>No credit or debit card is required upfront</strong> to initiate the trial. You can create standees, invite team members, and test the review generation flow risk-free.
+              New registered businesses receive an unrestricted <strong>7-day free trial</strong> of the selected plan. <strong>No credit or debit card is required upfront</strong> to initiate the trial. You can create standees, invite team members, and test the review generation flow risk-free.
             </p>
 
             <h3>B. Pricing & Renewal in Indian Rupees (INR)</h3>
             <p>
-              Following your 14-day trial, continuous access requires choosing an active subscription tier:
+              Following your 7-day trial, continuous access requires choosing an active subscription tier:
             </p>
             <ul>
-              <li><strong>Starter Plan:</strong> ₹499/month (or ₹399/month billed annually at ₹4,788/year).</li>
-              <li><strong>Pro Growth Plan:</strong> ₹1,299/month (or ₹999/month billed annually at ₹11,988/year).</li>
-              <li><strong>Enterprise Plan:</strong> ₹2,999/month (or ₹2,399/month billed annually at ₹28,788/year).</li>
+              <li><strong>Starter Plan:</strong> ₹299/month (Diwali special from ₹499; or ₹199/month billed annually at ₹2,388/year).</li>
+              <li><strong>Pro Growth Plan:</strong> ₹499/month (Diwali special from ₹699; or ₹349/month billed annually at ₹4,188/year).</li>
+              <li><strong>Enterprise Plan:</strong> ₹799/month (Diwali special from ₹1,199; or ₹599/month billed annually at ₹7,188/year).</li>
             </ul>
 
             <h3>C. Payment Processing via Razorpay</h3>
@@ -82,7 +82,7 @@ export default function TermsOfServicePage() {
 
             <h3>D. Cancellation & Refund Policy</h3>
             <p>
-              You may cancel your subscription at any time directly through the <strong>Subscription & Billing</strong> tab on your dashboard. Upon cancellation, your account retains full premium access until the end of your current paid billing period. Because we offer an unrestricted 14-day free trial prior to payment, subscription payments are non-refundable once processed, except where required by applicable consumer protection laws.
+              You may cancel your subscription at any time directly through the <strong>Subscription & Billing</strong> tab on your dashboard. Upon cancellation, your account retains full premium access until the end of your current paid billing period. Because we offer an unrestricted 7-day free trial prior to payment, subscription payments are non-refundable once processed, except where required by applicable consumer protection laws.
             </p>
           </section>
 
@@ -155,10 +155,10 @@ export default function TermsOfServicePage() {
               If you have any questions regarding these Terms of Service, please reach out to:
             </p>
             <div className="legal-contact-card">
-              <p><strong>ReviewAssist Legal Affairs</strong></p>
-              <p>Email: <a href="mailto:legal@reviewassist.ai">legal@reviewassist.ai</a></p>
-              <p>Support: <a href="mailto:support@reviewassist.ai">support@reviewassist.ai</a></p>
-              <p>ReviewAssist Technologies Inc. • Bengaluru, Karnataka, India</p>
+              <p><strong>ReviewAssist Legal & Support</strong></p>
+              <p>Email: <a href="mailto:support.reviewassist@gmail.com">support.reviewassist@gmail.com</a></p>
+              <p>WhatsApp Support: <a href="https://wa.me/919537370561" target="_blank" rel="noopener noreferrer">+91 95373 70561</a></p>
+              <p>ReviewAssist Technologies • India</p>
             </div>
           </section>
         </div>

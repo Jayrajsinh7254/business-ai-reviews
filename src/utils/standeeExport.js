@@ -111,9 +111,10 @@ export async function exportHighResStandee({
   business,
   reviewUrl,
   qrDataUrl,
-  theme = 'google',
+  logoUrl = '',
+  theme = 'google-quadrant',
   showBackdrop = true,
-  headline = 'Review us on Google',
+  headline = "WE'D LOVE YOUR FEEDBACK",
   tagline = 'Scan the above QR code with your smartphone and make our day by leaving us a review on Google!',
   show30sFlow = true,
   format = 'portrait', // 'portrait' | 'table_tent' | 'poster' | 'sticker'
@@ -126,27 +127,196 @@ export async function exportHighResStandee({
   let height = 2100;
 
   if (format === 'table_tent') {
-    // 4x6" table tent (2:3)
     width = 1400;
     height = 2100;
   } else if (format === 'poster') {
-    // A4 Wall Poster (1:1.414)
     width = 1754;
     height = 2480;
   } else if (format === 'sticker') {
-    // 4x4" Square Decal (1:1)
     width = 1500;
     height = 1500;
   } else {
-    // Default 'portrait' 5x7" counter standee (5:7 ratio)
     width = 1500;
-    height = 2100;
+    height = 2250; // Optimized 2:3 vertical plaque aspect ratio matching reference standee
   }
 
   canvas.width = width;
   canvas.height = height;
 
-  // 2. Draw Outer Multi-color Google Backdrop
+  const bizName = business?.name || 'Local Business';
+
+  // ─────────────────────────────────────────────────────────────
+  // THEME: Google 4-Color Quadrant (Exact Match to User Reference Standee)
+  // ─────────────────────────────────────────────────────────────
+  if (theme === 'google-quadrant') {
+    // 1. Draw 4-Color Quadrant Border
+    const outerRadius = Math.round(width * 0.055);
+    ctx.save();
+    roundRect(ctx, 0, 0, width, height, outerRadius);
+    ctx.clip();
+
+    // Quadrant Top-Left: Green (#34A853)
+    ctx.fillStyle = '#34A853';
+    ctx.fillRect(0, 0, width / 2, height / 2);
+
+    // Quadrant Top-Right: Blue (#4285F4)
+    ctx.fillStyle = '#4285F4';
+    ctx.fillRect(width / 2, 0, width / 2, height / 2);
+
+    // Quadrant Bottom-Left: Yellow (#FBBC05)
+    ctx.fillStyle = '#FBBC05';
+    ctx.fillRect(0, height / 2, width / 2, height / 2);
+
+    // Quadrant Bottom-Right: Red (#EA4335)
+    ctx.fillStyle = '#EA4335';
+    ctx.fillRect(width / 2, height / 2, width / 2, height / 2);
+    ctx.restore();
+
+    // 2. Inner Crisp White Plaque
+    const borderThickness = Math.round(width * 0.036);
+    const innerX = borderThickness;
+    const innerY = borderThickness;
+    const innerW = width - borderThickness * 2;
+    const innerH = height - borderThickness * 2;
+    const innerRadius = Math.round(outerRadius * 0.72);
+
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    roundRect(ctx, innerX, innerY, innerW, innerH, innerRadius);
+    ctx.fill();
+    ctx.restore();
+
+    // 3. Mathematical Centered Distribution
+    const padTop = Math.round(innerH * 0.065);
+    let curY = innerY + padTop;
+
+    // Top Business Logo
+    const effectiveLogo = logoUrl || business?.logoUrl;
+    if (effectiveLogo) {
+      try {
+        const logoImg = await loadImage(effectiveLogo);
+        if (logoImg && logoImg.width && logoImg.height) {
+          const maxLogoW = Math.round(innerW * 0.42);
+          const maxLogoH = Math.round(innerH * 0.088);
+          const aspect = logoImg.width / logoImg.height;
+          let drawW = maxLogoW;
+          let drawH = drawW / aspect;
+          if (drawH > maxLogoH) {
+            drawH = maxLogoH;
+            drawW = drawH * aspect;
+          }
+          ctx.drawImage(logoImg, width / 2 - drawW / 2, curY, drawW, drawH);
+          curY += drawH + Math.round(innerH * 0.028);
+        }
+      } catch (e) {
+        console.warn('Export logo load note:', e);
+      }
+    } else {
+      // Clean monogram circle
+      const badgeR = Math.round(innerW * 0.062);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(width / 2, curY + badgeR, badgeR, 0, Math.PI * 2);
+      ctx.fillStyle = '#f8fafc';
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 4;
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#334155';
+      ctx.font = `bold ${Math.round(badgeR * 1.1)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(bizName?.[0] || '🏢', width / 2, curY + badgeR);
+      ctx.restore();
+      curY += badgeR * 2 + Math.round(innerH * 0.028);
+    }
+
+    // Business Name
+    ctx.save();
+    ctx.fillStyle = '#111827';
+    ctx.font = `bold ${Math.round(innerW * 0.056)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(bizName, width / 2, curY);
+    curY += Math.round(innerW * 0.056 * 1.3) + Math.round(innerH * 0.012);
+    ctx.restore();
+
+    // 5 Golden Rating Stars
+    const starSize = Math.round(innerW * 0.046);
+    const starGap = Math.round(starSize * 0.32);
+    const totalStarsW = 5 * starSize + 4 * starGap;
+    drawGoldenStars(ctx, width / 2 - totalStarsW / 2, curY, 5, starSize, starGap);
+    curY += starSize + Math.round(innerH * 0.026);
+
+    // Callout Headline: "WE'D LOVE" / "YOUR FEEDBACK"
+    ctx.save();
+    ctx.fillStyle = '#1f2937';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.font = `800 ${Math.round(innerW * 0.042)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.fillText("WE’D LOVE", width / 2, curY);
+    curY += Math.round(innerW * 0.042 * 1.32);
+
+    ctx.font = `900 ${Math.round(innerW * 0.048)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.fillText("YOUR FEEDBACK", width / 2, curY);
+    curY += Math.round(innerW * 0.048 * 1.4) + Math.round(innerH * 0.024);
+    ctx.restore();
+
+    // Framed QR Box
+    const qrBoxSize = Math.round(innerW * 0.68);
+    const qrBoxX = width / 2 - qrBoxSize / 2;
+    const qrBoxY = curY;
+    const qrRadius = 32;
+
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 4;
+    roundRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, qrRadius);
+    ctx.fill();
+    ctx.stroke();
+
+    // QR Image inside box
+    const qrPad = Math.round(qrBoxSize * 0.055);
+    const qrInnerSize = qrBoxSize - qrPad * 2;
+    const qrInnerX = qrBoxX + qrPad;
+    const qrInnerY = qrBoxY + qrPad;
+
+    try {
+      const qrImg = await loadImage(qrDataUrl);
+      ctx.drawImage(qrImg, qrInnerX, qrInnerY, qrInnerSize, qrInnerSize);
+    } catch (e) {
+      console.warn('QR image draw note:', e);
+    }
+    ctx.restore();
+
+    curY += qrBoxSize + Math.round(innerH * 0.035);
+
+    // Footer: displayUrl & Powered By
+    const displayUrl = business?.website || reviewUrl?.split('?')[0]?.replace(/^https?:\/\//, '') || 'www.reviewassist.ai';
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = '#4285F4';
+    ctx.font = `bold ${Math.round(innerW * 0.024)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.fillText(displayUrl, width / 2, curY);
+
+    curY += Math.round(innerW * 0.024 * 1.5);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = `600 ${Math.round(innerW * 0.020)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.fillText('⚡ Powered by ReviewAssist AI', width / 2, curY);
+    ctx.restore();
+
+    // Trigger download
+    const safeName = (bizName || 'google-standee').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+    const link = document.createElement('a');
+    link.download = `${safeName}-google-quadrant-standee-300dpi.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    return;
+  }
+
+  // 2. Draw Outer Multi-color Google Backdrop (Classic)
   if (showBackdrop && theme === 'google') {
     // Fill base with Google Blue
     ctx.fillStyle = '#4285F4';
@@ -269,7 +439,6 @@ export async function exportHighResStandee({
   // ─────────────────────────────────────────────────────────────
   // 5. RENDER: Top Business Name Pill (Centered)
   // ─────────────────────────────────────────────────────────────
-  const bizName = business?.name || 'Local Business';
   const bizPillText = `🏪 ${bizName}`;
   const pillFontSize = Math.round(cardW * 0.02);
 

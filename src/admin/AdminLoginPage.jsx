@@ -3,10 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROLES } from '../lib/rbac';
 
-// Hard-coded admin credentials (in production, validate via Supabase auth)
-const ADMIN_EMAIL = 'admin@reviewassist.ai';
-const ADMIN_PASS = 'reviewassist@admin2024';
-
 export default function AdminLoginPage() {
   const { login, user, role } = useAuth();
   const navigate = useNavigate();
@@ -28,13 +24,12 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setError('');
 
-    // Basic admin credential check
-    if (email.trim().toLowerCase() !== ADMIN_EMAIL) {
-      setError('No admin account found with this email.');
+    if (!email.trim() || !email.includes('@')) {
+      setError('Please enter a valid admin email address.');
       return;
     }
-    if (password !== ADMIN_PASS && password !== 'password123') {
-      setError('Incorrect password. Please try again.');
+    if (!password) {
+      setError('Please enter your admin password.');
       return;
     }
 
@@ -47,7 +42,7 @@ export default function AdminLoginPage() {
         setError('You do not have admin access. Contact the platform owner.');
       }
     } catch (err) {
-      setError('Login failed. Please check your credentials and try again.');
+      setError(err?.message || 'Login failed. Please check your credentials and try again.');
     } finally {
       setLoading(false);
     }
@@ -103,7 +98,7 @@ export default function AdminLoginPage() {
                 id="adminEmail"
                 type="email"
                 className="admin-login-input"
-                placeholder="admin@reviewassist.ai"
+                placeholder="Enter admin email address"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(''); }}
                 autoComplete="email"

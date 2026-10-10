@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api/client';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const NAV_ITEMS = [
   { to: '/admin', icon: '📊', label: 'Overview', end: true },
-  { to: '/admin/inbox', icon: '📥', label: 'Contact Inbox' },
+  { to: '/admin/inbox', icon: '📥', label: 'Contact Inbox', hasBadge: true },
   { to: '/admin/qr-builder', icon: '🔲', label: 'QR Builder' },
   { to: '/admin/clients', icon: '🏢', label: 'Clients' },
 ];
@@ -13,6 +15,54 @@ export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [newLeadsCount, setNewLeadsCount] = useState(0);
+
+  const loadUnreadCount = async () => {
+    try {
+      const leads = await api.getLeads();
+      if (Array.isArray(leads)) {
+        const unread = leads.filter((l) => l.status === 'new').length;
+        setNewLeadsCount(unread);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    loadUnreadCount();
+
+    const handleSync = () => loadUnreadCount();
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('reviewassist:lead_submitted', handleSync);
+    window.addEventListener('reviewassist:status_changed', handleSync);
+
+    let bc = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        bc = new BroadcastChannel('reviewassist_leads_channel');
+        bc.onmessage = () => loadUnreadCount();
+      } catch {}
+    }
+
+    let supaChan = null;
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        supaChan = supabase
+          .channel('realtime-layout-leads')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => {
+            loadUnreadCount();
+          })
+          .subscribe();
+      } catch {}
+    }
+
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('reviewassist:lead_submitted', handleSync);
+      window.removeEventListener('reviewassist:status_changed', handleSync);
+      if (bc) bc.close();
+      if (supaChan && supabase) supabase.removeChannel(supaChan);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -61,7 +111,24 @@ export default function AdminLayout() {
               }
             >
               <span className="admin-nav-icon">{item.icon}</span>
-              <span className="admin-nav-label">{item.label}</span>
+              <span className="admin-nav-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <span>{item.label}</span>
+                {item.hasBadge && newLeadsCount > 0 && (
+                  <span
+                    style={{
+                      background: '#ef4444',
+                      color: '#ffffff',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      padding: '2px 7px',
+                      borderRadius: '999px',
+                      marginLeft: '6px',
+                    }}
+                  >
+                    {newLeadsCount} new
+                  </span>
+                )}
+              </span>
             </NavLink>
           ))}
         </nav>
@@ -92,7 +159,29 @@ export default function AdminLayout() {
           >
             ☰
           </button>
-          <div className="admin-topbar-right">
+          <div className="admin-topbar-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {newLeadsCount > 0 && (
+              <Link
+                to="/admin/inbox"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#fee2e2',
+                  border: '1px solid #fecaca',
+                  color: '#b91c1c',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                  animation: 'pulse 2s infinite',
+                }}
+              >
+                <span>🔔</span>
+                <span>{newLeadsCount} New QR Request{newLeadsCount !== 1 ? 's' : ''}</span>
+              </Link>
+            )}
             <div className="admin-topbar-badge">⚡ Super Admin</div>
           </div>
         </header>

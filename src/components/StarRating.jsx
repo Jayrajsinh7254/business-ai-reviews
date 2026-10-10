@@ -10,6 +10,7 @@ export default function StarRating({
   readOnly = false,
   size = 'md', // 'sm' | 'md' | 'lg'
   showScore = false,
+  showLabel = true,
 }) {
   const [hoverRating, setHoverRating] = useState(0);
 
@@ -68,7 +69,7 @@ export default function StarRating({
         })}
       </div>
 
-      {!readOnly && (
+      {!readOnly && showLabel && (
         <span className="rating-label-text">
           {getRatingLabel(currentScore)}
         </span>

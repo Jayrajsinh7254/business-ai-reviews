@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import QRCode from 'qrcode';
+import { createQRDataUrlWithCenterLogo } from '../utils/qrLogoHelper';
 
 /**
  * Official Google "G" 4-Color SVG Icon
@@ -38,7 +39,7 @@ export function GoogleGIcon({ size = 48, className = '' }) {
  */
 export function GoldenRatingStars({ size = 22, color = '#FBBC05' }) {
   return (
-    <div className="standee-rating-stars" style={{ display: 'flex', gap: '3px', color }}>
+    <div className="standee-rating-stars" style={{ display: 'flex', gap: '4px', color }}>
       {[...Array(5)].map((_, i) => (
         <svg
           key={i}
@@ -57,23 +58,21 @@ export function GoldenRatingStars({ size = 22, color = '#FBBC05' }) {
 
 /**
  * Pixel-Perfect Google Standee Card Component
- * Faithfully matches the iconic Google Review Acrylic Standee design:
- * - 4-color Google backdrop frame (or clean acrylic insert)
- * - Official Google G SVG + "Review us on Google" header
- * - 5 golden stars
- * - High-contrast framed QR code
- * - 30-second AI review flow banner
- * - ReviewAssist AI branding + business link
- * - 3D acrylic standee base simulation
+ * Themes:
+ *  - 'google-quadrant' (Default — Exact match to the user reference: 4-color border, top logo, bold name, 5 stars, "WE'D LOVE YOUR FEEDBACK", center logo QR)
+ *  - 'google' (Geometric modern backdrop with official Google G)
+ *  - 'acrylic' (Clear minimal frosted acrylic plaque)
+ *  - 'midnight' (Dark luxury counter tent)
  */
 export default function QRStandeeCard({
   business,
   reviewUrl,
-  theme = 'google', // 'google' | 'acrylic' | 'midnight' | 'emerald' | 'brand'
-  format = 'portrait', // 'portrait' (5x7) | 'table_tent' (4x6) | 'poster' (A4) | 'sticker' (4x4)
+  logoUrl = '',
+  theme = 'google-quadrant',
+  format = 'portrait',
   showBackdrop = true,
   showBase = true,
-  headline = 'Review us on Google',
+  headline = "WE'D LOVE YOUR FEEDBACK",
   tagline = 'Scan the above QR code with your smartphone and make our day by leaving us a review on Google!',
   show30sFlow = true,
   accentColor = '#4285F4',
@@ -87,32 +86,35 @@ export default function QRStandeeCard({
 
   const bizName = business?.name || 'Local Business';
   const bizCategory = business?.category || '';
-  const displayUrl = business?.website || reviewUrl?.replace(/^https?:\/\//, '') || 'www.reviewassist.ai';
+  const effectiveLogo = logoUrl || business?.logoUrl || '';
+  const displayUrl = business?.website || reviewUrl?.split('?')[0]?.replace(/^https?:\/\//, '') || 'www.reviewassist.ai';
 
-  // Generate QR image data
+  // Generate QR image data with center logo
   useEffect(() => {
     if (!reviewUrl) return;
 
-    // Generate high-resolution Data URL for image tag
-    QRCode.toDataURL(
-      reviewUrl,
-      {
-        width: 600,
-        margin: 1,
-        color: {
-          dark: theme === 'midnight' ? '#0f172a' : '#111827',
-          light: '#ffffff',
-        },
-        errorCorrectionLevel: 'H',
-      },
-      (err, url) => {
-        if (!err && url) {
+    let isMounted = true;
+
+    // Use our high error correction generator with circular logo badge
+    createQRDataUrlWithCenterLogo(reviewUrl, effectiveLogo, 800)
+      .then((url) => {
+        if (isMounted && url) {
           setQrSrc(url);
         }
-      }
-    );
+      })
+      .catch((err) => {
+        console.warn('Center logo QR generation fallback:', err);
+        // Fallback basic QR
+        QRCode.toDataURL(
+          reviewUrl,
+          { width: 600, margin: 1, errorCorrectionLevel: 'H' },
+          (e, basicUrl) => {
+            if (isMounted && !e && basicUrl) setQrSrc(basicUrl);
+          }
+        );
+      });
 
-    // Also draw to canvas if ref is available (for legacy or direct export)
+    // Also draw to canvas if ref is passed
     if (activeCanvasRef.current) {
       QRCode.toCanvas(
         activeCanvasRef.current,
@@ -120,28 +122,131 @@ export default function QRStandeeCard({
         {
           width: 320,
           margin: 1,
-          color: {
-            dark: '#111827',
-            light: '#ffffff',
-          },
+          color: { dark: '#111827', light: '#ffffff' },
+          errorCorrectionLevel: 'H',
         },
         (err) => {
           if (err) console.warn('QR Canvas error:', err);
         }
       );
     }
-  }, [reviewUrl, theme, activeCanvasRef]);
 
+    return () => {
+      isMounted = false;
+    };
+  }, [reviewUrl, effectiveLogo, theme, activeCanvasRef]);
+
+  // Render Flagship "Google 4-Color Quadrant" Standee (Matches User Reference Image)
+  if (theme === 'google-quadrant') {
+    return (
+      <div className={`standee-wrapper-unit ${format} ${className}`}>
+        {/* Outer Frame with 4-Color Border */}
+        <div
+          className="standee-outer-frame theme-google-quadrant"
+          ref={cardRef}
+          id="printable-standee-card"
+          style={{ '--custom-accent': accentColor }}
+        >
+          {/* 4-Color Quadrant Border Backing */}
+          <div className="google-quadrant-border" aria-hidden="true">
+            <div className="quadrant-top-left" />
+            <div className="quadrant-top-right" />
+            <div className="quadrant-bottom-left" />
+            <div className="quadrant-bottom-right" />
+          </div>
+
+          {/* Acrylic Glass Specular Glare */}
+          <div className="acrylic-glass-glare" aria-hidden="true" />
+
+          {/* Inner Crisp White Plaque */}
+          <div className="standee-inner-plaque standee-quadrant-inner">
+            {/* 1. Top Business Logo */}
+            {effectiveLogo ? (
+              <img
+                src={effectiveLogo}
+                alt={`${bizName} logo`}
+                className="standee-quadrant-top-logo"
+                loading="eager"
+              />
+            ) : (
+              <div className="standee-quadrant-logo-fallback" title="Add business logo">
+                <span>{bizName?.[0] || '🏢'}</span>
+              </div>
+            )}
+
+            {/* 2. Business Name */}
+            <h2 className="standee-quadrant-biz-name">{bizName}</h2>
+
+            {/* 3. Five Golden Rating Stars */}
+            <div className="standee-quadrant-stars">
+              <GoldenRatingStars size={26} color="#FBBC05" />
+            </div>
+
+            {/* 4. Bold Callout Headline */}
+            <div className="standee-quadrant-headline">
+              <span className="line-1">WE’D LOVE</span>
+              <span className="line-2">YOUR FEEDBACK</span>
+            </div>
+
+            {/* 5. Center QR Code Frame with Centered Logo */}
+            <div className="standee-quadrant-qr-box">
+              {qrSrc ? (
+                <img
+                  src={qrSrc}
+                  alt={`Review QR for ${bizName}`}
+                  className="standee-quadrant-qr-img"
+                  loading="eager"
+                />
+              ) : (
+                <div className="standee-qr-loading" style={{ width: 220, height: 220 }}>
+                  <span className="qr-spinner" />
+                  <span>Loading QR...</span>
+                </div>
+              )}
+              {/* Fallback canvas for exports */}
+              <canvas ref={activeCanvasRef} style={{ display: 'none' }} />
+            </div>
+
+            {/* Optional 30s AI flow helper note */}
+            {show30sFlow && (
+              <div className="standee-quadrant-quick-note">
+                <span className="sparkle-icon">⚡</span>
+                <span>Takes only 30 seconds • AI assists with review</span>
+              </div>
+            )}
+
+            {/* Bottom Footer Details */}
+            <div className="standee-quadrant-footer">
+              {/* <div className="quadrant-slug">{displayUrl}</div> */}
+              <div className="quadrant-powered">
+                <span className="dot" /> Powered by <strong>ReviewAssist AI</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Realistic Acrylic Stand Base */}
+        {showBase && (
+          <div className="acrylic-standee-base-mockup" aria-hidden="true">
+            <div className="acrylic-base-bevel" />
+            <div className="acrylic-base-reflection" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Render Classic Google or Midnight or Acrylic Themes
   return (
     <div className={`standee-wrapper-unit ${format} ${className}`}>
-      {/* Outer Multi-color Backdrop Frame (Google Iconic Geometric Style) */}
+      {/* Outer Multi-color Backdrop Frame */}
       <div
         className={`standee-outer-frame theme-${theme} ${showBackdrop ? 'with-google-backdrop' : 'clean-insert'}`}
         ref={cardRef}
         id="printable-standee-card"
         style={{ '--custom-accent': accentColor }}
       >
-        {/* Geometric Google Color Block Accents (Visible in Google theme) */}
+        {/* Geometric Google Color Block Accents */}
         {showBackdrop && theme === 'google' && (
           <div className="google-geom-backdrop" aria-hidden="true">
             <div className="geom-shape geom-blue" />
@@ -151,14 +256,22 @@ export default function QRStandeeCard({
           </div>
         )}
 
-        {/* Realistic Acrylic Surface Sheen / Reflection */}
+        {/* Realistic Acrylic Surface Sheen */}
         <div className="acrylic-glass-glare" aria-hidden="true" />
 
         {/* Inner Standee White Plaque Card */}
         <div className="standee-inner-plaque">
-          {/* Top Business Name Pill / Tag (Optional clean brand identifier) */}
+          {/* Top Business Name Pill / Tag */}
           <div className="standee-top-biz-pill">
-            <span className="standee-biz-icon">🏪</span>
+            {effectiveLogo ? (
+              <img
+                src={effectiveLogo}
+                alt="logo"
+                style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }}
+              />
+            ) : (
+              <span className="standee-biz-icon">🏪</span>
+            )}
             <span className="standee-biz-name-label">{bizName}</span>
             {bizCategory && <span className="standee-biz-cat-badge">{bizCategory}</span>}
           </div>
@@ -204,7 +317,7 @@ export default function QRStandeeCard({
             </div>
           </div>
 
-          {/* 30-Second AI Flow Step Banner (Requested Feature) */}
+          {/* 30-Second AI Flow Step Banner */}
           {show30sFlow && (
             <div className="standee-30s-flow-card">
               <div className="flow-badge-header">
@@ -252,7 +365,7 @@ export default function QRStandeeCard({
         </div>
       </div>
 
-      {/* Realistic Acrylic Base Stand (Physical Acrylic Counter Mockup) */}
+      {/* Realistic Acrylic Base Stand */}
       {showBase && (
         <div className="acrylic-standee-base-mockup" aria-hidden="true">
           <div className="acrylic-base-bevel" />

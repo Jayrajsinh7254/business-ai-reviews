@@ -2,6 +2,7 @@
  * SaaS Subscription Plans & Feature Gating
  * Defines pricing tiers, limits, and plan feature validation helpers.
  * All pricing is in INR (Indian Rupees).
+ * Includes special Diwali Festive Discounts with deep annual customer savings.
  */
 
 export const PLANS = {
@@ -9,15 +10,21 @@ export const PLANS = {
     id: 'starter',
     name: 'Starter',
     tagline: 'Ideal for solo practitioners and single local shops',
-    monthlyPrice: 499,
-    annualPrice: 399, // ₹399/mo billed annually (₹4,788/yr — save ₹1,200)
+    monthlyPrice: 299,
+    originalMonthlyPrice: 499, // Strikethrough for Diwali (₹200 OFF)
+    annualPrice: 199, // ₹199/mo billed annually (₹2,388/yr — save ₹3,600 vs original monthly)
+    originalAnnualPrice: 399,
+    annualTotalAmount: 2388,
     currency: '₹',
+    diwaliDiscountText: 'Diwali Special: Flat ₹200 OFF',
+    annualSavingsText: 'Save ₹3,600/yr (60% OFF)',
+    annualPerk: '🎁 2 Months Free + Printable QR Standee Pack',
     // Razorpay Plan IDs — create plans in Razorpay Dashboard → Plans
     razorpayPlanIdMonthly: import.meta.env?.VITE_RAZORPAY_PLAN_STARTER_MONTHLY || '',
     razorpayPlanIdAnnual: import.meta.env?.VITE_RAZORPAY_PLAN_STARTER_ANNUAL || '',
     // Amount in paise (1 INR = 100 paise) for Razorpay API
-    monthlyAmountPaise: 49900,
-    annualAmountPaise: 39900,
+    monthlyAmountPaise: 29900,
+    annualAmountPaise: 238800,
     badge: null,
     color: '#6366f1',
     isPopular: false,
@@ -47,15 +54,21 @@ export const PLANS = {
   PRO: {
     id: 'pro',
     name: 'Pro Growth',
-    tagline: 'Most popular for growing local businesses and multi-service clinics',
-    monthlyPrice: 1299,
-    annualPrice: 999, // ₹999/mo billed annually (₹11,988/yr — save ₹3,600)
+    tagline: 'Most popular for growing salons, garages, restaurants & multi-service clinics',
+    monthlyPrice: 499,
+    originalMonthlyPrice: 699, // Strikethrough for Diwali (₹200 OFF)
+    annualPrice: 349, // ₹349/mo billed annually (₹4,188/yr — save ₹4,200 vs original monthly)
+    originalAnnualPrice: 599,
+    annualTotalAmount: 4188,
     currency: '₹',
+    diwaliDiscountText: 'Diwali Special: Flat ₹200 OFF',
+    annualSavingsText: 'Save ₹4,200/yr (50% OFF)',
+    annualPerk: '🪔 FREE Acrylic Counter QR Standee Shipped to Doorstep',
     razorpayPlanIdMonthly: import.meta.env?.VITE_RAZORPAY_PLAN_PRO_MONTHLY || '',
     razorpayPlanIdAnnual: import.meta.env?.VITE_RAZORPAY_PLAN_PRO_ANNUAL || '',
-    monthlyAmountPaise: 129900,
-    annualAmountPaise: 99900,
-    badge: 'Most Popular',
+    monthlyAmountPaise: 49900,
+    annualAmountPaise: 418800,
+    badge: 'Most Popular · Diwali Deal',
     color: '#7c3aed',
     isPopular: true,
     limits: {
@@ -87,13 +100,19 @@ export const PLANS = {
     id: 'enterprise',
     name: 'Enterprise / Agency',
     tagline: 'For franchises, multi-location brands, and marketing agencies',
-    monthlyPrice: 2999,
-    annualPrice: 2399, // ₹2,399/mo billed annually (₹28,788/yr — save ₹7,200)
+    monthlyPrice: 799,
+    originalMonthlyPrice: 1199, // Strikethrough for Diwali (₹400 OFF)
+    annualPrice: 599, // ₹599/mo billed annually (₹7,188/yr — save ₹7,200 vs original monthly)
+    originalAnnualPrice: 999,
+    annualTotalAmount: 7188,
     currency: '₹',
+    diwaliDiscountText: 'Diwali Special: Flat ₹400 OFF',
+    annualSavingsText: 'Save ₹7,200/yr (50% OFF)',
+    annualPerk: '📦 Pack of 3 Custom Acrylic Standees + 1-on-1 VIP Onboarding',
     razorpayPlanIdMonthly: import.meta.env?.VITE_RAZORPAY_PLAN_ENTERPRISE_MONTHLY || '',
     razorpayPlanIdAnnual: import.meta.env?.VITE_RAZORPAY_PLAN_ENTERPRISE_ANNUAL || '',
-    monthlyAmountPaise: 299900,
-    annualAmountPaise: 239900,
+    monthlyAmountPaise: 79900,
+    annualAmountPaise: 718800,
     badge: 'Scale',
     color: '#06b6d4',
     isPopular: false,

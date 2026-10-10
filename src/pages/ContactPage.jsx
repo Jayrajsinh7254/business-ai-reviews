@@ -1,21 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
-
-const BUSINESS_TYPES = [
-  'Auto Repair & Car Service',
-  'Hair Salon & Barber',
-  'Spa & Beauty Center',
-  'Restaurant & Cafe',
-  'Dental Clinic',
-  'Medical Clinic',
-  'Gym & Fitness Studio',
-  'Home Services & Contracting',
-  'Real Estate Agency',
-  'Retail Store',
-  'Hotel & Hospitality',
-  'Other',
-];
+import { CATEGORIES, getCategoryLabel, getCategoryServices } from '../lib/categories';
 
 const LOCATION_COUNTS = [
   '1 location',
@@ -30,21 +16,79 @@ export default function ContactPage() {
   const [form, setForm] = useState({
     ownerName: '',
     businessName: '',
-    businessType: '',
-    locations: '',
+    businessType: 'it_marketing',
+    customBusinessType: '',
+    services: getCategoryServices('it_marketing').slice(0, 4),
+    locations: '1 location',
     email: '',
     phone: '',
     googleProfileUrl: '',
     message: '',
     agreeToTerms: false,
   });
+  const [newServiceInput, setNewServiceInput] = useState('');
   const [errors, setErrors] = useState({});
+
+  const handleBusinessTypeChange = (newType) => {
+    const defaultSrvs = newType ? getCategoryServices(newType).slice(0, 4) : [];
+    setForm((f) => ({
+      ...f,
+      businessType: newType,
+      customBusinessType: newType === 'other' ? f.customBusinessType : '',
+      services: defaultSrvs,
+    }));
+    if (errors.businessType) setErrors((e) => ({ ...e, businessType: '' }));
+    if (errors.customBusinessType) setErrors((e) => ({ ...e, customBusinessType: '' }));
+    if (errors.services) setErrors((e) => ({ ...e, services: '' }));
+  };
+
+  const handleToggleService = (srv) => {
+    setForm((f) => {
+      const exists = f.services.some((s) => s.toLowerCase() === srv.toLowerCase());
+      const updated = exists
+        ? f.services.filter((s) => s.toLowerCase() !== srv.toLowerCase())
+        : [...f.services, srv];
+      return { ...f, services: updated };
+    });
+    if (errors.services) setErrors((e) => ({ ...e, services: '' }));
+  };
+
+  const handleAddCustomService = (e) => {
+    if (e) e.preventDefault();
+    const clean = newServiceInput.trim();
+    if (!clean) return;
+    if (!form.services.some((s) => s.toLowerCase() === clean.toLowerCase())) {
+      setForm((f) => ({ ...f, services: [...f.services, clean] }));
+    }
+    setNewServiceInput('');
+    if (errors.services) setErrors((e) => ({ ...e, services: '' }));
+  };
+
+  const handleSelectAllServices = () => {
+    if (!form.businessType) return;
+    const all = getCategoryServices(form.businessType);
+    setForm((f) => {
+      const merged = Array.from(new Set([...f.services, ...all]));
+      return { ...f, services: merged };
+    });
+    if (errors.services) setErrors((e) => ({ ...e, services: '' }));
+  };
+
+  const handleClearAllServices = () => {
+    setForm((f) => ({ ...f, services: [] }));
+  };
 
   const validate = () => {
     const e = {};
-    if (!form.ownerName.trim()) e.ownerName = 'Your name is required';
+    if (!form.ownerName.trim()) e.ownerName = 'Your full name is required';
     if (!form.businessName.trim()) e.businessName = 'Business name is required';
     if (!form.businessType) e.businessType = 'Please select your business type';
+    if (form.businessType === 'other' && !form.customBusinessType.trim()) {
+      e.customBusinessType = 'Please specify your industry or business type name';
+    }
+    if (!form.services || form.services.length === 0) {
+      e.services = 'Please select or add at least 1 service your business offers';
+    }
     if (!form.locations) e.locations = 'Please select number of locations';
     if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email)) e.email = 'Valid email is required';
     if (!form.phone.trim()) e.phone = 'Phone number is required';
@@ -66,11 +110,18 @@ export default function ContactPage() {
     }
     setSubmitting(true);
 
+    const effectiveCategoryLabel = form.businessType === 'other'
+      ? (form.customBusinessType.trim() || 'Other')
+      : (getCategoryLabel(form.businessType) || form.businessType);
+
     try {
       await api.submitLead({
         ownerName: form.ownerName,
         businessName: form.businessName,
-        businessType: form.businessType,
+        businessType: effectiveCategoryLabel,
+        rawCategory: form.businessType,
+        customBusinessType: form.customBusinessType,
+        services: form.services,
         locations: form.locations,
         email: form.email,
         phone: form.phone,
@@ -83,11 +134,18 @@ export default function ContactPage() {
 
     setSubmitting(false);
     setStep(2);
+    try {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {}
   };
 
   if (step === 2) {
+    const effectiveCategoryLabel = form.businessType === 'other'
+      ? (form.customBusinessType.trim() || 'Other')
+      : (getCategoryLabel(form.businessType) || form.businessType);
+    const srvSnippet = form.services?.length ? ` Services: ${form.services.slice(0, 4).join(', ')}.` : '';
     const waText = encodeURIComponent(
-      `Hi ReviewAssist team, I just requested a QR code for my business "${form.businessName}" (${form.businessType}, ${form.locations}). Owner: ${form.ownerName}, Phone: ${form.phone}. I'd like to fast-track my QR standee setup!`
+      `Hi ReviewAssist team, I just requested a QR review system for my business "${form.businessName}" (${effectiveCategoryLabel}, ${form.locations}).${srvSnippet} Owner: ${form.ownerName}, Phone: ${form.phone}. I'd like to fast-track my QR standee setup!`
     );
 
     return (
@@ -115,7 +173,7 @@ export default function ContactPage() {
               </p>
             </div>
             <a
-              href={`https://wa.me/919999999999?text=${waText}`}
+              href={`https://wa.me/919537370561?text=${waText}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-whatsapp-priority"
@@ -293,18 +351,18 @@ export default function ContactPage() {
               <div className="contact-form-row">
                 <div className={`contact-form-group ${errors.businessType ? 'has-error' : ''}`}>
                   <label className="contact-form-label" htmlFor="businessType">
-                    Business Type *
+                    Business Type / Category *
                   </label>
                   <select
                     id="businessType"
                     className="contact-form-select"
                     value={form.businessType}
-                    onChange={(e) => handleChange('businessType', e.target.value)}
+                    onChange={(e) => handleBusinessTypeChange(e.target.value)}
                   >
-                    <option value="">Select type...</option>
-                    {BUSINESS_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
+                    <option value="">Select industry category...</option>
+                    {CATEGORIES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.icon} {c.label}
                       </option>
                     ))}
                   </select>
@@ -335,6 +393,137 @@ export default function ContactPage() {
                   )}
                 </div>
               </div>
+
+              {/* Conditional Field if 'Other' is selected */}
+              {form.businessType === 'other' && (
+                <div className={`contact-form-group custom-type-field animate-fade-in ${errors.customBusinessType ? 'has-error' : ''}`}>
+                  <label className="contact-form-label" htmlFor="customBusinessType">
+                    Specify Your Business Type / Industry Name *
+                  </label>
+                  <div className="custom-input-wrap">
+                    <span className="custom-input-icon">✨</span>
+                    <input
+                      id="customBusinessType"
+                      type="text"
+                      className="contact-form-input highlight-field"
+                      placeholder="e.g. Pet Grooming, Photography Studio, Solar Energy, Wedding Planning..."
+                      value={form.customBusinessType}
+                      onChange={(e) => handleChange('customBusinessType', e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  {errors.customBusinessType && (
+                    <span className="contact-field-error">{errors.customBusinessType}</span>
+                  )}
+                  <span className="field-hint">
+                    Enter your specific business type so our team can customize your QR standee &amp; review portal.
+                  </span>
+                </div>
+              )}
+
+              {/* ALL SERVICES OFFERED SECTION */}
+              {form.businessType && (
+                <div className={`contact-services-section animate-fade-in ${errors.services ? 'has-error' : ''}`}>
+                  <div className="contact-services-header">
+                    <div className="contact-services-title-wrap">
+                      <label className="contact-form-label" style={{ marginBottom: 0 }}>
+                        What Services Does Your Business Offer? *
+                      </label>
+                      <span className="contact-services-hint">
+                        Select all that apply or add custom services (these appear on your QR review portal)
+                      </span>
+                    </div>
+                    <div className="contact-services-actions">
+                      <button
+                        type="button"
+                        className="btn-link-action"
+                        onClick={handleSelectAllServices}
+                      >
+                        Select All
+                      </button>
+                      <span className="action-divider">•</span>
+                      <button
+                        type="button"
+                        className="btn-link-action"
+                        onClick={handleClearAllServices}
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Suggested Service Chips Grid */}
+                  <div className="contact-services-grid">
+                    {getCategoryServices(form.businessType).map((srv, idx) => {
+                      const selected = form.services.some((s) => s.toLowerCase() === srv.toLowerCase());
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          className={`contact-service-chip ${selected ? 'selected' : ''}`}
+                          onClick={() => handleToggleService(srv)}
+                        >
+                          <span className="chip-check-box">{selected ? '✓' : '+'}</span>
+                          <span>{srv}</span>
+                        </button>
+                      );
+                    })}
+
+                    {/* Custom services added by user */}
+                    {form.services
+                      .filter((s) => !getCategoryServices(form.businessType).some((ds) => ds.toLowerCase() === s.toLowerCase()))
+                      .map((customSrv, idx) => (
+                        <button
+                          key={`custom-${idx}`}
+                          type="button"
+                          className="contact-service-chip selected custom-chip"
+                          onClick={() => handleToggleService(customSrv)}
+                        >
+                          <span className="chip-check-box">✓</span>
+                          <span>{customSrv}</span>
+                          <span className="chip-remove-icon" title="Remove">✕</span>
+                        </button>
+                      ))}
+                  </div>
+
+                  {/* Add Custom Service Input */}
+                  <div className="contact-add-service-row">
+                    <input
+                      type="text"
+                      className="contact-form-input contact-add-service-input"
+                      placeholder="+ Add another service (e.g. Ceramic Coating, Deep Cleaning, Root Canal...)"
+                      value={newServiceInput}
+                      onChange={(e) => setNewServiceInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCustomService();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn-add-service"
+                      onClick={handleAddCustomService}
+                      disabled={!newServiceInput.trim()}
+                    >
+                      + Add Service
+                    </button>
+                  </div>
+
+                  {errors.services && (
+                    <span className="contact-field-error" style={{ display: 'block', marginTop: '0.4rem' }}>
+                      {errors.services}
+                    </span>
+                  )}
+
+                  <div className="contact-services-footer">
+                    <span className="services-count-badge">
+                      ✓ {form.services.length} service{form.services.length !== 1 ? 's' : ''} selected
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Email + Phone (2 columns) */}
               <div className="contact-form-row">

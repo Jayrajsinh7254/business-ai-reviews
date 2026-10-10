@@ -4,22 +4,25 @@ import { useAuth } from "../context/AuthContext";
 import { PLANS } from "../lib/plans";
 import { initiateRazorpayCheckout } from "../lib/razorpay";
 
-export default function BillingPortal() {
-  const { user, subscription, updateSubscriptionPlan } = useAuth();
+export default function BillingPortal({ business: propBusiness, subscription: propSubscription }) {
+  const auth = useAuth();
+  const { user, updateSubscriptionPlan } = auth;
+  const business = propBusiness || auth.business;
+  const subscription = propSubscription || auth.subscription;
   const navigate = useNavigate();
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [upgradeError, setUpgradeError] = useState("");
 
-  const planId = subscription?.planId || "starter";
-  const planObj = PLANS[planId.toUpperCase()] || PLANS.STARTER;
+  const planId = business?.planId || business?.plan_id || subscription?.planId || "pro";
+  const planObj = PLANS[planId.toUpperCase()] || PLANS.PRO;
   const billingInterval = subscription?.billingInterval || "monthly";
   const price = billingInterval === "annual" ? planObj.annualPrice : planObj.monthlyPrice;
   const status = subscription?.status || "trialing";
 
   const trialEnd = subscription?.currentPeriodEnd
     ? new Date(subscription.currentPeriodEnd)
-    : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const nextBillingDate = trialEnd.toLocaleDateString("en-IN", {
     day: "numeric",
     month: "long",
@@ -27,36 +30,38 @@ export default function BillingPortal() {
   });
   const daysRemaining = Math.max(0, Math.ceil((trialEnd - Date.now()) / (1000 * 60 * 60 * 24)));
 
-  const aiUsed = subscription?.aiGenerationsUsed || 0;
-  const waUsed = subscription?.whatsappInvitesUsed || 0;
+  const aiUsed = business?.aiCreditsUsed || subscription?.aiGenerationsUsed || 0;
+  const waUsed = business?.whatsappInvitesUsed || subscription?.whatsappInvitesUsed || 0;
   const aiLimit = planObj.limits.aiReviewsPerMonth === Infinity ? null : planObj.limits.aiReviewsPerMonth;
   const waLimit = planObj.limits.whatsappInvitesPerMonth === Infinity ? null : planObj.limits.whatsappInvitesPerMonth;
 
   const statusConfig = {
-    trialing: { label: "14-Day Free Trial", color: "status-trial", icon: "🎁" },
-    active: { label: "Active", color: "status-active", icon: "✅" },
+    trialing: { label: "7-Day Free Trial", color: "status-trial", icon: "🎁" },
+    active: { label: "Active Member", color: "status-active", icon: "✅" },
     past_due: { label: "Payment Failed", color: "status-danger", icon: "⚠️" },
     canceled: { label: "Canceled", color: "status-canceled", icon: "❌" },
   };
   const statusInfo = statusConfig[status] || statusConfig.trialing;
+  const isTrialUrgent = status === 'trialing' && daysRemaining <= 2;
 
   const handleUpgrade = async (newPlanId, interval) => {
     setIsUpgrading(true);
     setUpgradeError("");
+    const targetInterval = interval || billingInterval;
+    const targetPlan = PLANS[newPlanId.toUpperCase()] || PLANS.PRO;
+    const targetAmount = targetInterval === "annual" ? (targetPlan.annualTotalAmount || targetPlan.annualPrice * 12) : targetPlan.monthlyPrice;
+
     try {
       const result = await initiateRazorpayCheckout({
-        businessId: user?.businessId || "demo-1",
+        businessId: user?.businessId || business?.id || "demo-1",
         planId: newPlanId,
-        billingInterval: interval || billingInterval,
-        customerName: user?.name || "",
-        customerEmail: user?.email || "",
-        planDisplayName: PLANS[newPlanId.toUpperCase()]?.name || newPlanId,
-        amountInr:
-          interval === "annual"
-            ? PLANS[newPlanId.toUpperCase()]?.annualPrice
-            : PLANS[newPlanId.toUpperCase()]?.monthlyPrice,
+        billingInterval: targetInterval,
+        customerName: user?.name || business?.name || "",
+        customerEmail: user?.email || business?.email || "",
+        planDisplayName: targetPlan.name || newPlanId,
+        amountInr: targetAmount,
       });
-      await updateSubscriptionPlan(newPlanId, interval || billingInterval, {
+      await updateSubscriptionPlan(newPlanId, targetInterval, {
         razorpayPaymentId: result.paymentId,
         razorpayOrderId: result.orderId,
         periodEnd: result.periodEnd,
@@ -94,28 +99,33 @@ export default function BillingPortal() {
             <span className="billing-price">{price.toLocaleString("en-IN")}</span>
             <span className="billing-period">/ month</span>
             {billingInterval === "annual" && (
-              <span className="billing-annual-tag">Billed Annually</span>
+              <span className="billing-annual-tag">Billed Annually (₹{(planObj.annualTotalAmount || planObj.annualPrice * 12).toLocaleString("en-IN")}/yr)</span>
             )}
           </div>
         </div>
 
         {/* Trial Alert */}
         {status === "trialing" && (
-          <div className="billing-trial-alert">
-            <span>🎁</span>
+          <div className={`billing-trial-alert ${isTrialUrgent ? 'billing-trial-urgent' : ''}`}>
+            <span>{isTrialUrgent ? '⚠️' : '🎁'}</span>
             <div style={{ flex: 1 }}>
-              <strong>14-Day Free Trial Active ({daysRemaining} days remaining)</strong>
+              <strong>
+                {isTrialUrgent
+                  ? `🔴 Trial Expires ${daysRemaining === 0 ? 'Today!' : `in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}!`}`
+                  : `7-Day Free Trial Active (${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining)`}
+              </strong>
               <p>
-                No debit or credit card required for trial. Your trial expires on{" "}
-                <strong>{nextBillingDate}</strong>. Upgrade anytime to keep full access.
+                {isTrialUrgent
+                  ? 'Upgrade now to keep your QR review portal, AI generations, and customer data intact after trial ends.'
+                  : <>Your trial expires on <strong>{nextBillingDate}</strong>. No card required during trial. Upgrade anytime to unlock full access.</>}
               </p>
             </div>
             <button
               type="button"
-              className="btn-primary btn-sm"
+              className={`btn-sm ${isTrialUrgent ? 'btn-danger' : 'btn-primary'}`}
               onClick={() => navigate("/pricing")}
             >
-              Upgrade Plan
+              {isTrialUrgent ? '🚨 Upgrade Now' : 'Upgrade Plan'}
             </button>
           </div>
         )}
@@ -140,7 +150,7 @@ export default function BillingPortal() {
             <span className="billing-next-label">Active until:</span>
             <span className="billing-next-date">{nextBillingDate}</span>
             <span className="billing-next-amount">
-              ₹{(billingInterval === "annual" ? planObj.annualPrice * 12 : planObj.monthlyPrice).toLocaleString("en-IN")}
+              ₹{(billingInterval === "annual" ? (planObj.annualTotalAmount || planObj.annualPrice * 12) : planObj.monthlyPrice).toLocaleString("en-IN")}
             </span>
           </div>
         )}
@@ -216,7 +226,7 @@ export default function BillingPortal() {
               <span className="upgrade-prompt-icon">🚀</span>
               <div>
                 <strong>Need more reviews & invites?</strong>
-                <p>Upgrade to Pro for ₹1,299/mo to unlock unlimited AI reviews, WhatsApp invites & 3 team seats.</p>
+                <p>Upgrade to Pro Growth for ₹499/mo (Diwali Special, was ₹699) to unlock unlimited AI reviews, WhatsApp invites & 5 team seats.</p>
               </div>
             </div>
             <button

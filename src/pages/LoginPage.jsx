@@ -8,16 +8,19 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const redirectUrl = searchParams.get('redirect');
 
+  const emailParam = searchParams.get('email') || '';
+  const isStaffInvite = searchParams.get('staff') === 'true' || searchParams.get('invited') === 'true';
+
   const { login, user, role } = useAuth();
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(emailParam);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotEmail, setForgotEmail] = useState(emailParam);
   const [forgotSuccess, setForgotSuccess] = useState(false);
 
   // If already logged in, redirect directly to dashboard (or admin)
@@ -87,6 +90,29 @@ export default function LoginPage() {
 
         <div className="card auth-card">
           <form onSubmit={handleLogin} className="form-layout">
+            {isStaffInvite && (
+              <div
+                style={{
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  color: '#4338ca',
+                }}
+              >
+                <span style={{ fontSize: '1.3rem' }}>👔</span>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>Staff Workspace Invitation</div>
+                  <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
+                    Sign in with your email to access your business review tools.
+                  </div>
+                </div>
+              </div>
+            )}
             {error && <div className="alert-banner alert-error animate-fade-in">{error}</div>}
 
             {/* Email Field */}
@@ -175,7 +201,7 @@ export default function LoginPage() {
             <p>
               New to ReviewAssist?{' '}
               <Link to="/signup" className="auth-action-link font-semibold">
-                Start 14-Day Free Trial &rarr;
+                Start 7-Day Free Trial &rarr;
               </Link>
             </p>
           </div>

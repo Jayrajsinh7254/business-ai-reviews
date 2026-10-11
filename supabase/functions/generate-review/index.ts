@@ -393,7 +393,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Invalid JSON body provided." }, 400);
     }
 
-    const { businessId, serviceType, whatStoodOut, whatCouldImprove, rating, seed, previousDraft, businessCategory } = body || {};
+    const { businessId, serviceType, whatStoodOut, whatCouldImprove, rating, seed, previousDraft, businessCategory, lengthPreference } = body || {};
 
     if (!businessId || typeof businessId !== "string" || !businessId.trim()) {
       return json({ error: "Missing required field: businessId is required." }, 400);
@@ -491,7 +491,14 @@ Deno.serve(async (req: Request) => {
     const persona = pick(CUSTOMER_PERSONAS, seedOffset * 2.3);
     const opening = pick(OPENINGS, seedOffset * 1.7);
     const structure = pick(STRUCTURAL_FLOWS, seedOffset * 3.1);
-    const length = pick(LENGTHS, seedOffset * 1.3);
+    let targetLengthText = pick(LENGTHS, seedOffset * 1.3).words;
+    if (lengthPreference === 'short') {
+      targetLengthText = "STRICTLY SHORT: 15 to 25 words maximum, 1 to 2 crisp, punchy sentences only. Make it direct, meaningful, and natural.";
+    } else if (lengthPreference === 'medium') {
+      targetLengthText = "30 to 45 words, 2 to 3 balanced sentences with clear takeaway.";
+    } else if (lengthPreference === 'detailed') {
+      targetLengthText = "55 to 75 words, 3 to 4 sentences highlighting specific positive details.";
+    }
     const register = pick(REGISTERS, seedOffset * 2.9);
 
     // Temperature jitter: 0.96 to 1.12 to foster rich creative variance and avoid robotic repetitiveness
@@ -530,7 +537,7 @@ CUSTOMER PERSONA ANGLE
 
 STYLE & STRUCTURE FOR THIS GENERATION
 - Register: ${register}
-- Target Length: ${length.words}
+- Target Length: ${targetLengthText}
 - Opening Approach: ${opening}
 - Narrative Structure: ${structure}
 - If a service is given, refer to it naturally and specifically instead of saying "the service".

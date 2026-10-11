@@ -38,6 +38,7 @@ export default function ReviewPage() {
   const [whatCouldImprove, setWhatCouldImprove] = useState('');
   const [draftText, setDraftText] = useState('');
   const [rating, setRating] = useState(5);
+  const [lengthStyle, setLengthStyle] = useState('auto'); // 'auto' | 'short' | 'medium' | 'detailed'
 
   // 1-3 Star Protection Shield states
   const [bypassShieldToGoogle, setBypassShieldToGoogle] = useState(false);
@@ -245,6 +246,7 @@ export default function ReviewPage() {
         rating: 5,
         businessCategory: business?.category || '',
         seed: Date.now() + Math.floor(Math.random() * 1000000),
+        lengthPreference: lengthStyle,
       });
       setRating(5);
       setDraftText(response.draftText || '');
@@ -331,6 +333,7 @@ export default function ReviewPage() {
         rating,
         businessCategory: business?.category || '',
         seed: Date.now() + Math.floor(Math.random() * 1000000),
+        lengthPreference: lengthStyle,
       });
 
       setDraftText(response.draftText || '');
@@ -343,9 +346,10 @@ export default function ReviewPage() {
     }
   };
 
-  // Step 3: Regenerate draft with rating adaptation
-  const handleRegenerate = async (customRating) => {
+  // Step 3: Regenerate draft with rating & length adaptation
+  const handleRegenerate = async (customRating, customLength) => {
     const activeRating = typeof customRating === 'number' ? customRating : rating;
+    const activeLength = typeof customLength === 'string' ? customLength : lengthStyle;
     setGeneratingDraft(true);
     setErrorMsg('');
 
@@ -365,6 +369,7 @@ export default function ReviewPage() {
         previousDraft: draftText || '',
         businessCategory: business?.category || '',
         seed: Date.now() + Math.floor(Math.random() * 1000000),
+        lengthPreference: activeLength,
       });
       setDraftText(response.draftText || '');
       showToast('✨ Review regenerated with fresh wording!');
@@ -374,6 +379,11 @@ export default function ReviewPage() {
     } finally {
       setGeneratingDraft(false);
     }
+  };
+
+  const handleSelectLengthStyle = (newLength) => {
+    setLengthStyle(newLength);
+    handleRegenerate(rating, newLength);
   };
 
   const handleRatingChange = (newRating) => {
@@ -1335,6 +1345,63 @@ export default function ReviewPage() {
                     </div>
                   </div>
 
+                  {/* Review Length & Style Selector Pills */}
+                  <div className="review-length-selector-wrap">
+                    <div className="length-selector-header">
+                      <span className="length-selector-label">
+                        <span>📏</span> Length & Style:
+                      </span>
+                      <span className="length-selector-hint">
+                        {lengthStyle === 'short' && '⚡ 1–2 crisp, punchy sentences'}
+                        {lengthStyle === 'medium' && '⚖️ 2–3 balanced sentences'}
+                        {lengthStyle === 'detailed' && '📝 3–4 detailed sentences'}
+                        {lengthStyle === 'auto' && '🎲 Fresh variation on every click'}
+                      </span>
+                    </div>
+                    <div className="review-length-pills" role="radiogroup" aria-label="Review length preference">
+                      <button
+                        type="button"
+                        className={`review-length-pill ${lengthStyle === 'short' ? 'active' : ''}`}
+                        onClick={() => handleSelectLengthStyle('short')}
+                        disabled={generatingDraft}
+                        aria-pressed={lengthStyle === 'short'}
+                      >
+                        <span>⚡ Short</span>
+                        <span className="pill-sub">1–2 lines</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`review-length-pill ${lengthStyle === 'medium' ? 'active' : ''}`}
+                        onClick={() => handleSelectLengthStyle('medium')}
+                        disabled={generatingDraft}
+                        aria-pressed={lengthStyle === 'medium'}
+                      >
+                        <span>⚖️ Medium</span>
+                        <span className="pill-sub">2–3 lines</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`review-length-pill ${lengthStyle === 'detailed' ? 'active' : ''}`}
+                        onClick={() => handleSelectLengthStyle('detailed')}
+                        disabled={generatingDraft}
+                        aria-pressed={lengthStyle === 'detailed'}
+                      >
+                        <span>📝 Detailed</span>
+                        <span className="pill-sub">3–4 lines</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`review-length-pill ${lengthStyle === 'auto' ? 'active' : ''}`}
+                        onClick={() => handleSelectLengthStyle('auto')}
+                        disabled={generatingDraft}
+                        aria-pressed={lengthStyle === 'auto'}
+                      >
+                        <span>🎲 Any</span>
+                        <span className="pill-sub">Dynamic</span>
+                      </button>
+                    </div>
+                  </div>
+
                   <textarea
                     id="draft-review-text"
                     rows="6"
@@ -1413,7 +1480,7 @@ export default function ReviewPage() {
                     <button
                       type="button"
                       className="btn-secondary-sm"
-                      onClick={handleRegenerate}
+                      onClick={() => handleRegenerate(rating)}
                       disabled={generatingDraft}
                     >
                       {generatingDraft ? (

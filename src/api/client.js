@@ -244,265 +244,8 @@ function saveStoredPrivateFeedback(feedback) {
   }
 }
 
-/**
- * Ring buffer tracking recently generated drafts to prevent repeats across successive regenerations
- */
-const recentDraftsHistory = [];
-
-/**
- * High-Variety AI Review Generator Engine
- * Generates truly unique, authentic, non-repetitive customer reviews
- * using dynamic multi-persona synthesis, varied linguistic rhythms, and category-tailored lexicons.
- */
-function generateMockDraft({ serviceType, whatStoodOut, whatCouldImprove, rating = 5, previousDraft = '', businessCategory = '', seed }) {
-  const stars = Number(rating) || 5;
-  const rawService = serviceType ? serviceType.trim() : '';
-  const serviceLower = rawService ? rawService.toLowerCase() : '';
-  const cleanStoodOut = whatStoodOut ? whatStoodOut.trim().replace(/[.,!]+$/, '') : 'friendly and efficient service';
-  const cleanImprove = whatCouldImprove ? whatCouldImprove.trim().replace(/[.,!]+$/, '') : '';
-  const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
-
-  // Category detection
-  const combinedContext = `${businessCategory || ''} ${rawService}`.toLowerCase();
-  const isAuto = /auto|car|garage|mechanic|tyre|tire|brake|engine|vehicle|motor|oil|inspection|ac repair/i.test(combinedContext);
-  const isSalon = /salon|hair|spa|beauty|facial|skin|makeup|barber|nail|massage|grooming/i.test(combinedContext);
-  const isHealth = /dental|clinic|doctor|dentist|health|medical|physio|eye|hospital|teeth|cleaning/i.test(combinedContext);
-  const isFood = /restaurant|cafe|dining|food|coffee|table|brunch|lunch|dinner|bar|pizza|bakery/i.test(combinedContext);
-  const isIT = /it|software|tech|marketing|seo|web|developer|app|coding|saas|analytics|design|digital/i.test(combinedContext);
-  const isGym = /gym|fitness|trainer|workout|yoga|crossfit|training|coach/i.test(combinedContext);
-
-  const svcRef = serviceLower || (isAuto ? 'service' : isSalon ? 'styling' : isHealth ? 'visit' : isFood ? 'meal' : isIT ? 'project' : isGym ? 'session' : 'work');
-
-  // Derive pseudo-randomness incorporating timestamp + seed + previousDraft length
-  const seedVal = typeof seed === 'number' ? seed : Date.now();
-  const randNum = (seedVal % 9973) + Math.floor(Math.random() * 10000);
-  const pickRandom = (arr, salt = 0) => arr[(randNum + salt) % arr.length];
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // 5-STAR REVIEWS: Multi-Persona Synthesis Architecture
-  // ──────────────────────────────────────────────────────────────────────────
-  if (stars === 5) {
-    // 16+ Distinct Sentence Openers across 8 unique customer angles
-    const openers = [
-      // Angle 1: First-time visitor
-      `First time coming here for ${svcRef}, and they genuinely made a great impression.`,
-      `Had never used them before, but booked an appointment for ${svcRef} based on local recommendations.`,
-      `Was a first-timer here for ${svcRef} and was pleasantly surprised by how smooth everything went.`,
-      // Angle 2: Timely & prompt
-      `In and out with zero unnecessary delays for my ${svcRef}.`,
-      `Really appreciated how punctually they handled my ${svcRef} today.`,
-      `Quick, painless, and completely organized from the moment I arrived for ${svcRef}.`,
-      // Angle 3: Problem / need solved
-      `Needed someone reliable to take care of ${svcRef} on short notice, and these folks stepped up.`,
-      `Had been putting off getting my ${svcRef} sorted out, but glad I finally came here.`,
-      `Brought this in for ${svcRef} and they got right down to business without any runaround.`,
-      // Angle 4: Meticulous / quality focused
-      `I'm usually pretty particular about who I trust with ${svcRef}, but they completely delivered.`,
-      `The attention to detail on my ${svcRef} was noticeable right away.`,
-      `Solid workmanship on my ${svcRef}—you can tell the team knows their trade inside out.`,
-      // Angle 5: Word of mouth & discovery
-      `A friend pointed me toward this place for ${svcRef}, and I'm very glad they did.`,
-      `Found them online while searching for someone trustworthy to handle ${svcRef}.`,
-      // Angle 6: Direct & matter-of-fact
-      `Straightforward, honest, and high-quality ${svcRef}.`,
-      `Had my ${svcRef} taken care of here earlier today.`,
-      `Everything regarding my ${svcRef} was handled professionally and with great care.`,
-    ];
-
-    // 15+ Dynamic Ways to weave in the customer's specific highlight
-    const highlightBridges = [
-      `What stood out most was that ${cleanStoodOut.toLowerCase()}.`,
-      `Really appreciated how ${cleanStoodOut.toLowerCase()}.`,
-      `${cap(cleanStoodOut)} made a huge difference to the whole experience.`,
-      `They took the time to ensure ${cleanStoodOut.toLowerCase()}, which you don't always find.`,
-      `No hassle, no pressure—just ${cleanStoodOut.toLowerCase()}.`,
-      `Clear communication throughout, especially regarding ${cleanStoodOut.toLowerCase()}.`,
-      `You can tell the staff takes genuine pride in ${cleanStoodOut.toLowerCase()}.`,
-      `${cap(cleanStoodOut)}—honestly made the entire visit stress-free.`,
-      `Everything was transparent from start to finish, and ${cleanStoodOut.toLowerCase()}.`,
-      `Rare to see this level of dedication to ${cleanStoodOut.toLowerCase()} these days.`,
-      `The team was courteous, transparent, and ${cleanStoodOut.toLowerCase()}.`,
-      `Fair pricing upfront, and ${cleanStoodOut.toLowerCase()}.`,
-      `Loved the fact that ${cleanStoodOut.toLowerCase()}.`,
-      `They delivered exactly what was promised: ${cleanStoodOut.toLowerCase()}.`,
-      `From check-in to completion, ${cleanStoodOut.toLowerCase()}.`,
-    ];
-
-    // 16+ Authentic Closings (zero robotic slogan clichés)
-    const closings = [
-      `Definitely my new go-to spot moving forward.`,
-      `Hard to find this level of honesty and care nowadays.`,
-      `Left with complete peace of mind. Great job all around.`,
-      `Will certainly be coming back for future needs.`,
-      `Solid service, good people, and fair rates. Well deserved 5 stars.`,
-      `Already told a couple colleagues to check them out.`,
-      `No complaints whatsoever. Handled right the first time.`,
-      `Refreshing to deal with a team that respects both your time and wallet.`,
-      `If you need ${svcRef} done properly, don't think twice.`,
-      `Will be trusting them with all my future visits.`,
-      `Deserves all the praise they get.`,
-      `Very glad I chose them—exceeded my expectations.`,
-      `Highly impressed with the overall professionalism.`,
-      `Honest people doing honest work. 10/10 in my book.`,
-      `Left as a very happy customer.`,
-      `Couldn't have asked for a smoother experience.`,
-    ];
-
-    // Industry-specific specialized reviews
-    let specializedPool = [];
-    if (isAuto) {
-      specializedPool = [
-        `Brought my vehicle in for ${svcRef}. ${cap(cleanStoodOut)}. No pushy upsells, honest diagnosis, and the car drives like a dream now. Highly recommend.`,
-        `Solid mechanic shop. Handled ${svcRef} promptly with clear pricing upfront. ${cap(cleanStoodOut)}. Hard to find honest garages like this.`,
-        `In and out for ${svcRef} faster than expected. ${cap(cleanStoodOut)}. Straight shooters who know what they're doing. Will be back.`,
-      ];
-    } else if (isSalon) {
-      specializedPool = [
-        `Booked an appointment for ${svcRef} and walked out loving the result. ${cap(cleanStoodOut)}. Super comfortable vibe and great attention to detail.`,
-        `Amazing experience getting ${svcRef} done here. ${cap(cleanStoodOut)}. The stylist really listened to what I wanted and executed it perfectly.`,
-        `First visit for ${svcRef} and I'm hooked. ${cap(cleanStoodOut)}. Clean, relaxing space and very talented team.`,
-      ];
-    } else if (isHealth) {
-      specializedPool = [
-        `Visited for ${svcRef} and felt in very safe hands. ${cap(cleanStoodOut)}. Calm, patient explanation with zero rush. Truly appreciated.`,
-        `Very gentle and thorough with my ${svcRef}. ${cap(cleanStoodOut)}. Clean clinic, punctual appointment, and respectful staff.`,
-        `Top notch care for ${svcRef}. ${cap(cleanStoodOut)}. They explained every step clearly and made the whole visit stress-free.`,
-      ];
-    } else if (isIT) {
-      specializedPool = [
-        `Partnered with them for our ${svcRef} and the results speak for themselves. ${cap(cleanStoodOut)}. Responsive communication, technical acumen, and on-time milestones.`,
-        `Hired their team to handle ${svcRef}. ${cap(cleanStoodOut)}. Proactive suggestions, transparent roadmap, and genuine dedication to our business growth.`,
-        `Great execution on ${svcRef}. ${cap(cleanStoodOut)}. Very organized workflow and delivered exactly what was scoped without surprises.`,
-      ];
-    } else if (isFood) {
-      specializedPool = [
-        `Visited for ${svcRef} and the experience was fantastic. ${cap(cleanStoodOut)}. Great atmosphere, flavorful food, and prompt service.`,
-        `Had a wonderful time here. ${cap(cleanStoodOut)}. Everything tasted fresh and the staff was genuinely attentive throughout.`,
-      ];
-    }
-
-    // Generate 12 varied combinatorial candidates
-    const synthesizedPool = [];
-    for (let i = 0; i < 14; i++) {
-      const op = pickRandom(openers, i * 3);
-      const br = pickRandom(highlightBridges, i * 7 + 2);
-      const cl = pickRandom(closings, i * 5 + 4);
-
-      // Random sentence structure variation
-      if (i % 3 === 0) {
-        // 3 sentences: Opener. Highlight. Closing.
-        synthesizedPool.push(`${op} ${br} ${cl}`);
-      } else if (i % 3 === 1) {
-        // 2 sentences: Highlight-led Opener. Closing.
-        synthesizedPool.push(`${br} ${op} ${cl}`);
-      } else {
-        // 3 sentences with connecting rhythm
-        synthesizedPool.push(`${op} ${cap(cleanStoodOut)}. ${cl}`);
-      }
-    }
-
-    const allFive = [...specializedPool, ...synthesizedPool];
-    return selectDistinctDraft(allFive, previousDraft, recentDraftsHistory);
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // 4-STAR REVIEWS (Positive with nuanced notes)
-  // ──────────────────────────────────────────────────────────────────────────
-  if (stars === 4) {
-    const fourPool = [
-      `Good visit overall for ${svcRef}. ${cap(cleanStoodOut)}. ${cleanImprove ? `Only minor note was ${cleanImprove.toLowerCase()}, but they handled everything else nicely.` : 'Turnaround was quick and the crew was polite.'} Would gladly use them again.`,
-      `Solid 4-star experience getting ${svcRef} done. ${cap(cleanStoodOut)}. ${cleanImprove ? `Room for slight improvement on ${cleanImprove.toLowerCase()}, though.` : 'Fair pricing and good communication.'} Recommended.`,
-      `Pleasantly surprised by the quality of ${svcRef}. ${cap(cleanStoodOut)}. ${cleanImprove ? `Minor hiccup with ${cleanImprove.toLowerCase()}, but not a big deal.` : 'Respectful staff and clean facility.'} Happy with the outcome.`,
-      `Reliable team for ${svcRef}. ${cap(cleanStoodOut)}. ${cleanImprove ? `Could polish up ${cleanImprove.toLowerCase()}, but` : 'Overall'} they did honest, trustworthy work.`,
-      `Went in for ${svcRef} and had a largely positive experience. ${cap(cleanStoodOut)}. ${cleanImprove ? `Just wish ${cleanImprove.toLowerCase()} was slightly smoother.` : 'Everything went fine.'} Worth recommending.`,
-      `Prompt turnaround and respectful team. ${cap(cleanStoodOut)}. ${cleanImprove ? `Hope they streamline ${cleanImprove.toLowerCase()} in the future.` : 'Very satisfactory visit.'}`,
-      `Handled my ${svcRef} cleanly. What stood out was ${cleanStoodOut.toLowerCase()}. ${cleanImprove ? `A small delay with ${cleanImprove.toLowerCase()}, but` : ''} overall a dependable service.`,
-    ];
-    return selectDistinctDraft(fourPool, previousDraft, recentDraftsHistory);
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // 3-STAR REVIEWS (Fair, balanced, honest)
-  // ──────────────────────────────────────────────────────────────────────────
-  if (stars === 3) {
-    const threePool = [
-      `Mixed experience with ${svcRef}. On one hand, ${cleanStoodOut.toLowerCase()}, which was appreciated. On the other hand, ${cleanImprove ? cleanImprove.toLowerCase() : 'wait times and communication were average'}. Decent service, but definitely room to improve.`,
-      `It was okay overall. ${cap(cleanStoodOut)}. ${cleanImprove ? `However, ${cleanImprove.toLowerCase()} held the visit back from being great.` : 'Decent work, but nothing extraordinary.'} Middle of the road experience.`,
-      `Service was fine for my ${svcRef}. Good points: ${cleanStoodOut.toLowerCase()}. ${cleanImprove ? `Could definitely improve on ${cleanImprove.toLowerCase()}.` : 'Felt a bit rushed at times.'} Fair, but could be better organized.`,
-      `Decent job, but room for improvement. ${cap(cleanStoodOut)}, though ${cleanImprove ? cleanImprove.toLowerCase() : 'customer communication could be tighter'}. Might consider trying again in the future.`,
-    ];
-    return selectDistinctDraft(threePool, previousDraft, recentDraftsHistory);
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // 2-STAR & 1-STAR REVIEWS (Direct, civil, highlighting issues)
-  // ──────────────────────────────────────────────────────────────────────────
-  if (stars === 2) {
-    const twoPool = [
-      `Rather disappointed with my visit for ${svcRef}. ${cleanStoodOut ? `While ${cleanStoodOut.toLowerCase()}, ` : ''}${cleanImprove ? cleanImprove.toLowerCase() : 'the service fell well short of expectations'}. Took longer than promised with poor communication.`,
-      `Would hesitate before coming back here for ${svcRef}. ${cleanImprove ? cap(cleanImprove) + ' caused a lot of frustration.' : 'Execution was careless.'} Expected much better standards.`,
-      `Not satisfied with the outcome of ${svcRef}. ${cleanImprove ? cap(cleanImprove) : 'Staff seemed disengaged and unhelpful'}. Needs management attention.`,
-    ];
-    return selectDistinctDraft(twoPool, previousDraft, recentDraftsHistory);
-  }
-
-  const onePool = [
-    `Extremely frustrating experience for ${svcRef}. ${cleanImprove ? cap(cleanImprove) + '.' : 'Completely unprofessional and careless service.'} No accountability or effort to fix the issue. Avoid if possible.`,
-    `Regret coming here for ${svcRef}. ${cleanImprove ? cap(cleanImprove) : 'Terrible customer support and zero respect for customer time'}. Completely unacceptable.`,
-    `Very bad experience with ${svcRef}. ${cleanImprove ? cap(cleanImprove) : 'Service was incomplete and handled rudely'}. Will definitely not be returning.`,
-  ];
-  return selectDistinctDraft(onePool, previousDraft, recentDraftsHistory);
-}
-
-/**
- * Intelligent Selector:
- * Ensures the candidate is distinctly different from previousDraft
- * and does not repeat openers, sentence rhythms, or vocabulary.
- */
-function selectDistinctDraft(candidates, previousDraft, historyRing) {
-  const prevLower = (previousDraft || '').trim().toLowerCase();
-  const prevWords = new Set(prevLower.split(/\W+/).filter((w) => w.length > 3));
-
-  // Filter out candidates that share the same opener or high lexical overlap
-  const fresh = candidates.filter((cand) => {
-    const candLower = cand.trim().toLowerCase();
-
-    // 1. Must not start with the same 16 characters as previous draft
-    if (prevLower && candLower.startsWith(prevLower.slice(0, 16))) {
-      return false;
-    }
-
-    // 2. Lexical overlap check against previousDraft (< 25% overlap allowed)
-    if (prevWords.size > 0) {
-      const candWords = candLower.split(/\W+/).filter((w) => w.length > 3);
-      if (candWords.length > 0) {
-        const overlap = candWords.filter((w) => prevWords.has(w)).length;
-        if (overlap / candWords.length >= 0.28) {
-          return false;
-        }
-      }
-    }
-
-    // 3. Ring buffer check: do not repeat recent drafts in current session
-    for (const recent of historyRing.slice(-8)) {
-      if (candLower.startsWith(recent.toLowerCase().slice(0, 18))) {
-        return false;
-      }
-    }
-
-    return true;
-  });
-
-  const pool = fresh.length > 0 ? fresh : candidates;
-  // Pick using randomized index
-  const chosen = pool[Math.floor(Math.random() * pool.length)].trim();
-
-  // Push to history ring (keep last 16)
-  historyRing.push(chosen);
-  if (historyRing.length > 16) historyRing.shift();
-
-  return chosen;
-}
+import { generateMockDraft, selectDistinctDraft, recentDraftsHistory } from '../utils/reviewGenerator.js';
+export { generateMockDraft, selectDistinctDraft, recentDraftsHistory };
 
 /**
  * Safe fetch wrapper with automatic mock fallback if backend is unreachable
@@ -1692,7 +1435,7 @@ export const api = {
    * POST /api/reviews/draft
    * AI draft review generator via Supabase Edge Function (Gemini 2.5 Flash Lite)
    */
-  async generateDraftReview({ businessId, serviceType, whatStoodOut, whatCouldImprove, rating = 5, previousDraft = '', businessCategory = '', seed }) {
+  async generateDraftReview({ businessId, serviceType, whatStoodOut, whatCouldImprove, rating = 5, previousDraft = '', businessCategory = '', seed, lengthPreference = 'auto' }) {
     // Enforce max 10 generation calls per minute per browser
     this._checkRateLimit('draft', 10, 60000);
 
@@ -1716,6 +1459,7 @@ export const api = {
             seed: typeof seed === 'number' ? seed : Date.now(),
             // Pass previous draft so Edge Function can explicitly avoid repeating it
             previousDraft: previousDraft || '',
+            lengthPreference,
           },
         });
 
@@ -1773,6 +1517,7 @@ export const api = {
       previousDraft,
       businessCategory: businessCategory || targetBiz?.category || '',
       seed,
+      lengthPreference,
     });
     return { draftText };
   },

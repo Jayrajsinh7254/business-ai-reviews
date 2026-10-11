@@ -2016,7 +2016,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  margin-bottom: 0.35rem;
 }
 
 .length-selector-label {
@@ -2030,7 +2032,8 @@
 
 .length-selector-hint {
   font-size: 0.72rem;
-  color: var(--text-muted);
+  color: #4f46e5;
+  font-weight: 600;
 }
 
 .review-length-pills {
@@ -2042,6 +2045,7 @@
 @media (max-width: 480px) {
   .review-length-pills {
     grid-template-columns: repeat(2, 1fr);
+    gap: 0.45rem;
   }
 }
 
@@ -2049,8 +2053,9 @@
   background: #ffffff;
   border: 1.5px solid #cbd5e1;
   border-radius: var(--radius-sm);
-  padding: 0.45rem 0.5rem;
-  font-size: 0.78rem;
+  padding: 0.5rem 0.5rem;
+  min-height: 48px;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #334155;
   cursor: pointer;
@@ -2058,7 +2063,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
+  gap: 0.2rem;
   transition: all 0.15s ease-in-out;
   text-align: center;
   line-height: 1.2;
@@ -4435,46 +4440,193 @@ textarea {
   }
 
   .star-picker-section {
-    padding: 0.85rem 0.5rem;
+    padding: 0.9rem 0.75rem;
     width: 100%;
+    align-items: center;
+    text-align: center;
+  }
+
+  .star-picker-section .star-rating-container {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .star-picker-section .star-rating-container.size-lg .star-svg {
+    width: 2.05rem;
+    height: 2.05rem;
   }
 
   .star-picker-header {
+    display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 0.35rem;
+    width: 100%;
+    text-align: center;
   }
 
   .sentiment-badge {
-    font-size: 0.7rem;
-    padding: 0.2rem 0.5rem;
+    font-size: 0.72rem;
+    padding: 0.25rem 0.65rem;
   }
 
   .star-picker-subhint {
-    font-size: 0.68rem;
+    font-size: 0.7rem;
+    text-align: center;
+  }
+
+  .draft-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.45rem;
   }
 
   .draft-top-actions {
-    flex-wrap: wrap;
-    gap: 0.35rem;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
   }
 
   .btn-google-post {
-    padding: 0.85rem 1rem;
-    font-size: 0.92rem;
+    padding: 0.9rem 1.15rem;
+    font-size: 0.95rem;
     width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
   }
 
+  /* Step 2 Back & Generate side-by-side on mobile */
   .step-actions-split {
-    flex-direction: column;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
     gap: 0.65rem;
     width: 100%;
   }
 
-  .step-actions-split .btn-secondary,
+  .step-actions-split .btn-secondary {
+    width: auto;
+    min-width: 84px;
+    padding: 0.8rem 1rem;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .step-actions-split .btn-primary {
+    width: auto;
+    flex: 1 1 auto;
+    padding: 0.85rem 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Step 3 Sub Actions (Edit Notes & Regenerate) */
+  .sub-actions-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
     width: 100%;
-    text-align: center;
+    margin-top: 0.75rem;
+  }
+
+  .sub-actions-row .btn-secondary-sm {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.65rem 0.75rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  /* Step 4 Google Paste Guide Card on mobile */
+  .google-paste-guide-card {
+    padding: 1rem 0.85rem;
+    margin: 1.15rem 0;
+    border-radius: var(--radius-lg);
+  }
+
+  .guide-steps-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+  }
+
+  .guide-step-arrow {
+    display: none;
+  }
+
+  .guide-mini-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: #ffffff;
+    border: 1px solid rgba(79, 70, 229, 0.15);
+    border-radius: var(--radius-md);
+    padding: 0.65rem 0.85rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    width: 100%;
+  }
+
+  .guide-step-number {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    font-size: 0.82rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .guide-step-body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    gap: 0.15rem;
+    flex: 1;
+  }
+
+  .guide-step-body strong {
+    font-size: 0.84rem;
+    line-height: 1.25;
+  }
+
+  .guide-step-body span {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+
+  .step-4-quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-top: 1.25rem;
+    width: 100%;
+  }
+
+  a.btn-primary,
+  a.btn-primary:visited,
+  a.btn-primary:hover,
+  a.btn-primary:active {
+    color: #ffffff !important;
+    text-decoration: none;
+  }
+
+  .btn-copied {
+    background: #10b981 !important;
+    color: #ffffff !important;
+    border-color: #059669 !important;
   }
 
   /* Landing Page Small Screen */

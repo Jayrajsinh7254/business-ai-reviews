@@ -1314,7 +1314,7 @@ export default function ReviewPage() {
                       {rating === 1 && '⚠️ 1-Star (Critical)'}
                     </span>
                   </div>
-                  <StarRating rating={rating} onChange={handleRatingChange} size="lg" />
+                  <StarRating rating={rating} onChange={handleRatingChange} size="lg" showLabel={false} />
                   <span className="star-picker-subhint">
                     Tap any star above to instantly regenerate the review with that tone!
                   </span>
@@ -1322,9 +1322,9 @@ export default function ReviewPage() {
 
                 {/* Editable Draft Textarea */}
                 <div className="form-group">
-                  <div className="form-label-row">
-                    <label htmlFor="draft-review-text" className="form-label">
-                      Review Text (Feel free to edit)
+                  <div className="form-label-row draft-label-row">
+                    <label htmlFor="draft-review-text" className="form-label draft-main-label">
+                      Review Text <span className="optional-tag">(Feel free to edit)</span>
                     </label>
                     <div className="draft-top-actions">
                       <button
@@ -1617,7 +1617,7 @@ export default function ReviewPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn-primary btn-block btn-lg"
-                        style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#ffffff' }}
                       >
                         🚀 Open Google Review Page
                       </a>

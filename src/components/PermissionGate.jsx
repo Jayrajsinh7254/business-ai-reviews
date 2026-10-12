@@ -17,7 +17,8 @@ export default function PermissionGate({
   onUpgradeClick,
   children,
 }) {
-  const { role, subscription } = useAuth();
+  const { role, subscription, business, effectivePlanId: authEffectivePlanId } = useAuth();
+  const effectivePlanId = authEffectivePlanId || business?.planId || subscription?.planId || 'starter';
 
   // 1. Check RBAC Role Permission
   if (permission && !hasPermission(role, permission)) {
@@ -34,9 +35,9 @@ export default function PermissionGate({
   }
 
   // 2. Check Subscription Plan Feature Gating
-  if (feature && !isFeatureAllowed(subscription?.planId, feature)) {
+  if (feature && !isFeatureAllowed(effectivePlanId, feature)) {
     if (showUpgradePrompt) {
-      const currentPlan = getPlan(subscription?.planId);
+      const currentPlan = getPlan(effectivePlanId);
       return (
         <div className="plan-upgrade-required-card">
           <div className="upgrade-prompt-icon">⚡</div>

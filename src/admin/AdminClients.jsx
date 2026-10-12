@@ -104,7 +104,7 @@ export default function AdminClients() {
     category: 'Other / Local Business',
     services: '',
     googleReviewUrl: '',
-    planId: 'pro',
+    planId: 'starter',
     status: 'active',
     paidUntil: '',
     logoUrl: '',
@@ -146,7 +146,7 @@ export default function AdminClients() {
               reviewsGenerated: b.ai_credits_used || 0,
               status: inactive ? 'inactive' : b.subscription_status === 'trialing' ? 'trial' : 'active',
               subscriptionStatus: inactive ? 'canceled' : b.subscription_status || 'active',
-              planId: b.plan_id || 'pro',
+              planId: b.plan_id || 'starter',
               qrSentAt: b.created_at ? b.created_at.split('T')[0] : null,
               paidUntil: b.paid_until || null,
               googleReviewUrl: b.google_review_url,
@@ -289,7 +289,7 @@ export default function AdminClients() {
       category: client.businessType || 'Other / Local Business',
       services: servicesStr,
       googleReviewUrl: client.googleReviewUrl || '',
-      planId: client.planId || 'pro',
+      planId: client.planId || 'starter',
       status: isClientInactive(client) ? 'inactive' : (client.status === 'trial' ? 'trial' : 'active'),
       paidUntil: client.paidUntil || '',
       logoUrl: client.logoUrl || '',
@@ -493,15 +493,87 @@ export default function AdminClients() {
   };
 
   const handlePlanChange = async (clientId, newPlanId) => {
+    // 1. Asynchronously update Supabase if configured
     if (isSupabaseConfigured() && supabase) {
       try {
         await supabase.from('businesses').update({ plan_id: newPlanId }).eq('id', clientId);
+        try {
+          await supabase.from('subscriptions').update({ plan_id: newPlanId }).eq('business_id', clientId);
+        } catch {}
       } catch (err) {
         console.warn('Plan change Supabase error:', err);
       }
     }
+
+    // 2. Update React state & admin clients cache
     const updated = clients.map((c) => (c.id === clientId ? { ...c, planId: newPlanId } : c));
     persistClients(updated);
+
+    // 3. Update review_assist_businesses cache so dashboard immediately resolves the new plan
+    try {
+      const rawBiz = localStorage.getItem('review_assist_businesses');
+      if (rawBiz) {
+        const storedBiz = JSON.parse(rawBiz);
+        if (storedBiz[clientId]) {
+          storedBiz[clientId].planId = newPlanId;
+          storedBiz[clientId].plan_id = newPlanId;
+          localStorage.setItem('review_assist_businesses', JSON.stringify(storedBiz));
+        }
+      }
+      const rawAltBiz = localStorage.getItem('reviewassist_businesses');
+      if (rawAltBiz) {
+        const altBiz = JSON.parse(rawAltBiz);
+        if (altBiz[clientId]) {
+          altBiz[clientId].planId = newPlanId;
+          altBiz[clientId].plan_id = newPlanId;
+          localStorage.setItem('reviewassist_businesses', JSON.stringify(altBiz));
+        }
+      }
+    } catch (e) {
+      console.warn('Could not update stored businesses for plan change:', e);
+    }
+
+    // 4. Update review_assist_subscriptions cache
+    try {
+      const rawSubs = localStorage.getItem('review_assist_subscriptions');
+      const subs = rawSubs ? JSON.parse(rawSubs) : {};
+      subs[clientId] = {
+        ...(subs[clientId] || {}),
+        businessId: clientId,
+        planId: newPlanId,
+      };
+      localStorage.setItem('review_assist_subscriptions', JSON.stringify(subs));
+    } catch (e) {
+      console.warn('Could not update stored subscriptions for plan change:', e);
+    }
+
+    // 5. Update reviewassist_current_user if the logged-in user belongs to this client
+    try {
+      const rawUser = localStorage.getItem('reviewassist_current_user');
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        if (u.businessId === clientId) {
+          u.planId = newPlanId;
+          localStorage.setItem('reviewassist_current_user', JSON.stringify(u));
+        }
+      }
+    } catch {}
+
+    // 6. Broadcast sync event across tabs / active views
+    try {
+      window.dispatchEvent(
+        new CustomEvent('reviewassist:admin_sync', {
+          detail: { businessId: clientId, planId: newPlanId, type: 'plan_changed' },
+        })
+      );
+      window.dispatchEvent(new Event('storage'));
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('reviewassist_channel');
+        bc.postMessage({ type: 'plan_changed', businessId: clientId, planId: newPlanId });
+        bc.close();
+      }
+    } catch {}
+
     const planName = PLAN_OPTIONS.find((p) => p.id === newPlanId)?.name || newPlanId;
     showToast(`💎 Assigned ${planName} plan.`);
   };
@@ -578,7 +650,7 @@ export default function AdminClients() {
         email: client.email || '',
         phone: client.phone || '',
         googleReviewUrl: client.googleReviewUrl || `https://www.google.com/search?q=${encodeURIComponent(client.businessName + ' Google Reviews')}`,
-        planId: client.planId || 'pro',
+        planId: client.planId || 'starter',
         status: isClientInactive(client) ? 'inactive' : (client.status === 'trial' ? 'trial' : 'active'),
         subscriptionStatus: isClientInactive(client) ? 'canceled' : (client.subscriptionStatus || 'active'),
         paidUntil: client.paidUntil || null,
@@ -595,7 +667,7 @@ export default function AdminClients() {
       const subs = rawSubs ? JSON.parse(rawSubs) : {};
       subs[client.id] = {
         businessId: client.id,
-        planId: client.planId || 'pro',
+        planId: client.planId || 'starter',
         status: isClientInactive(client) ? 'inactive' : (client.subscriptionStatus || 'active'),
         billingInterval: 'monthly',
         amount: client.planId === 'starter' ? 299 : client.planId === 'enterprise' ? 799 : 499,
@@ -922,7 +994,7 @@ export default function AdminClients() {
               const clientType = getClientType(client);
               const expired = isPaidExpired(client.paidUntil);
               const days = daysUntil(client.paidUntil);
-              const currentPlan = PLAN_OPTIONS.find((p) => p.id === (client.planId || 'pro')) || PLAN_OPTIONS[1];
+              const currentPlan = PLAN_OPTIONS.find((p) => p.id === (client.planId || 'starter')) || PLAN_OPTIONS[0];
 
               return (
                 <div
@@ -968,7 +1040,7 @@ export default function AdminClients() {
                       <label className="admin-field-label">Plan Tier</label>
                       <select
                         className="admin-field-select"
-                        value={client.planId || 'pro'}
+                        value={client.planId || 'starter'}
                         onChange={(e) => handlePlanChange(client.id, e.target.value)}
                       >
                         {PLAN_OPTIONS.map((opt) => (

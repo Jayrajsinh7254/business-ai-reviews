@@ -108,6 +108,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadData();
+
+    const handleSync = () => {
+      loadData();
+    };
+
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('reviewassist:admin_sync', handleSync);
+    window.addEventListener('reviewassist:status_changed', handleSync);
+
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('reviewassist:admin_sync', handleSync);
+      window.removeEventListener('reviewassist:status_changed', handleSync);
+    };
   }, [activeBusinessId, loadData]);
 
   const handleLogout = async () => {
@@ -264,7 +278,7 @@ export default function DashboardPage() {
     showToastMsg('✓ Business profile and branding settings updated!');
   };
 
-  const currentPlan = getPlan(subscription?.planId || business?.planId);
+  const currentPlan = getPlan(business?.planId || subscription?.planId || 'starter');
   const isInactive =
     business?.status === 'inactive' ||
     business?.subscriptionStatus === 'inactive' ||
@@ -385,9 +399,16 @@ export default function DashboardPage() {
             type="button"
             className="btn-whatsapp-header-action"
             onClick={() => setShowWhatsAppModal(true)}
-            title="Open WhatsApp customer review inviter"
+            title={
+              !isFeatureAllowed(currentPlan.id, 'whatsappInviter')
+                ? 'WhatsApp Review Inviter is a Pro Feature (Click to View Plan Options)'
+                : 'Open WhatsApp customer review inviter'
+            }
           >
             💬 Send WhatsApp
+            {!isFeatureAllowed(currentPlan.id, 'whatsappInviter') && (
+              <span className="launchpad-pro-badge" style={{ marginLeft: '6px', fontSize: '10px' }}>PRO</span>
+            )}
           </button>
 
           <Link
@@ -535,6 +556,9 @@ export default function DashboardPage() {
         >
           <span className="tab-icon">👥</span>
           <span>Team & Staff (RBAC)</span>
+          {currentPlan.limits.teamSeats <= 1 && (
+            <span className="launchpad-pro-badge" style={{ marginLeft: '6px', fontSize: '10px' }}>PRO</span>
+          )}
         </button>
 
         <button
@@ -1042,7 +1066,36 @@ export default function DashboardPage() {
           ========================================================================= */}
       {activeTab === 'team' && (
         <div className="tab-content-container animate-fade-in">
-          <TeamManagement onOpenUpgradeModal={() => setShowSubModal(true)} />
+          {currentPlan.limits.teamSeats <= 1 ? (
+            <div className="plan-upgrade-required-card team-lock-card">
+              <div className="upgrade-prompt-icon">👥</div>
+              <div className="upgrade-prompt-body">
+                <h4>Multi-Seat Team Management is Locked on {currentPlan.name} Plan</h4>
+                <p>
+                  The Starter (Basic) plan includes 1 user seat (Business Owner). Upgrade to Pro Growth (5 staff seats) or Enterprise (Unlimited seats) to add team members, assign front-desk staff roles, and track individual employee review generation.
+                </p>
+                <div className="locked-perks-list" style={{ marginTop: '12px' }}>
+                  <span>✓ Up to 5 Team &amp; Staff Seats with Granular RBAC</span>
+                  <span>✓ Front-desk Staff Accounts &amp; QR Scan Tracking</span>
+                  <span>✓ Employee Permission Controls &amp; Role Switcher</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-primary btn-sm btn-upgrade-glow"
+                onClick={() => setShowSubModal(true)}
+              >
+                🚀 Upgrade to Pro Growth (₹499/mo)
+              </button>
+            </div>
+          ) : (
+            <TeamManagement
+              planId={currentPlan.id}
+              business={business}
+              subscription={subscription}
+              onOpenUpgradeModal={() => setShowSubModal(true)}
+            />
+          )}
         </div>
       )}
 

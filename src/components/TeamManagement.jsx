@@ -26,7 +26,7 @@ export default function TeamManagement({
   const [copiedLink, setCopiedLink] = useState(false);
 
   const canManageTeam = hasPermission(PERMISSIONS.TEAM_INVITE) || user?.isSuperAdmin;
-  const currentPlan = getPlan(propPlanId || business?.planId || subscription?.planId || 'pro');
+  const currentPlan = getPlan(propPlanId || business?.planId || subscription?.planId || 'starter');
   const maxSeats = currentPlan.limits.teamSeats;
   const currentSeatCount = teamMembers.length;
   const isSeatLimitReached = maxSeats !== Infinity && currentSeatCount >= maxSeats;

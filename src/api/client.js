@@ -2184,7 +2184,7 @@ export const api = {
         password: password !== undefined ? password : existing.password || 'welcome123',
         services: resolvedServices,
         googleReviewUrl: googleReviewUrl || existing.googleReviewUrl,
-        planId: planId || existing.planId || 'pro',
+        planId: planId || existing.planId || 'starter',
         status: status || existing.status || 'active',
         subscriptionStatus: subStatus,
         paidUntil: paidUntil !== undefined ? paidUntil : existing.paidUntil,
@@ -2217,7 +2217,7 @@ export const api = {
         email: cleanEmail || existingBiz.email,
         phone: phone !== undefined ? phone : existingBiz.phone || '',
         googleReviewUrl: googleReviewUrl || existingBiz.googleReviewUrl || `https://www.google.com/search?q=${encodeURIComponent((cleanName || 'business') + ' Google Reviews')}`,
-        planId: planId || existingBiz.planId || 'pro',
+        planId: planId || existingBiz.planId || 'starter',
         status: status || existingBiz.status || 'active',
         subscriptionStatus: status === 'inactive' ? 'canceled' : status === 'trial' ? 'trialing' : 'active',
         paidUntil: paidUntil !== undefined ? paidUntil : existingBiz.paidUntil,
@@ -2261,7 +2261,7 @@ export const api = {
       subs[cleanId] = {
         ...(subs[cleanId] || {}),
         businessId: cleanId,
-        planId: planId || subs[cleanId]?.planId || 'pro',
+        planId: planId || subs[cleanId]?.planId || 'starter',
         status: subStatus,
         currentPeriodEnd: paidUntil || subs[cleanId]?.currentPeriodEnd,
       };
@@ -2933,6 +2933,61 @@ export const api = {
     }
 
     return { success: true, google_review_link: cleanLink, googleReviewUrl: cleanLink };
+  },
+
+  /**
+   * Fetch current subscription plan details for a business
+   */
+  async getSubscription(businessId) {
+    const cleanId = businessId || 'demo-1';
+    // 1. Direct admin client override check
+    const override = getAdminClientOverride(cleanId);
+    let planId = override?.planId;
+    let status = override?.status === 'inactive' ? 'canceled' : (override?.subscriptionStatus || 'active');
+
+    // 2. Local storage check
+    try {
+      const rawSubs = localStorage.getItem(STORAGE_KEY_SUBSCRIPTIONS);
+      const subs = rawSubs ? JSON.parse(rawSubs) : {};
+      if (subs[cleanId]) {
+        const sub = subs[cleanId];
+        return {
+          ...sub,
+          planId: planId || sub.planId || 'starter',
+          status: status || sub.status || 'active',
+        };
+      }
+    } catch {}
+
+    // 3. Fallback from business profile
+    const biz = await this.getBusiness(cleanId);
+    const resolvedPlan = planId || biz?.planId || 'starter';
+    return {
+      businessId: cleanId,
+      planId: resolvedPlan,
+      status: status || biz?.subscriptionStatus || 'trialing',
+      billingInterval: 'monthly',
+      amount: resolvedPlan === 'pro' ? 499 : resolvedPlan === 'enterprise' ? 799 : 299,
+      currentPeriodEnd: biz?.paidUntil || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+  },
+
+  /**
+   * Save or update subscription plan for a business
+   */
+  async updateSubscription(businessId, subData) {
+    const cleanId = businessId || 'demo-1';
+    try {
+      const rawSubs = localStorage.getItem(STORAGE_KEY_SUBSCRIPTIONS);
+      const subs = rawSubs ? JSON.parse(rawSubs) : {};
+      subs[cleanId] = {
+        ...(subs[cleanId] || {}),
+        ...subData,
+        businessId: cleanId,
+      };
+      localStorage.setItem(STORAGE_KEY_SUBSCRIPTIONS, JSON.stringify(subs));
+    } catch {}
+    return { success: true, ...subData };
   },
 };
 

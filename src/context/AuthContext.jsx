@@ -95,11 +95,22 @@ export function AuthProvider({ children }) {
         api.getTeamMembers ? api.getTeamMembers(targetBizId) : Promise.resolve([]),
       ]);
 
+      let freshBiz = null;
       if (bizData.status === 'fulfilled' && bizData.value) {
-        setBusiness(bizData.value);
+        freshBiz = bizData.value;
+        setBusiness(freshBiz);
       }
       if (subData.status === 'fulfilled' && subData.value) {
-        setSubscription(subData.value);
+        const freshSub = { ...subData.value };
+        if (freshBiz?.planId) {
+          freshSub.planId = freshBiz.planId;
+        }
+        setSubscription(freshSub);
+      } else if (freshBiz?.planId) {
+        setSubscription((prev) => ({
+          ...prev,
+          planId: freshBiz.planId,
+        }));
       }
       if (teamData.status === 'fulfilled' && Array.isArray(teamData.value)) {
         setTeamMembers(teamData.value);
@@ -113,6 +124,22 @@ export function AuthProvider({ children }) {
     if (user?.businessId) {
       loadUserData(user?.businessId);
     }
+
+    const handleSync = () => {
+      if (user?.businessId) {
+        loadUserData(user?.businessId);
+      }
+    };
+
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('reviewassist:admin_sync', handleSync);
+    window.addEventListener('reviewassist:status_changed', handleSync);
+
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('reviewassist:admin_sync', handleSync);
+      window.removeEventListener('reviewassist:status_changed', handleSync);
+    };
   }, [user?.businessId, loadUserData]);
 
   // Role Switcher: only permitted for Business Owner to preview staff experience
@@ -298,8 +325,12 @@ export function AuthProvider({ children }) {
     return hasPermission(currentRole, permission);
   };
 
+  // Authoritative Effective Plan: business.planId is ground truth (set by admin or signup)
+  const effectivePlanId = business?.planId || subscription?.planId || 'starter';
+  const currentPlan = getPlan(effectivePlanId);
+
   const isFeatureUnlocked = (featureKey) => {
-    return isFeatureAllowed(subscription?.planId, featureKey);
+    return isFeatureAllowed(effectivePlanId, featureKey);
   };
 
   const switchPlan = (newPlanId) => {
@@ -326,6 +357,8 @@ export function AuthProvider({ children }) {
     subscription,
     teamMembers,
     loading,
+    effectivePlanId,
+    currentPlan,
     hasPermission: checkPermission,
     can: checkPermission,
     isFeatureUnlocked,

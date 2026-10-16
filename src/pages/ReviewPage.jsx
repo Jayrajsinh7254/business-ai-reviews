@@ -39,6 +39,7 @@ export default function ReviewPage() {
   const [draftText, setDraftText] = useState('');
   const [rating, setRating] = useState(5);
   const [lengthStyle, setLengthStyle] = useState('auto'); // 'auto' | 'short' | 'medium' | 'detailed'
+  const [reviewLanguage, setReviewLanguage] = useState('english'); // language for AI review generation
 
   // 1-3 Star Protection Shield states
   const [bypassShieldToGoogle, setBypassShieldToGoogle] = useState(false);
@@ -247,6 +248,7 @@ export default function ReviewPage() {
         businessCategory: business?.category || '',
         seed: Date.now() + Math.floor(Math.random() * 1000000),
         lengthPreference: lengthStyle,
+        language: reviewLanguage,
       });
       setRating(5);
       setDraftText(response.draftText || '');
@@ -334,6 +336,7 @@ export default function ReviewPage() {
         businessCategory: business?.category || '',
         seed: Date.now() + Math.floor(Math.random() * 1000000),
         lengthPreference: lengthStyle,
+        language: reviewLanguage,
       });
 
       setDraftText(response.draftText || '');
@@ -370,6 +373,7 @@ export default function ReviewPage() {
         businessCategory: business?.category || '',
         seed: Date.now() + Math.floor(Math.random() * 1000000),
         lengthPreference: activeLength,
+        language: reviewLanguage,
       });
       setDraftText(response.draftText || '');
       showToast('✨ Review regenerated with fresh wording!');
@@ -384,6 +388,41 @@ export default function ReviewPage() {
   const handleSelectLengthStyle = (newLength) => {
     setLengthStyle(newLength);
     handleRegenerate(rating, newLength);
+  };
+
+  const handleSelectLanguage = async (newLang) => {
+    setReviewLanguage(newLang);
+    // Only regenerate if we already have a draft (Step 3)
+    if (currentStep === 3 && draftText) {
+      setGeneratingDraft(true);
+      setErrorMsg('');
+      try {
+        const effectiveService = getEffectiveService();
+        const fallbackPraise = rating >= 4
+          ? 'Great service, polite and professional team, and very smooth experience overall.'
+          : (rating === 3 ? 'Decent service, took care of everything required.' : 'Could have been better.');
+        const resolvedWhatStoodOut = (whatStoodOut || '').trim() || fallbackPraise;
+        const response = await api.generateDraftReview({
+          businessId,
+          serviceType: effectiveService,
+          whatStoodOut: resolvedWhatStoodOut,
+          whatCouldImprove: (whatCouldImprove || '').trim(),
+          rating,
+          previousDraft: draftText || '',
+          businessCategory: business?.category || '',
+          seed: Date.now() + Math.floor(Math.random() * 1000000),
+          lengthPreference: lengthStyle,
+          language: newLang,
+        });
+        setDraftText(response.draftText || '');
+        showToast(`🌐 Review regenerated in ${SUPPORTED_LANGUAGES.find(l => l.code === newLang)?.label || newLang}!`);
+      } catch (err) {
+        console.error('Failed to regenerate in new language:', err);
+        setErrorMsg(err.message || 'Could not regenerate in new language.');
+      } finally {
+        setGeneratingDraft(false);
+      }
+    }
   };
 
   const handleRatingChange = (newRating) => {
@@ -792,6 +831,21 @@ export default function ReviewPage() {
     'No complaints ✨',
   ];
 
+  const SUPPORTED_LANGUAGES = [
+    { code: 'english',    label: 'English',    flag: '🇬🇧', nativeName: 'English' },
+    { code: 'hindi',      label: 'Hindi',      flag: '🇮🇳', nativeName: 'हिन्दी' },
+    { code: 'gujarati',   label: 'Gujarati',   flag: '🇮🇳', nativeName: 'ગુજરાતી' },
+    { code: 'marathi',    label: 'Marathi',    flag: '🇮🇳', nativeName: 'मराठी' },
+    { code: 'spanish',    label: 'Spanish',    flag: '🇪🇸', nativeName: 'Español' },
+    { code: 'french',     label: 'French',     flag: '🇫🇷', nativeName: 'Français' },
+    { code: 'arabic',     label: 'Arabic',     flag: '🇸🇦', nativeName: 'العربية' },
+    { code: 'portuguese', label: 'Portuguese', flag: '🇧🇷', nativeName: 'Português' },
+    { code: 'german',     label: 'German',     flag: '🇩🇪', nativeName: 'Deutsch' },
+    { code: 'bengali',    label: 'Bengali',    flag: '🇧🇩', nativeName: 'বাংলা' },
+  ];
+
+
+
   const hasServices = business?.services && business.services.length > 0;
 
   return (
@@ -963,7 +1017,6 @@ export default function ReviewPage() {
               <strong className="service-pill-name">{getEffectiveService()}</strong>
             </div>
 
-            {/* Interactive Star Rating Hero */}
             <div className="review-stars-hero">
               <span className="stars-hero-eyebrow">Rate Your Overall Experience</span>
               <div className="stars-hero-picker">
@@ -993,6 +1046,52 @@ export default function ReviewPage() {
                 </p>
               </div>
             )}
+
+            {/* Language Selector — Positioned smoothly right after rating & before questions */}
+            <div className="language-selector-section animate-fade-in">
+              <div className="language-selector-header">
+                <div className="language-header-left">
+                  <div className="language-icon-badge">🌐</div>
+                  <div className="language-selector-meta">
+                    <div className="language-selector-title-row">
+                      <span className="language-selector-title">Review Language</span>
+                      <span className="language-ai-badge">✨ AI Assisted</span>
+                    </div>
+                    <span className="language-selector-hint">
+                      Select your language — AI will craft your review naturally
+                    </span>
+                  </div>
+                </div>
+                <div className="language-selected-badge">
+                  <span className="badge-pulse-dot"></span>
+                  <span className="badge-text">
+                    {SUPPORTED_LANGUAGES.find((l) => l.code === reviewLanguage)?.nativeName || 'English'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="language-pills-grid" role="radiogroup" aria-label="Review language selection">
+                {SUPPORTED_LANGUAGES.map((lang) => {
+                  const isSelected = reviewLanguage === lang.code;
+                  return (
+                    <button
+                      key={lang.code}
+                      type="button"
+                      className={`language-pill ${isSelected ? 'active' : ''}`}
+                      onClick={() => setReviewLanguage(lang.code)}
+                      aria-pressed={isSelected}
+                    >
+                      <div className="lang-pill-top">
+                        <span className="lang-flag">{lang.flag}</span>
+                        {isSelected && <span className="lang-check-badge">✓</span>}
+                      </div>
+                      <span className="lang-native">{lang.nativeName}</span>
+                      <span className="lang-sub">{lang.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             {/* Question 1: What stood out to you? */}
             <div className="review-question-card">
@@ -1402,7 +1501,42 @@ export default function ReviewPage() {
                     </div>
                   </div>
 
+                  {/* Language Switcher in Step 3 */}
+                  <div className="step3-lang-bar">
+                    <div className="step3-lang-header">
+                      <div className="step3-lang-title-group">
+                        <span className="step3-lang-icon">🌐</span>
+                        <span className="step3-lang-label">Language:</span>
+                        <span className="step3-lang-active-chip">
+                          {SUPPORTED_LANGUAGES.find((l) => l.code === reviewLanguage)?.nativeName || 'English'}
+                        </span>
+                      </div>
+                      <span className="step3-lang-hint">Tap any language to rewrite</span>
+                    </div>
+                    <div className="step3-lang-pills" role="radiogroup" aria-label="Switch review language">
+                      {SUPPORTED_LANGUAGES.map((lang) => {
+                        const isSelected = reviewLanguage === lang.code;
+                        return (
+                          <button
+                            key={lang.code}
+                            type="button"
+                            className={`step3-lang-pill ${isSelected ? 'active' : ''}`}
+                            onClick={() => handleSelectLanguage(lang.code)}
+                            disabled={generatingDraft}
+                            aria-pressed={isSelected}
+                            title={`Translate review to ${lang.label} (${lang.nativeName})`}
+                          >
+                            <span className="step3-lang-flag">{lang.flag}</span>
+                            <span className="step3-lang-name">{lang.nativeName}</span>
+                            {isSelected && <span className="step3-lang-check">✓</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <textarea
+
                     id="draft-review-text"
                     rows="6"
                     className="form-textarea draft-textarea"

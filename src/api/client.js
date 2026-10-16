@@ -1435,9 +1435,11 @@ export const api = {
    * POST /api/reviews/draft
    * AI draft review generator via Supabase Edge Function (Gemini 2.5 Flash Lite)
    */
-  async generateDraftReview({ businessId, serviceType, whatStoodOut, whatCouldImprove, rating = 5, previousDraft = '', businessCategory = '', seed, lengthPreference = 'auto' }) {
-    // Enforce max 10 generation calls per minute per browser
-    this._checkRateLimit('draft', 10, 60000);
+  _edgeFunctionFailUntil: 0,
+
+  async generateDraftReview({ businessId, serviceType, whatStoodOut, whatCouldImprove, rating = 5, previousDraft = '', businessCategory = '', seed, lengthPreference = 'auto', language = 'english' }) {
+    // Generous limit for language switching & preview exploration (60/min)
+    this._checkRateLimit('draft', 60, 60000);
 
     // Verify business service is not paused/inactive before generating
     const targetBiz = await this.getBusiness(businessId);
@@ -1445,9 +1447,11 @@ export const api = {
       throw new Error("This business's review assistant service is temporarily paused by administration.");
     }
 
-    if (isSupabaseConfigured() && supabase) {
+    // Only invoke Edge Function if Supabase is configured and not in failure cooloff
+    if (isSupabaseConfigured() && supabase && Date.now() > (this._edgeFunctionFailUntil || 0)) {
       try {
-        const { data, error } = await supabase.functions.invoke('generate-review', {
+        // Enforce 3.5s timeout so unconfigured/slow edge functions don't block language previewing
+        const invokePromise = supabase.functions.invoke('generate-review', {
           body: {
             businessId,
             serviceType,
@@ -1455,13 +1459,18 @@ export const api = {
             whatCouldImprove,
             rating,
             businessCategory: businessCategory || targetBiz?.category || '',
-            // Unique seed forces genuinely different output on every call
             seed: typeof seed === 'number' ? seed : Date.now(),
-            // Pass previous draft so Edge Function can explicitly avoid repeating it
             previousDraft: previousDraft || '',
             lengthPreference,
+            language: language || 'english',
           },
         });
+
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Edge Function timeout (falling back to fast local generator)')), 3500)
+        );
+
+        const { data, error } = await Promise.race([invokePromise, timeoutPromise]);
 
         if (error) {
           let detailedMsg = error.message;
@@ -1473,15 +1482,14 @@ export const api = {
           } catch {
             // ignore
           }
-          console.error('Supabase Edge Function error:', detailedMsg, error);
-          throw new Error(detailedMsg || 'Failed to generate review draft');
-        }
-
-        if (data?.draftText) {
+          // If GEMINI_API_KEY is missing or edge function returns 500, enter a 2-minute cooloff
+          // so subsequent clicks switch languages instantaneously
+          this._edgeFunctionFailUntil = Date.now() + 120000;
+          console.warn('Supabase Edge Function unavailable (cooloff active):', detailedMsg);
+          // Fall through to local mock generator
+        } else if (data?.draftText) {
           return { draftText: data.draftText };
-        }
-
-        if (data?.error) {
+        } else if (data?.error) {
           throw new Error(data.error);
         }
       } catch (fnErr) {
@@ -1493,7 +1501,8 @@ export const api = {
         ) {
           throw fnErr;
         }
-        console.warn('Supabase Edge Function failed:', fnErr);
+        this._edgeFunctionFailUntil = Date.now() + 120000;
+        console.warn('Supabase Edge Function bypassed, using local generator:', fnErr.message || fnErr);
         // Fall back to local mock generator
       }
     }
@@ -1518,9 +1527,11 @@ export const api = {
       businessCategory: businessCategory || targetBiz?.category || '',
       seed,
       lengthPreference,
+      language: language || 'english',
     });
     return { draftText };
   },
+
 
   /**
    * POST review confirmation & persist to database

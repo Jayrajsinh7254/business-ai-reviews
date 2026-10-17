@@ -393,7 +393,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Invalid JSON body provided." }, 400);
     }
 
-    const { businessId, serviceType, whatStoodOut, whatCouldImprove, rating, seed, previousDraft, businessCategory, lengthPreference } = body || {};
+    const { businessId, serviceType, whatStoodOut, whatCouldImprove, rating, seed, previousDraft, businessCategory, lengthPreference, language } = body || {};
 
     if (!businessId || typeof businessId !== "string" || !businessId.trim()) {
       return json({ error: "Missing required field: businessId is required." }, 400);
@@ -515,6 +515,21 @@ MANDATORY VARIATION RULES:
 4. Ensure the first 5 words are completely different from the previous draft.`
       : "";
 
+    const langMap: Record<string, string> = {
+      hindi: "Hindi (हिन्दी)",
+      gujarati: "Gujarati (ગુજરાતી)",
+      marathi: "Marathi (मराठी)",
+      arabic: "Arabic (العربية)",
+      spanish: "Spanish (Español)",
+      french: "French (Français)",
+      german: "German (Deutsch)",
+      portuguese: "Portuguese (Português)",
+      bengali: "Bengali (বাংলা)",
+      english: "English",
+    };
+    const langKey = typeof language === "string" ? language.toLowerCase().trim() : "english";
+    const targetLanguage = langMap[langKey] || (langKey ? String(language) : "English");
+
     const userPrompt = `BUSINESS
 Name: ${bizName}
 Category: ${bizCategory || "not specified"}
@@ -530,6 +545,10 @@ DO NOT CLAIM: ${profile.avoid}
 
 STAR RATING: ${starRating} out of 5
 TONE FOR THIS RATING: ${RATING_TONE[starRating]}
+
+CRITICAL LANGUAGE REQUIREMENT:
+The review MUST be written fluently, naturally, and natively in ${targetLanguage}.
+Do NOT output in English if another language was requested. Use authentic native phrasing, idioms, and script.
 
 CUSTOMER PERSONA ANGLE
 - Role / Perspective: ${persona.name}

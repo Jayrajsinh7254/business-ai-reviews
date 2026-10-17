@@ -14,6 +14,8 @@
  * Combinatorial Space: >50,000 unique reviews per industry & service.
  */
 
+import { synthesizeMultilingualReview } from './multilingualReviewEngine.js';
+
 export const recentDraftsHistory = [];
 
 function cap(s) {
@@ -101,7 +103,25 @@ export function generateMockDraft({
   lengthPreference = 'auto',
   language = 'english',
 }) {
-  const englishDraft = _generateMockDraftInternal({
+  const stars = Number(rating) || 5;
+  const lang = (language || 'english').toLowerCase().trim();
+
+  // If a supported non-English language is chosen, generate through the combinatorial engine
+  if (lang !== 'english') {
+    const multiDraft = synthesizeMultilingualReview({
+      language: lang,
+      stars,
+      targetMode: lengthPreference,
+      randSeed: seed,
+      previousDraft,
+    });
+    if (multiDraft) {
+      return multiDraft;
+    }
+  }
+
+  // English fallback or primary generation
+  return _generateMockDraftInternal({
     serviceType,
     whatStoodOut,
     whatCouldImprove,
@@ -111,12 +131,6 @@ export function generateMockDraft({
     seed,
     lengthPreference,
   });
-  const stars = Number(rating) || 5;
-  const rawService = serviceType ? serviceType.trim() : '';
-  const serviceLower = rawService ? rawService.toLowerCase() : '';
-  const category = detectCategory(businessCategory, rawService);
-  const svcRef = getServiceRef(serviceLower, category);
-  return applyLanguage(englishDraft, language, svcRef, stars, previousDraft);
 }
 
 function _generateMockDraftInternal({
@@ -548,165 +562,21 @@ export function selectDistinctDraft(candidates, previousDraft, historyRing = rec
 
 
 // ──────────────────────────────────────────────────────────────────────────────
-// MULTILINGUAL REVIEW POOLS & ENGINE
+// MULTILINGUAL REVIEW DELEGATION
 // ──────────────────────────────────────────────────────────────────────────────
-const NATIVE_REVIEWS = {
-  hindi: {
-    5: [
-      'बहुत अच्छी सेवा मिली! स्टाफ बेहद विनम्र और प्रोफेशनल था। मैं ज़रूर दोबारा आऊंगा/आऊंगी। पूरी तरह से संतुष्ट हूं! 🌟',
-      'यहाँ की सर्विस लाजवाब है। समय पर काम हुआ, साफ-सुथरी जगह और शानदार अनुभव। 5 में से 5 स्टार!',
-      'बहुत बढ़िया अनुभव रहा। टीम बेहद मददगार और दोस्ताना थी। अपने दोस्तों को भी यहाँ आने की सलाह दूंगा।',
-      'इस जगह की सर्विस वाकई काबिले-तारीफ है। न कोई छुपा हुआ चार्ज, न कोई देरी। बेहद संतोषजनक काम!',
-      'सेवा बहुत तेज़ और कुशल थी। स्टाफ का रवैया बहुत अच्छा था। पूरी तरह सिफारिश करता हूं।',
-      'पहली बार आया/आई और बेहद प्रभावित हुआ। साफ माहौल, तेज़ सर्विस और उचित कीमत। ज़रूर दोबारा आऊंगा!',
-    ],
-    4: [
-      'बहुत अच्छी सर्विस रही। कुछ छोटी-मोटी बातें थीं पर कुल मिलाकर अनुभव काफी अच्छा था। 4 स्टार!',
-      'अच्छी जगह है, स्टाफ मददगार है। थोड़ा इंतजार करना पड़ा पर सर्विस की क्वालिटी बहुत बढ़िया थी।',
-      'अच्छा अनुभव रहा। सब कुछ ठीक से संभाला गया। कुल मिलाकर संतुष्ट हूं।',
-    ],
-    3: [
-      'ठीक-ठाक अनुभव रहा। काम पूरा हो गया पर थोड़ा और बेहतर हो सकता था।',
-      'सर्विस औसत रही। स्टाफ ठीक था पर समय प्रबंधन में सुधार की गुंजाइश है।',
-    ],
-  },
-  gujarati: {
-    5: [
-      'અહીંની સેવા ખૂબ જ ઉત્કૃષ્ટ છે! સ્ટાફ ખૂબ સારો અને વ્યાવસાયિક છે. ચોક્કસ ફરી આવીશ. 🌟',
-      'ખૂબ સારો અનુભવ! સ્વચ્છ જગ્યા, ઝડપી સેવા અને વ્યાજબી ભાવ. 5 સ્ટાર આપવાનો ખુશ છું.',
-      'અહીં આવવું ખૂબ ગમ્યું. ટીમ ખૂબ મૈત્રીપૂર્ણ અને મદદગાર છે. બધા મિત્રોને ભલામણ કરીશ!',
-      'સેવા ખૂબ ઉત્તમ અને સમયસર મળી. કામની ગુણવત્તા પણ ઉત્કૃષ્ટ છે. ખૂબ ખૂબ ધન્યવાદ!',
-      'ખૂબ સરસ અનુભવ રહ્યો. સ્ટાફ ખૂબ નમ્ર અને પ્રોફેશનલ છે. ફરી ચોક્કસ મુલાકાત લઈશ!',
-      'પ્રથમ વખત આવ્યો/આવી અને ખૂબ સંતોષ થયો. સ્વચ્છ, ઝડપી અને શ્રેષ્ઠ કામગીરી! 🙏',
-    ],
-    4: [
-      'ખૂબ સારી સેવા. નાની બાબતો સુધારી શકાય, પણ કુલ મળીને સારો અનુભવ રહ્યો. 4 સ્ટાર!',
-      'સ્ટાફ ખૂબ મૈત્રીપૂર્ણ છે. થોડો સમય લાગ્યો પણ ગુણવત્તા ખરેખર સારી છે.',
-    ],
-    3: [
-      'ઠીક ઠીક અનુભવ. કામ પૂરું થયું પણ સુધારાની જરૂર જણાય છે.',
-    ],
-  },
-  marathi: {
-    5: [
-      'खूप छान अनुभव! स्टाफ खूप विनम्र आणि व्यावसायिक होता. नक्कीच परत येईन. 🌟',
-      'सेवा उत्कृष्ट होती. वेळेवर काम झाले, स्वच्छ ठिकाण आणि वाजवी किंमत. 5 पैकी 5 स्टार!',
-      'खूप आनंददायी अनुभव. टीम खूप मददगार आणि मैत्रीपूर्ण होती. सर्वांना शिफारस करतो/करते!',
-      'येथील सेवा खरोखरच प्रशंसनीय आहे. कोणतेही छुपे शुल्क नाही, कोणताही विलंब नाही.',
-      'सेवा खूप जलद आणि कार्यक्षम होती. कर्मचाऱ्यांचे वागणे खूप आदरयुक्त होते. पूर्णपणे समाधानी!',
-    ],
-    4: [
-      'चांगली सेवा. काही छोट्या गोष्टी सुधारता येतील, पण एकूण अनुभव खूप छान होता. 4 स्टार!',
-      'चांगली जागा आहे, स्टाफ मदतीस तत्पर आहे. कामाची गुणवत्ता समाधानकारक आहे.',
-    ],
-    3: [
-      'साधारण अनुभव. काम झाले पण आणखी सुधारणा अपेक्षित आहे.',
-    ],
-  },
-  arabic: {
-    5: [
-      'خدمة ممتازة! الموظفون كانوا ودودين ومحترفين جدًا. سأعود بالتأكيد. موصى به بشدة! 🌟',
-      'تجربة رائعة. خدمة سريعة، مكان نظيف وأسعار معقولة. يستحق ٥ نجوم بكل جدارة!',
-      'أحببت الزيارة جدًا. الفريق كان متعاونًا ومهتمًا بأدق التفاصيل. أنصح به الجميع!',
-      'الخدمة كانت لا تشوبها شائبة. لا رسوم خفية، ولا تأخير. راضٍ تمامًا عن النتيجة!',
-      'خدمة جيدة جدًا، سريعة وفعالة. الموظفون لطيفون للغاية. سأكرر الزيارة بالتأكيد!',
-    ],
-    4: [
-      'خدمة جيدة جدًا. بعض الملاحظات البسيطة ولكن التجربة الإجمالية كانت ممتازة. ٤ نجوم!',
-      'مكان رائع وطاقم عمل متعاون. الجودة كانت ممتازة وتستحق التجربة.',
-    ],
-    3: [
-      'تجربة مقبولة. تم إنجاز المطلوب ولكن هناك فرصة لتحسين سرعة الخدمة.',
-    ],
-  },
-  spanish: {
-    5: [
-      '¡Excelente servicio! El personal fue muy amable y profesional. Sin duda regresaré. ¡Totalmente recomendado! 🌟',
-      'Una experiencia increíble. Atención rápida, lugar limpio y precios justos. ¡5 estrellas bien merecidas!',
-      'Me encantó venir aquí. El equipo fue muy servicial y atento en todo momento. ¡Se lo recomiendo a todos!',
-      'El servicio fue impecable de principio a fin. Sin sorpresas ni demoras. ¡Completamente satisfecho!',
-      'Muy buen servicio, rápido y eficiente. Trato impecable del personal. ¡Definitivamente volvería!',
-    ],
-    4: [
-      'Muy buen servicio. Hay pequeños detalles que pulir, pero en general fue una experiencia gratificante. ¡4 estrellas!',
-      'Buen lugar y equipo cordial. Cumplieron con lo prometido de manera profesional.',
-    ],
-    3: [
-      'Experiencia aceptable. Cumplió con lo básico aunque hay margen de mejora en la atención.',
-    ],
-  },
-  french: {
-    5: [
-      'Service remarquable ! Le personnel était particulièrement courtois et efficace. Je reviendrai les yeux fermés. 🌟',
-      'Une expérience parfaite. Prise en charge rapide, espace soigné et tarifs transparents. 5 étoiles méritées !',
-      'Un accueil chaleureux et une équipe à l\'écoute. Je recommande vivement cette adresse !',
-      'Prestation impeccable, travail soigné et respect des délais. Absolument ravi du résultat !',
-    ],
-    4: [
-      'Très bon service dans l\'ensemble. Équipe accueillante et travail soigné. 4 étoiles bien méritées.',
-    ],
-    3: [
-      'Prestation convenable. Le travail est fait, avec quelques points d\'amélioration possibles.',
-    ],
-  },
-  german: {
-    5: [
-      'Ausgezeichneter Service! Das Team war äußerst freundlich, kompetent und pünktlich. Sehr empfehlenswert! 🌟',
-      'Eine rundum positive Erfahrung. Schnelle Abwicklung, sehr sauber und transparente Preise. Verdiente 5 Sterne!',
-      'Hervorragende Betreuung und verlässliche Ausführung. Ich komme gerne wieder!',
-      'Sehr professioneller Ablauf ohne versteckte Kosten. Genau so wünscht man sich guten Kundenservice!',
-    ],
-    4: [
-      'Guter Service und freundliche Mitarbeiter. Insgesamt eine sehr zufriedenstellende Erfahrung. 4 Sterne!',
-    ],
-    3: [
-      'Solide Leistung. Der Auftrag wurde erledigt, etwas mehr Schnelligkeit wäre schön gewesen.',
-    ],
-  },
-  portuguese: {
-    5: [
-      'Excelente atendimento! Equipe muito atenciosa, rápida e profissional. Super recomendo! 🌟',
-      'Experiência impecável. Serviço ágil, ambiente agradável e preço justo. 5 estrelas com certeza!',
-      'Fiquei muito satisfeito com o resultado. Atendimento de primeira e pontualidade exemplar.',
-    ],
-    4: [
-      'Muito bom serviço. Equipe competente e atenciosa. Valeu muito a pena. 4 estrelas!',
-    ],
-    3: [
-      'Atendimento razoável. O serviço foi realizado satisfatoriamente.',
-    ],
-  },
-  bengali: {
-    5: [
-      'অসাধারণ পরিষেবা! কর্মচারীরা অত্যন্ত ভদ্র ও পেশাদার ছিলেন। নিশ্চিতভাবে আবারও আসব। ৫ স্টার প্রাপ্য! 🌟',
-      'খুব সুন্দর অভিজ্ঞতা। সময়মতো কাজ, পরিষ্কার পরিবেশ এবং ন্যায্য মূল্য। সবাইকে সুপারিশ করছি!',
-      'এখানে এসে দারুণ লাগল। দলের সবাই খুব সাহায্যকারী এবং আন্তরিক। ধন্যবাদ!',
-    ],
-    4: [
-      'বেশ ভালো পরিষেবা। সামগ্রিক অভিজ্ঞতা খুবই ইতিবাচক। ৪ তারা!',
-    ],
-    3: [
-      'মোটামুটি অভিজ্ঞতা। কাজ ঠিকঠাক হয়েছে তবে উন্নতির সুযোগ আছে।',
-    ],
-  },
-};
-
-function applyLanguage(englishDraft, language, svcRef, stars, previousDraft = '') {
+export function applyLanguage(englishDraft, language, svcRef, stars, previousDraft = '') {
   const lang = (language || 'english').toLowerCase().trim();
-  if (lang === 'english' || !NATIVE_REVIEWS[lang]) {
+  if (lang === 'english') {
     return englishDraft;
   }
 
-  const langData = NATIVE_REVIEWS[lang];
-  const bucket = stars >= 4 ? 5 : stars === 3 ? 3 : stars;
-  const starKey = String(bucket);
-  const pool = langData[starKey] || langData['5'] || Object.values(langData)[0] || [];
+  const multi = synthesizeMultilingualReview({
+    language: lang,
+    stars: Number(stars) || 5,
+    targetMode: 'auto',
+    previousDraft,
+  });
 
-  if (!pool || pool.length === 0) return englishDraft;
-
-  const prevClean = (previousDraft || '').trim().toLowerCase();
-  const fresh = pool.filter((item) => item.trim().toLowerCase() !== prevClean);
-  const candidates = fresh.length > 0 ? fresh : pool;
-
-  return candidates[Math.floor(Math.random() * candidates.length)];
+  return multi || englishDraft;
 }
+

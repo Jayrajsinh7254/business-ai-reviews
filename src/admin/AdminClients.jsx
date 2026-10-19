@@ -179,6 +179,12 @@ export default function AdminClients() {
           if (c.status === 'inactive' || c.subscriptionStatus === 'canceled') {
             existing.status = 'inactive';
             existing.subscriptionStatus = 'canceled';
+          } else if (c.status === 'active' || c.subscriptionStatus === 'active') {
+            existing.status = 'active';
+            existing.subscriptionStatus = 'active';
+            if (isPaidExpired(existing.paidUntil)) {
+              existing.paidUntil = null;
+            }
           }
           if (c.paidUntil && !existing.paidUntil) existing.paidUntil = c.paidUntil;
           if (c.phone) existing.phone = c.phone;
@@ -433,6 +439,7 @@ export default function AdminClients() {
         storedBiz[client.id].paidUntil = null;
       }
       localStorage.setItem('review_assist_businesses', JSON.stringify(storedBiz));
+      try { localStorage.setItem('reviewassist_businesses', JSON.stringify(storedBiz)); } catch {}
 
       const subData = localStorage.getItem('review_assist_subscriptions');
       const storedSubs = subData ? JSON.parse(subData) : {};
@@ -440,8 +447,10 @@ export default function AdminClients() {
         ...(storedSubs[client.id] || {}),
         businessId: client.id,
         status: subStatusVal,
+        isInactive: currentlyInactive ? false : true,
       };
       localStorage.setItem('review_assist_subscriptions', JSON.stringify(storedSubs));
+      try { localStorage.setItem('reviewassist_subscriptions', JSON.stringify(storedSubs)); } catch {}
 
       // Notify other tabs / views via BroadcastChannel and window events
       try {
@@ -471,13 +480,16 @@ export default function AdminClients() {
     // 4. Asynchronously sync to Supabase (if configured)
     if (isSupabaseConfigured() && supabase) {
       try {
+        const bizUpdatePayload = {
+          subscription_status: subStatusVal,
+          status: newStatus,
+        };
+        if (currentlyInactive) {
+          bizUpdatePayload.paid_until = null;
+        }
         await supabase
           .from('businesses')
-          .update({
-            subscription_status: subStatusVal,
-            status: newStatus,
-            ...(currentlyInactive && isPaidExpired(client.paidUntil) ? { paid_until: null } : {}),
-          })
+          .update(bizUpdatePayload)
           .eq('id', client.id);
 
         try {
@@ -486,6 +498,37 @@ export default function AdminClients() {
             .update({ status: subStatusVal })
             .eq('business_id', client.id);
         } catch {}
+
+        // Also sync deactivation status to the cloud credential record in leads table
+        try {
+          const { data: leadRec } = await supabase
+            .from('leads')
+            .select('*')
+            .eq('id', `cred-${client.id}`)
+            .maybeSingle();
+
+          let parsed = {};
+          if (leadRec && leadRec.message) {
+            try { parsed = JSON.parse(leadRec.message); } catch {}
+          }
+          parsed.businessId = client.id;
+          parsed.status = newStatus;
+          parsed.subscriptionStatus = subStatusVal;
+          parsed.isInactive = currentlyInactive ? false : true;
+          parsed.updatedAt = new Date().toISOString();
+
+          await supabase
+            .from('leads')
+            .upsert({
+              id: `cred-${client.id}`,
+              email: client.email || leadRec?.email || '',
+              name: client.businessName || leadRec?.name || 'Business',
+              status: 'done',
+              message: JSON.stringify(parsed),
+            });
+        } catch (leadSyncErr) {
+          console.warn('Leads status sync note:', leadSyncErr);
+        }
       } catch (dbErr) {
         console.error('Supabase status toggle sync error:', dbErr);
       }
@@ -601,8 +644,6 @@ export default function AdminClients() {
           .from('businesses')
           .update({
             subscription_status: subStatusVal,
-            status: newStatus,
-            paid_until: newDate,
           })
           .eq('id', clientId);
       } catch (err) {
@@ -616,12 +657,21 @@ export default function AdminClients() {
   const handleActivateMember = async (clientId) => {
     if (isSupabaseConfigured() && supabase) {
       try {
-        await supabase.from('businesses').update({ subscription_status: 'active', status: 'active' }).eq('id', clientId);
-        try {
-          await supabase.from('businesses').update({ status: 'active' }).eq('id', clientId);
-        } catch {}
+        await supabase.from('businesses').update({ subscription_status: 'active' }).eq('id', clientId);
         try {
           await supabase.from('subscriptions').update({ status: 'active' }).eq('business_id', clientId);
+        } catch {}
+        try {
+          const { data: leadRec } = await supabase.from('leads').select('message').eq('id', `cred-${clientId}`).maybeSingle();
+          if (leadRec && leadRec.message) {
+            let parsed = {};
+            try { parsed = JSON.parse(leadRec.message); } catch {}
+            parsed.status = 'active';
+            parsed.subscriptionStatus = 'active';
+            parsed.isInactive = false;
+            parsed.updatedAt = new Date().toISOString();
+            await supabase.from('leads').update({ message: JSON.stringify(parsed) }).eq('id', `cred-${clientId}`);
+          }
         } catch {}
       } catch (err) {
         console.warn('Activate member Supabase error:', err);

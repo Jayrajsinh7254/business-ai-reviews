@@ -633,13 +633,18 @@ export default function ReviewPage() {
     Date.now() - new Date(business.createdAt).getTime() > 7 * 24 * 60 * 60 * 1000;
 
   const isInactive = Boolean(
-    isBusinessInactive(business) ||
-    isBusinessInactive(businessId) ||
-    business?.status === 'inactive' ||
-    business?.subscriptionStatus === 'inactive' ||
-    business?.subscriptionStatus === 'canceled' ||
-    (business?.paidUntil && new Date(business.paidUntil) < new Date()) ||
-    isTrialExpired
+    business
+      ? (
+          business.isInactive === true ||
+          business.status === 'inactive' ||
+          business.subscriptionStatus === 'inactive' ||
+          business.subscriptionStatus === 'canceled' ||
+          Boolean(business.paidUntil && new Date(business.paidUntil) < new Date()) ||
+          isTrialExpired
+        )
+      : (
+          isBusinessInactive(businessId)
+        )
   );
 
   if (isInactive) {

@@ -364,6 +364,9 @@ export function isBusinessInactive(bizOrId) {
       ) {
         return true;
       }
+      if (override.status === 'active' || override.subscriptionStatus === 'active') {
+        return false;
+      }
       if (override.paidUntil && new Date(override.paidUntil) < new Date()) {
         return true;
       }
@@ -372,8 +375,11 @@ export function isBusinessInactive(bizOrId) {
 
   // 2. Direct object property check
   if (typeof bizOrId === 'object') {
+    // If explicitly set to inactive or has canceled/inactive status
+    if (bizOrId.isInactive === true) {
+      return true;
+    }
     if (
-      bizOrId.isInactive === true ||
       bizOrId.status === 'inactive' ||
       bizOrId.subscription_status === 'inactive' ||
       bizOrId.subscription_status === 'canceled' ||
@@ -382,6 +388,23 @@ export function isBusinessInactive(bizOrId) {
     ) {
       return true;
     }
+
+    // If marked active or trialing
+    if (
+      bizOrId.status === 'active' ||
+      bizOrId.subscription_status === 'active' ||
+      bizOrId.subscription_status === 'trialing' ||
+      bizOrId.subscriptionStatus === 'active' ||
+      bizOrId.subscriptionStatus === 'trialing' ||
+      bizOrId.isInactive === false
+    ) {
+      const paidDate = bizOrId.paid_until || bizOrId.paidUntil;
+      if (paidDate && new Date(paidDate) < new Date()) {
+        return true;
+      }
+      return false;
+    }
+
     if (bizOrId.paid_until && new Date(bizOrId.paid_until) < new Date()) {
       return true;
     }
@@ -397,6 +420,9 @@ export function isBusinessInactive(bizOrId) {
       const allBiz = rawBiz ? JSON.parse(rawBiz) : {};
       if (allBiz[id]) {
         const b = allBiz[id];
+        if (b.status === 'active' || b.subscriptionStatus === 'active' || b.isInactive === false) {
+          return false;
+        }
         if (
           b.isInactive === true ||
           b.status === 'inactive' ||
@@ -414,6 +440,9 @@ export function isBusinessInactive(bizOrId) {
       const allSubs = rawSubs ? JSON.parse(rawSubs) : {};
       if (allSubs[id]) {
         const s = allSubs[id];
+        if (s.status === 'active' || s.isInactive === false) {
+          return false;
+        }
         if (s.status === 'canceled' || s.status === 'inactive') {
           return true;
         }
@@ -434,7 +463,14 @@ function formatBusinessRow(row) {
   const rawGoogleUrl = row.google_review_link || row.googleReviewLink || row.google_review_url || row.googleReviewUrl;
   const validGoogleUrl = rawGoogleUrl ? rawGoogleUrl.trim() : resolveGoogleReviewUrl(null, resolvedName);
 
-  const isInactive = isBusinessInactive(row) || isBusinessInactive(row.id);
+  let isInactive = false;
+  if (row.subscription_status === 'canceled' || row.subscription_status === 'inactive' || row.status === 'inactive') {
+    isInactive = true;
+  } else if (row.subscription_status === 'active' || row.subscription_status === 'trialing') {
+    isInactive = false;
+  } else {
+    isInactive = isBusinessInactive(row) || isBusinessInactive(row.id);
+  }
 
   const resolvedCategory = row.category || row.businessType || 'other';
   const effectiveServices = resolveEffectiveServices(row.services, resolvedCategory, row.businessType);
@@ -878,26 +914,62 @@ export const api = {
       );
     });
 
-    // 5. If not found locally, check Supabase businesses table by email or ID
+    // 5. Look up remote credentials and business from Supabase
+    let remotePassword = null;
+    let remoteBizId = null;
     let supaBiz = null;
-    if (!matchedUser && !effectiveClientRecord && !localBiz && isSupabaseConfigured() && supabase) {
+
+    if (isSupabaseConfigured() && supabase) {
       try {
-        const { data } = await supabase
+        // A. Check remote credential records in leads table
+        const { data: credRows } = await supabase
+          .from('leads')
+          .select('*')
+          .or(`email.eq.${cleanEmail},id.eq.cred-${cleanEmail}`)
+          .order('updated_at', { ascending: false });
+
+        if (credRows && credRows.length > 0) {
+          for (const row of credRows) {
+            if (row.message && row.message.startsWith('{')) {
+              try {
+                const parsed = JSON.parse(row.message);
+                if (parsed.type === 'client_credential' && parsed.password) {
+                  remotePassword = parsed.password;
+                  remoteBizId = parsed.businessId || null;
+                  break;
+                }
+              } catch {}
+            }
+          }
+        }
+
+        // B. Check businesses table by email, ID, or phone
+        const orClauses = [`email.eq.${cleanEmail}`, `id.eq.${cleanEmail}`];
+        if (remoteBizId) orClauses.unshift(`id.eq.${remoteBizId}`);
+        if (numericPhone && numericPhone.length >= 10) orClauses.push(`phone.eq.${numericPhone}`);
+
+        const { data: bData } = await supabase
           .from('businesses')
           .select('*')
-          .or(`email.eq.${cleanEmail},id.eq.${cleanEmail}`)
+          .or(orClauses.join(','))
+          .order('created_at', { ascending: false })
+          .limit(1)
           .maybeSingle();
-        if (data) supaBiz = data;
-      } catch {}
+
+        if (bData) supaBiz = bData;
+      } catch (err) {
+        console.warn('Supabase credential verification lookup error:', err);
+      }
     }
 
-    if (!matchedUser && !effectiveClientRecord && !supaBiz && !localBiz) {
+    if (!matchedUser && !effectiveClientRecord && !supaBiz && !localBiz && !remotePassword) {
       return null;
     }
 
     // Verify password:
-    // Match against stored password, admin-configured password, or universal onboarding password
+    // Match against remote stored credential, local client record, or universal onboarding fallback
     const candidatePasswords = [
+      remotePassword,
       matchedUser?.password,
       effectiveClientRecord?.password,
       supaBiz?.password,
@@ -911,7 +983,7 @@ export const api = {
     }
 
     // Resolve business ID and business details
-    const bizId = matchedUser?.businessId || adminClient?.id || supaBiz?.id || localBiz?.id || `biz-${Date.now().toString(36)}`;
+    const bizId = matchedUser?.businessId || adminClient?.id || remoteBizId || supaBiz?.id || localBiz?.id || `biz-${Date.now().toString(36)}`;
     let biz = null;
     if (supaBiz) {
       biz = formatBusinessRow(supaBiz);
@@ -959,6 +1031,28 @@ export const api = {
       role: userRole,
     };
     saveStoredUser(resolvedUser);
+
+    // In background, enroll user into Supabase Auth so future sign-ins succeed natively
+    if (isSupabaseConfigured() && supabase) {
+      (async () => {
+        try {
+          const { data: supaAuthData } = await supabase.auth.signUp({
+            email: cleanEmail,
+            password: password,
+            options: {
+              data: {
+                name: userName,
+                businessId: bizId,
+                role: userRole,
+              },
+            },
+          });
+          if (supaAuthData?.user && bizId) {
+            await supabase.from('businesses').update({ user_id: supaAuthData.user.id }).eq('id', bizId);
+          }
+        } catch {}
+      })();
+    }
 
     const token = `auth-jwt-${Date.now()}.${btoa(JSON.stringify({ email: cleanEmail, businessId: bizId }))}`;
     setToken(token);
@@ -1027,8 +1121,48 @@ export const api = {
               .from('businesses')
               .select('*')
               .eq('email', cleanEmail)
+              .order('created_at', { ascending: false })
+              .limit(1)
               .maybeSingle();
             biz = bizByEmail;
+            if (biz && !biz.user_id && authData.user.id) {
+              supabase.from('businesses').update({ user_id: authData.user.id }).eq('id', biz.id).then();
+            }
+          }
+
+          // If still not found by direct email, check leads credential record for businessId
+          if (!biz) {
+            try {
+              const { data: credRows } = await supabase
+                .from('leads')
+                .select('*')
+                .or(`email.eq.${cleanEmail},id.eq.cred-${cleanEmail}`)
+                .order('updated_at', { ascending: false });
+
+              if (credRows && credRows.length > 0) {
+                for (const row of credRows) {
+                  if (row.message && row.message.startsWith('{')) {
+                    const parsed = JSON.parse(row.message);
+                    if (parsed.businessId) {
+                      const { data: leadBiz } = await supabase
+                        .from('businesses')
+                        .select('*')
+                        .eq('id', parsed.businessId)
+                        .maybeSingle();
+                      if (leadBiz) {
+                        biz = leadBiz;
+                        if (!biz.user_id && authData.user.id) {
+                          supabase.from('businesses').update({ user_id: authData.user.id }).eq('id', biz.id).then();
+                        }
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+            } catch (leadBizErr) {
+              console.warn('Leads business association note:', leadBizErr);
+            }
           }
 
           // If not the owner, check if user is an invited staff/team member of a business
@@ -1186,7 +1320,7 @@ export const api = {
     if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
       try {
         const selectFields = options.isPublic
-          ? 'id, name, category, services, google_review_link, google_review_url, phone, status, subscription_status, created_at, paid_until'
+          ? 'id, name, category, services, google_review_link, google_review_url, phone, subscription_status, created_at, plan_id'
           : '*';
 
         let { data, error } = await supabase
@@ -1198,7 +1332,7 @@ export const api = {
         if (error && (error.message?.includes('google_review_link') || error.message?.includes('phone'))) {
           const fb = await supabase
             .from('businesses')
-            .select('id, name, category, services, google_review_url, phone, status, subscription_status, created_at, paid_until')
+            .select('id, name, category, services, google_review_url, phone, subscription_status, created_at, plan_id')
             .eq('id', cleanId)
             .maybeSingle();
           if (!fb.error && fb.data) {
@@ -1208,7 +1342,7 @@ export const api = {
             // Further fallback if phone column does not exist yet in Supabase
             const basic = await supabase
               .from('businesses')
-              .select('id, name, category, services, google_review_url, status, subscription_status, created_at, paid_until')
+              .select('id, name, category, services, google_review_url, subscription_status, created_at, plan_id')
               .eq('id', cleanId)
               .maybeSingle();
             data = basic.data;
@@ -1219,6 +1353,40 @@ export const api = {
         if (!error && data) {
           biz = formatBusinessRow(data);
           // Sync fresh status to local storage so other components stay updated
+          try {
+            const stored = getStoredBusinesses();
+            stored[cleanId] = { ...stored[cleanId], ...biz };
+            localStorage.setItem(STORAGE_KEY_BUSINESSES, JSON.stringify(stored));
+          } catch {}
+        }
+
+        // Also check if remote leads record has an override or extra status
+        try {
+          const { data: leadCred } = await supabase
+            .from('leads')
+            .select('message')
+            .eq('id', `cred-${cleanId}`)
+            .maybeSingle();
+          if (leadCred && leadCred.message) {
+            let parsed = {};
+            try { parsed = JSON.parse(leadCred.message); } catch {}
+            if (parsed.status === 'inactive' || parsed.subscriptionStatus === 'canceled' || parsed.isInactive === true) {
+              if (biz) {
+                biz.status = 'inactive';
+                biz.subscriptionStatus = 'canceled';
+                biz.isInactive = true;
+              }
+            } else if (parsed.status === 'active' || parsed.subscriptionStatus === 'active') {
+              if (biz) {
+                biz.status = 'active';
+                biz.subscriptionStatus = 'active';
+                biz.isInactive = false;
+              }
+            }
+          }
+        } catch {}
+
+        if (biz) {
           try {
             const stored = getStoredBusinesses();
             stored[cleanId] = { ...stored[cleanId], ...biz };
@@ -1369,14 +1537,26 @@ export const api = {
     // 4. Apply admin client overrides (status, plan, paidUntil) if configured in Super Admin
     const adminOverride = getAdminClientOverride(cleanId);
     if (adminOverride) {
-      if (adminOverride.status) {
-        biz.status = adminOverride.status;
-        biz.subscriptionStatus = adminOverride.status;
+      if (adminOverride.status === 'active' || adminOverride.subscriptionStatus === 'active') {
+        biz.status = 'active';
+        biz.subscriptionStatus = 'active';
+        biz.isInactive = false;
+        if (adminOverride.paidUntil && new Date(adminOverride.paidUntil) < new Date()) {
+          biz.paidUntil = null;
+        }
+      } else if (
+        adminOverride.status === 'inactive' ||
+        adminOverride.subscriptionStatus === 'canceled' ||
+        adminOverride.subscriptionStatus === 'inactive'
+      ) {
+        biz.status = 'inactive';
+        biz.subscriptionStatus = 'canceled';
+        biz.isInactive = true;
       }
       if (adminOverride.planId) {
         biz.planId = adminOverride.planId;
       }
-      if (adminOverride.paidUntil) {
+      if (adminOverride.paidUntil && !biz.isInactive) {
         biz.paidUntil = adminOverride.paidUntil;
       }
     }
@@ -1385,9 +1565,17 @@ export const api = {
       const rawSubs = localStorage.getItem(STORAGE_KEY_SUBSCRIPTIONS);
       if (rawSubs) {
         const subs = JSON.parse(rawSubs);
-        if (subs[cleanId] && (subs[cleanId].status === 'inactive' || subs[cleanId].status === 'canceled')) {
-          biz.status = 'inactive';
-          biz.subscriptionStatus = 'canceled';
+        if (subs[cleanId]) {
+          if (biz.status === 'active' || biz.subscriptionStatus === 'active') {
+            if (subs[cleanId].status !== 'active') {
+              subs[cleanId].status = 'active';
+              subs[cleanId].isInactive = false;
+              localStorage.setItem(STORAGE_KEY_SUBSCRIPTIONS, JSON.stringify(subs));
+            }
+          } else if (subs[cleanId].status === 'inactive' || subs[cleanId].status === 'canceled') {
+            biz.status = 'inactive';
+            biz.subscriptionStatus = 'canceled';
+          }
         }
       }
     } catch {}
@@ -1399,6 +1587,8 @@ export const api = {
       biz.isInactive = true;
     } else {
       biz.isInactive = false;
+      if (biz.status === 'inactive') biz.status = 'active';
+      if (biz.subscriptionStatus === 'canceled') biz.subscriptionStatus = 'active';
     }
 
     return biz;
@@ -1716,6 +1906,48 @@ export const api = {
   async getSubscription(businessId) {
     const cleanId = businessId || 'demo-1';
     let sub = null;
+
+    // 1. Authoritative check from Supabase if configured
+    if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
+      try {
+        const { data: bData } = await supabase
+          .from('businesses')
+          .select('id, plan_id, subscription_status')
+          .eq('id', cleanId)
+          .maybeSingle();
+
+        const { data: sData } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('business_id', cleanId)
+          .maybeSingle();
+
+        if (bData || sData) {
+          const rawStatus = bData?.subscription_status || sData?.status || 'active';
+          const isAct = rawStatus === 'active' || rawStatus === 'trialing';
+          sub = {
+            id: sData?.id || `sub-${cleanId}`,
+            businessId: cleanId,
+            planId: bData?.plan_id || sData?.plan_id || 'starter',
+            status: isAct ? (rawStatus === 'trialing' ? 'trialing' : 'active') : 'canceled',
+            billingInterval: sData?.billing_interval || 'monthly',
+            amount: sData?.amount || 499,
+            currentPeriodEnd: sData?.current_period_end || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            isInactive: !isAct,
+          };
+          try {
+            const rawSubs = localStorage.getItem(STORAGE_KEY_SUBSCRIPTIONS);
+            const allSubs = rawSubs ? JSON.parse(rawSubs) : {};
+            allSubs[cleanId] = { ...allSubs[cleanId], ...sub };
+            localStorage.setItem(STORAGE_KEY_SUBSCRIPTIONS, JSON.stringify(allSubs));
+          } catch {}
+          return sub;
+        }
+      } catch (err) {
+        console.warn('Supabase getSubscription error:', err);
+      }
+    }
+
     try {
       const data = localStorage.getItem(STORAGE_KEY_SUBSCRIPTIONS);
       const parsed = data ? JSON.parse(data) : {};
@@ -1981,7 +2213,7 @@ export const api = {
    * 1-Click Client Onboarding by Super Admin
    * Creates business record, login user credentials, sets plan and renewal date, and syncs admin clients list
    */
-  saveClientAccount({
+  async saveClientAccount({
     businessId,
     businessName,
     email,
@@ -2000,19 +2232,48 @@ export const api = {
   }) {
     const cleanBizId = businessId.trim();
     const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = (password || 'welcome123').trim();
+    const cleanOwner = (ownerName || businessName || '').trim();
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const now = new Date().toISOString();
     const defaultExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const expiryDate = paidUntil || defaultExpiry;
 
-    // 1. Create or update user login account
+    let authUserId = null;
+
+    // 1. Create or register user login account in Supabase Auth if configured
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data: authData, error: authErr } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: cleanPass,
+          options: {
+            data: {
+              name: cleanOwner,
+              businessId: cleanBizId,
+              role: 'business_owner',
+            },
+          },
+        });
+
+        if (!authErr && authData?.user) {
+          authUserId = authData.user.id;
+        } else if (authErr) {
+          console.log('Supabase Auth signUp status:', authErr.message);
+        }
+      } catch (err) {
+        console.warn('Supabase Auth signUp note:', err);
+      }
+    }
+
+    // 1b. Create or update user login account in local cache
     const users = getStoredUsers();
     const uIdx = users.findIndex((u) => u.email.toLowerCase() === cleanEmail);
     const userObj = {
-      id: `user-${Date.now().toString(36)}`,
+      id: authUserId || `user-${Date.now().toString(36)}`,
       email: cleanEmail,
-      password: password || 'welcome123',
-      name: ownerName || businessName,
+      password: cleanPass,
+      name: cleanOwner,
       businessId: cleanBizId,
       role: 'business_owner',
     };
@@ -2023,7 +2284,7 @@ export const api = {
     }
     localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
 
-    // 2. Create or update business profile
+    // 2. Create or update business profile locally
     const defaultServices = getCategoryServices(category);
     const resolvedServices = resolveEffectiveServices(services, category);
     const rawGoogleInput = (google_review_link || googleReviewLink || googleReviewUrl || '').trim();
@@ -2052,39 +2313,73 @@ export const api = {
     };
     saveStoredBusiness(newBiz);
 
-    // 2b. Sync to Supabase if configured
+    // 2b. Sync to Supabase if configured (await for complete consistency)
     if (isSupabaseConfigured() && supabase) {
-      (async () => {
+      try {
+        const bizPayload = {
+          id: cleanBizId,
+          user_id: authUserId,
+          name: businessName,
+          category: category || 'other',
+          services: resolvedServices,
+          google_review_link: resolvedGoogleUrl,
+          google_review_url: resolvedGoogleUrl,
+          email: cleanEmail,
+          phone: phone || '',
+          plan_id: planId,
+          status: 'active',
+          subscription_status: 'active',
+          paid_until: expiryDate,
+        };
+        const { error: upsertErr } = await supabase.from('businesses').upsert(bizPayload);
+        if (upsertErr && upsertErr.message?.includes('google_review_link')) {
+          delete bizPayload.google_review_link;
+          await supabase.from('businesses').upsert(bizPayload);
+        }
+
+        await supabase.from('subscriptions').upsert({
+          id: `sub-${cleanBizId}`,
+          business_id: cleanBizId,
+          plan_id: planId,
+          status: 'active',
+          billing_interval: 'monthly',
+          amount: planId === 'starter' ? 299 : planId === 'pro' ? 499 : 799,
+        });
+
+        if (authUserId) {
+          try {
+            await supabase.from('profiles').upsert({
+              id: authUserId,
+              email: cleanEmail,
+              full_name: cleanOwner,
+              role: 'business_owner',
+              business_id: cleanBizId,
+            });
+          } catch {}
+        }
+
+        // Store credentials in leads table for 100% universal remote verification across all client devices
         try {
-          const bizPayload = {
-            id: cleanBizId,
-            name: businessName,
-            category: category || 'other',
-            services: resolvedServices,
-            google_review_link: resolvedGoogleUrl,
-            google_review_url: resolvedGoogleUrl,
+          await supabase.from('leads').upsert({
+            id: `cred-${cleanBizId}`,
+            business_name: businessName,
+            owner_name: cleanOwner,
             email: cleanEmail,
             phone: phone || '',
-            plan_id: planId,
-            subscription_status: 'active',
-          };
-          const { error: upsertErr } = await supabase.from('businesses').upsert(bizPayload);
-          if (upsertErr && upsertErr.message?.includes('google_review_link')) {
-            delete bizPayload.google_review_link;
-            await supabase.from('businesses').upsert(bizPayload);
-          }
-          await supabase.from('subscriptions').upsert({
-            id: `sub-${cleanBizId}`,
-            business_id: cleanBizId,
-            plan_id: planId,
-            status: 'active',
-            billing_interval: 'monthly',
-            amount: planId === 'starter' ? 299 : planId === 'pro' ? 499 : 799,
+            message: JSON.stringify({
+              type: 'client_credential',
+              businessId: cleanBizId,
+              password: cleanPass,
+              updatedAt: new Date().toISOString(),
+            }),
+            status: 'done',
           });
-        } catch (supaErr) {
-          console.warn('Could not upsert business/subscription to Supabase:', supaErr);
+        } catch (credSyncErr) {
+          console.warn('Remote credential sync note:', credSyncErr);
         }
-      })();
+      } catch (supaErr) {
+        console.warn('Could not upsert business/subscription to Supabase:', supaErr);
+      }
     }
 
     // 3. Create or update in Super Admin clients list
@@ -2293,9 +2588,7 @@ export const api = {
           google_review_url: googleReviewUrl,
           google_review_link: googleReviewUrl,
           plan_id: planId,
-          status: status,
           subscription_status: subStatus,
-          paid_until: paidUntil || null,
         };
         if (phone) {
           updatePayload.phone = phone;
@@ -2325,6 +2618,47 @@ export const api = {
             })
             .eq('business_id', cleanId);
         } catch {}
+
+        // Update credentials in leads table for 100% universal remote verification across all client devices
+        try {
+          await supabase.from('leads').upsert({
+            id: `cred-${cleanId}`,
+            business_name: cleanName,
+            owner_name: cleanOwner,
+            email: cleanEmail,
+            phone: phone || '',
+            message: JSON.stringify({
+              type: 'client_credential',
+              businessId: cleanId,
+              email: cleanEmail,
+              password: password || 'welcome123',
+              status: status || 'active',
+              subscriptionStatus: subStatus,
+              isInactive: status === 'inactive',
+              updatedAt: new Date().toISOString(),
+            }),
+            status: 'done',
+          });
+        } catch (credSyncErr) {
+          console.warn('Remote credential sync note on update:', credSyncErr);
+        }
+
+        // Also ensure user is registered in Supabase Auth if not yet registered
+        if (cleanEmail && password) {
+          try {
+            await supabase.auth.signUp({
+              email: cleanEmail,
+              password: password,
+              options: {
+                data: {
+                  name: cleanOwner,
+                  businessId: cleanId,
+                  role: 'business_owner',
+                },
+              },
+            });
+          } catch {}
+        }
       } catch (dbErr) {
         console.warn('Supabase updateClientAccount sync error:', dbErr);
       }
@@ -2946,59 +3280,5 @@ export const api = {
     return { success: true, google_review_link: cleanLink, googleReviewUrl: cleanLink };
   },
 
-  /**
-   * Fetch current subscription plan details for a business
-   */
-  async getSubscription(businessId) {
-    const cleanId = businessId || 'demo-1';
-    // 1. Direct admin client override check
-    const override = getAdminClientOverride(cleanId);
-    let planId = override?.planId;
-    let status = override?.status === 'inactive' ? 'canceled' : (override?.subscriptionStatus || 'active');
-
-    // 2. Local storage check
-    try {
-      const rawSubs = localStorage.getItem(STORAGE_KEY_SUBSCRIPTIONS);
-      const subs = rawSubs ? JSON.parse(rawSubs) : {};
-      if (subs[cleanId]) {
-        const sub = subs[cleanId];
-        return {
-          ...sub,
-          planId: planId || sub.planId || 'starter',
-          status: status || sub.status || 'active',
-        };
-      }
-    } catch {}
-
-    // 3. Fallback from business profile
-    const biz = await this.getBusiness(cleanId);
-    const resolvedPlan = planId || biz?.planId || 'starter';
-    return {
-      businessId: cleanId,
-      planId: resolvedPlan,
-      status: status || biz?.subscriptionStatus || 'trialing',
-      billingInterval: 'monthly',
-      amount: resolvedPlan === 'pro' ? 499 : resolvedPlan === 'enterprise' ? 799 : 299,
-      currentPeriodEnd: biz?.paidUntil || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    };
-  },
-
-  /**
-   * Save or update subscription plan for a business
-   */
-  async updateSubscription(businessId, subData) {
-    const cleanId = businessId || 'demo-1';
-    try {
-      const rawSubs = localStorage.getItem(STORAGE_KEY_SUBSCRIPTIONS);
-      const subs = rawSubs ? JSON.parse(rawSubs) : {};
-      subs[cleanId] = {
-        ...(subs[cleanId] || {}),
-        ...subData,
-        businessId: cleanId,
-      };
-      localStorage.setItem(STORAGE_KEY_SUBSCRIPTIONS, JSON.stringify(subs));
-    } catch {}
-    return { success: true, ...subData };
-  },
 };
 

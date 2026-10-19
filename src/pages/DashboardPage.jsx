@@ -16,7 +16,7 @@ import { useAuth } from '../context/AuthContext';
 import { ROLES, PERMISSIONS, getRoleBadgeInfo } from '../lib/rbac';
 import { getPlan, isFeatureAllowed } from '../lib/plans';
 import { CATEGORIES } from '../lib/categories';
-import { api } from '../api/client';
+import { api, isBusinessInactive } from '../api/client';
 
 export default function DashboardPage() {
   const { businessId: paramBizId } = useParams();
@@ -113,11 +113,24 @@ export default function DashboardPage() {
       loadData();
     };
 
+    let bc = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('reviewassist_channel');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'status_changed' || event.data?.type === 'plan_changed') {
+            handleSync();
+          }
+        };
+      }
+    } catch {}
+
     window.addEventListener('storage', handleSync);
     window.addEventListener('reviewassist:admin_sync', handleSync);
     window.addEventListener('reviewassist:status_changed', handleSync);
 
     return () => {
+      if (bc) bc.close();
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('reviewassist:admin_sync', handleSync);
       window.removeEventListener('reviewassist:status_changed', handleSync);
@@ -279,11 +292,22 @@ export default function DashboardPage() {
   };
 
   const currentPlan = getPlan(business?.planId || subscription?.planId || 'starter');
-  const isInactive =
-    business?.status === 'inactive' ||
-    business?.subscriptionStatus === 'inactive' ||
-    subscription?.status === 'inactive' ||
-    (business?.paidUntil && new Date(business.paidUntil) < new Date());
+  const isInactive = Boolean(
+    business
+      ? (
+          business.isInactive === true ||
+          business.status === 'inactive' ||
+          business.subscriptionStatus === 'inactive' ||
+          business.subscriptionStatus === 'canceled' ||
+          Boolean(business.paidUntil && new Date(business.paidUntil) < new Date())
+        )
+      : (
+          isBusinessInactive(activeBusinessId) ||
+          isBusinessInactive(user?.businessId) ||
+          subscription?.status === 'inactive' ||
+          subscription?.status === 'canceled'
+        )
+  );
   const roleBadge = getRoleBadgeInfo(role);
   const isDemoMode = !user?.businessId && activeBusinessId.startsWith('demo-');
 
@@ -337,6 +361,11 @@ export default function DashboardPage() {
                 : '🚀 Unlimited Multi-Location'}
             </span>
             <span className="biz-id-badge">ID: {activeBusinessId}</span>
+            {isInactive && (
+              <span className="summary-badge-inactive" style={{ verticalAlign: 'middle', fontSize: '0.78rem', marginLeft: '6px' }}>
+                ⛔ Deactivated
+              </span>
+            )}
             {isDemoMode && <span className="demo-status-pill">Interactive Preview</span>}
           </div>
 
@@ -384,7 +413,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="dashboard-header-top-actions">
-          {hasPermission(PERMISSIONS.BILLING_UPGRADE) && (
+          {(!isInactive || isSuperAdmin) && hasPermission(PERMISSIONS.BILLING_UPGRADE) && (
             <button
               type="button"
               className="btn-upgrade-header-action"
@@ -395,21 +424,23 @@ export default function DashboardPage() {
             </button>
           )}
 
-          <button
-            type="button"
-            className="btn-whatsapp-header-action"
-            onClick={() => setShowWhatsAppModal(true)}
-            title={
-              !isFeatureAllowed(currentPlan.id, 'whatsappInviter')
-                ? 'WhatsApp Review Inviter is a Pro Feature (Click to View Plan Options)'
-                : 'Open WhatsApp customer review inviter'
-            }
-          >
-            💬 Send WhatsApp
-            {!isFeatureAllowed(currentPlan.id, 'whatsappInviter') && (
-              <span className="launchpad-pro-badge" style={{ marginLeft: '6px', fontSize: '10px' }}>PRO</span>
-            )}
-          </button>
+          {(!isInactive || isSuperAdmin) && (
+            <button
+              type="button"
+              className="btn-whatsapp-header-action"
+              onClick={() => setShowWhatsAppModal(true)}
+              title={
+                !isFeatureAllowed(currentPlan.id, 'whatsappInviter')
+                  ? 'WhatsApp Review Inviter is a Pro Feature (Click to View Plan Options)'
+                  : 'Open WhatsApp customer review inviter'
+              }
+            >
+              💬 Send WhatsApp
+              {!isFeatureAllowed(currentPlan.id, 'whatsappInviter') && (
+                <span className="launchpad-pro-badge" style={{ marginLeft: '6px', fontSize: '10px' }}>PRO</span>
+              )}
+            </button>
+          )}
 
           <Link
             to={`/review/${activeBusinessId}`}
@@ -490,43 +521,131 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Service Inactive Warning Banner */}
-      {isInactive && (
-        <div className="dashboard-inactive-warning-banner animate-fade-in">
-          <div className="inactive-banner-content">
-            <span className="inactive-banner-icon">⚠️</span>
-            <div className="inactive-banner-text">
-              <div className="inactive-banner-title">
-                Review Collection Service Currently Inactive / Paused
-              </div>
-              <p className="inactive-banner-desc">
-                Your QR standee review page is temporarily paused because your subscription renewal is pending. Customer QR scans will show a service paused notice until reactivated by the administrator.
-              </p>
+      {/* Super Admin Tenant Inactive Banner */}
+      {isSuperAdmin && isInactive && (
+        <div className="admin-tenant-inactive-banner animate-fade-in" style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+            <div>
+              <strong style={{ display: 'block', color: '#92400e', fontSize: '0.95rem' }}>
+                Tenant Service Currently Deactivated
+              </strong>
+              <span style={{ color: '#b45309', fontSize: '0.85rem' }}>
+                Customer QR review scans for this business are paused. You are viewing this dashboard with Super Admin bypass privileges.
+              </span>
             </div>
           </div>
-          <div className="inactive-banner-actions">
-            <a
-              href={`https://wa.me/919537370561?text=${encodeURIComponent(
-                `Hi ReviewAssist team, I need to renew the subscription for ${business?.name || activeBusinessId}. Please send offline UPI / Bank payment details.`
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-renew-whatsapp"
-            >
-              💬 Renew via WhatsApp
-            </a>
-            <button
-              type="button"
-              className="btn-renew-offline"
-              onClick={() => setShowSubModal(true)}
-            >
-              💎 Plan Options
-            </button>
-          </div>
+          <Link to="/admin/clients" className="btn-deactivate" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', textDecoration: 'none' }}>
+            ⚙️ Manage in Admin Portal
+          </Link>
         </div>
       )}
 
-      {/* Structured Dashboard Tab Navigation */}
+      {/* DEACTIVATED USER LOCKOUT CARD — shown to client when account is inactive */}
+      {!isSuperAdmin && isInactive ? (
+        <div className="dashboard-deactivated-lockout-card animate-fade-in">
+          <div className="lockout-badge-wrap">
+            <span className="lockout-status-pill">⛔ Account Deactivated / Service Paused</span>
+          </div>
+
+          <div className="lockout-header-content">
+            <div className="lockout-icon-circle">
+              <span className="lockout-large-icon">🔒</span>
+            </div>
+            <h2 className="lockout-title">Dashboard & Scanner Access Deactivated</h2>
+            <p className="lockout-subtitle">
+              Your ReviewAssist account and customer review scanners have been deactivated by the platform administrator. Access to dashboard controls and review generation is temporarily suspended.
+            </p>
+          </div>
+
+          <div className="lockout-impact-box">
+            <h4 className="lockout-impact-title">Current Service Status</h4>
+            <div className="lockout-impact-grid">
+              <div className="lockout-impact-item">
+                <span className="impact-icon">📱</span>
+                <div>
+                  <strong>Customer QR Standee Scans</strong>
+                  <p>When customers scan your QR standee or visit your review page, they will see a "Service Paused" message.</p>
+                </div>
+              </div>
+              <div className="lockout-impact-item">
+                <span className="impact-icon">⚡</span>
+                <div>
+                  <strong>AI Review Generation & WhatsApp Invites</strong>
+                  <p>Multilingual AI review suggestions and WhatsApp customer review dispatches are temporarily locked.</p>
+                </div>
+              </div>
+              <div className="lockout-impact-item">
+                <span className="impact-icon">📊</span>
+                <div>
+                  <strong>Dashboard Controls & Analytics</strong>
+                  <p>Viewing reviews, downloading standees, and modifying business profile are locked until reactivated.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="lockout-details-summary">
+            <div className="summary-row">
+              <span className="summary-label">Business Name</span>
+              <span className="summary-value">{business?.name || user?.name || 'Your Business'}</span>
+            </div>
+            <div className="summary-row">
+              <span className="summary-label">Account ID</span>
+              <span className="summary-value">{activeBusinessId}</span>
+            </div>
+            <div className="summary-row">
+              <span className="summary-label">Account Status</span>
+              <span className="summary-badge-inactive">Deactivated</span>
+            </div>
+            <div className="summary-row">
+              <span className="summary-label">Assigned Plan</span>
+              <span className="summary-value" style={{ textTransform: 'capitalize' }}>{business?.planId || 'Starter'}</span>
+            </div>
+          </div>
+
+          <div className="lockout-actions-row">
+            <a
+              href={`https://wa.me/919537370561?text=${encodeURIComponent(
+                `Hi ReviewAssist Support! My business account for "${business?.name || activeBusinessId}" is deactivated. Please help me reactivate my dashboard and review scanners.`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-lockout-whatsapp"
+            >
+              💬 Reactivate via WhatsApp
+            </a>
+            <button
+              type="button"
+              className="btn-lockout-upgrade"
+              onClick={() => setShowSubModal(true)}
+            >
+              💎 View Plan Renewal Options
+            </button>
+            <Link
+              to={`/review/${activeBusinessId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-lockout-preview"
+            >
+              📱 Preview Customer Review Page
+            </Link>
+            <button
+              type="button"
+              className="btn-lockout-logout"
+              onClick={handleLogout}
+            >
+              🚪 Sign Out
+            </button>
+          </div>
+
+          <p className="lockout-footer-note">
+            Need immediate help? Contact <strong>support@reviewassist.ai</strong> or WhatsApp <strong>+91 95373 70561</strong> to restore instant access.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Structured Dashboard Tab Navigation */}
       <div className="dashboard-tabs-bar">
         <button
           type="button"
@@ -1442,6 +1561,8 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* Modals */}

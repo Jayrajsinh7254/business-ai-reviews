@@ -199,7 +199,7 @@ export default function AdminInbox() {
         ? req.services
         : getCategoryServices(req.businessType);
 
-      api.saveClientAccount({
+      await api.saveClientAccount({
         businessId: cleanBizId,
         businessName: req.businessName,
         email: req.email,

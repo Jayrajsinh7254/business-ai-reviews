@@ -395,7 +395,7 @@ export default function AdminQRBuilder() {
         ? (form.customCategory?.trim() || 'Custom Business')
         : (CATEGORY_OPTIONS.find((c) => c.id === form.category)?.rawLabel || form.category);
 
-      const result = api.saveClientAccount({
+      const result = await api.saveClientAccount({
         businessId: form.businessId,
         businessName: form.businessName,
         email: form.ownerEmail,
@@ -440,10 +440,13 @@ export default function AdminQRBuilder() {
       } catch {}
 
       setOnboardingKit({
-        client: result.business,
-        user: result.user,
+        client: result?.business,
+        user: result?.user,
         reviewUrl,
         dashboardUrl,
+        loginUrl: `${targetOrigin}/login`,
+        email: form.ownerEmail.trim(),
+        password: form.password || 'welcome123',
       });
 
       showToast(`🎉 ${form.businessName} successfully onboarded!`);
@@ -457,15 +460,29 @@ export default function AdminQRBuilder() {
 
   const getWhatsAppWelcomeMessage = () => {
     const ownerGreeting = form.ownerName ? `Hi ${form.ownerName}!` : 'Hello!';
+    const portalUrl = `${targetOrigin}/login`;
+    const clientPass = form.password || 'welcome123';
     return encodeURIComponent(
       `🎉 ${ownerGreeting} Greetings from ReviewAssist!\n\n` +
-      `Your custom Google review collection system and Standee for *${form.businessName}* are ready.\n\n` +
+      `Your custom Google review collection system and Standee for *${form.businessName}* are ready!\n\n` +
+      `🔐 *Your Dashboard Login Details:*\n` +
+      `🔗 *Login Portal:* ${portalUrl}\n` +
+      `📧 *Email:* ${form.ownerEmail}\n` +
+      `🔑 *Password:* ${clientPass}\n\n` +
       `⭐ *Your Live Customer Review Link:*\n${reviewUrl}\n\n` +
       `🪧 *Custom Acrylic Standee Kit:*\n` +
       `We have crafted your high-resolution 300-DPI Standee with your business logo centered inside the QR code.\n\n` +
-      `Print and place this Standee on your reception counter or billing desk. Customers can simply point their phone camera to leave 5-star Google reviews in 30 seconds!\n\n` +
-      `Let us know on WhatsApp if you need physical acrylic standee printing or any changes!`
+      `Print and place this Standee on your counter or billing desk. Customers can simply point their phone camera to leave 5-star Google reviews in 30 seconds!\n\n` +
+      `Let us know on WhatsApp if you need physical acrylic standee delivery or any changes!`
     );
+  };
+
+  const handleCopyOnboardingCredentials = () => {
+    const portalUrl = `${targetOrigin}/login`;
+    const clientPass = form.password || 'welcome123';
+    const text = `ReviewAssist Dashboard Login Details:\n🏢 Business: ${form.businessName}\n🔗 Login Portal: ${portalUrl}\n📧 Email: ${form.ownerEmail}\n🔑 Password: ${clientPass}\n⭐ Review Link: ${reviewUrl}`;
+    navigator.clipboard.writeText(text);
+    showToast('📋 Login credentials & portal link copied!');
   };
 
   const cleanPhone = form.ownerPhone ? form.ownerPhone.replace(/[^0-9]/g, '') : '';
@@ -485,16 +502,16 @@ export default function AdminQRBuilder() {
               <span className="onboard-sparkle-icon">🎉</span>
               <h2 className="onboard-modal-title">Client Onboarding Kit Ready!</h2>
               <p className="onboard-modal-sub">
-                <strong>{form.businessName}</strong> has been registered and activated in the system.
+                <strong>{form.businessName}</strong> has been registered and activated with full dashboard access.
               </p>
             </div>
 
             <div className="onboard-creds-card">
               <h4 className="onboard-creds-title">🔑 Client Login Credentials</h4>
               <div className="onboard-cred-row">
-                <span className="cred-lbl">Dashboard URL:</span>
-                <a href={dashboardUrl} target="_blank" rel="noreferrer" className="cred-link">
-                  {dashboardUrl}
+                <span className="cred-lbl">Login Portal:</span>
+                <a href={`${targetOrigin}/login`} target="_blank" rel="noreferrer" className="cred-link" style={{ fontWeight: 'bold', color: '#6366f1' }}>
+                  {targetOrigin}/login
                 </a>
               </div>
               <div className="onboard-cred-row">
@@ -503,7 +520,7 @@ export default function AdminQRBuilder() {
               </div>
               <div className="onboard-cred-row">
                 <span className="cred-lbl">Password:</span>
-                <code>{form.password}</code>
+                <code style={{ background: '#fef3c7', color: '#92400e', fontWeight: 'bold' }}>{form.password || 'welcome123'}</code>
               </div>
               <div className="onboard-cred-row">
                 <span className="cred-lbl">Assigned Plan:</span>
@@ -512,6 +529,15 @@ export default function AdminQRBuilder() {
             </div>
 
             <div className="onboard-modal-actions">
+              <button
+                type="button"
+                className="admin-btn-secondary"
+                style={{ background: '#4f46e5', color: '#fff' }}
+                onClick={handleCopyOnboardingCredentials}
+              >
+                📋 Copy Login Credentials
+              </button>
+
               <a
                 href={waWelcomeUrl}
                 target="_blank"

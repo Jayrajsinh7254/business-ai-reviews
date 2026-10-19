@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { ROLES, hasPermission } from '../lib/rbac';
 import { getPlan, isFeatureAllowed } from '../lib/plans';
-import { api } from '../api/client';
+import { api, isBusinessInactive } from '../api/client';
 
 const AuthContext = createContext(null);
 
@@ -100,16 +100,34 @@ export function AuthProvider({ children }) {
         freshBiz = bizData.value;
         setBusiness(freshBiz);
       }
+      const bizInactive = freshBiz
+        ? Boolean(
+            freshBiz.isInactive === true ||
+            freshBiz.status === 'inactive' ||
+            freshBiz.subscriptionStatus === 'inactive' ||
+            freshBiz.subscriptionStatus === 'canceled' ||
+            Boolean(freshBiz.paidUntil && new Date(freshBiz.paidUntil) < new Date())
+          )
+        : Boolean(isBusinessInactive(targetBizId));
       if (subData.status === 'fulfilled' && subData.value) {
         const freshSub = { ...subData.value };
         if (freshBiz?.planId) {
           freshSub.planId = freshBiz.planId;
         }
+        if (bizInactive) {
+          freshSub.status = 'canceled';
+          freshSub.isInactive = true;
+        } else {
+          freshSub.status = freshBiz?.subscriptionStatus || 'active';
+          freshSub.isInactive = false;
+        }
         setSubscription(freshSub);
-      } else if (freshBiz?.planId) {
+      } else {
         setSubscription((prev) => ({
           ...prev,
-          planId: freshBiz.planId,
+          planId: freshBiz?.planId || prev?.planId || 'starter',
+          status: bizInactive ? 'canceled' : (freshBiz?.subscriptionStatus || 'active'),
+          isInactive: bizInactive,
         }));
       }
       if (teamData.status === 'fulfilled' && Array.isArray(teamData.value)) {
@@ -131,11 +149,24 @@ export function AuthProvider({ children }) {
       }
     };
 
+    let bc = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('reviewassist_channel');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'status_changed' || event.data?.type === 'plan_changed') {
+            handleSync();
+          }
+        };
+      }
+    } catch {}
+
     window.addEventListener('storage', handleSync);
     window.addEventListener('reviewassist:admin_sync', handleSync);
     window.addEventListener('reviewassist:status_changed', handleSync);
 
     return () => {
+      if (bc) bc.close();
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('reviewassist:admin_sync', handleSync);
       window.removeEventListener('reviewassist:status_changed', handleSync);
@@ -372,11 +403,26 @@ export function AuthProvider({ children }) {
     removeMember,
     changeMemberRole,
     refreshUserData: () => loadUserData(user?.businessId),
-    // Trial helpers
+    // Trial & deactivation helpers
     isTrialing: subscription?.status === 'trialing',
     isTrialExpired,
     trialDaysLeft,
-    isSubscriptionActive: ['active', 'trialing'].includes(subscription?.status) && !isTrialExpired,
+    isDeactivated: Boolean(
+      business
+        ? (
+            business.isInactive === true ||
+            business.status === 'inactive' ||
+            business.subscriptionStatus === 'canceled' ||
+            business.subscriptionStatus === 'inactive' ||
+            Boolean(business.paidUntil && new Date(business.paidUntil) < new Date())
+          )
+        : (
+            isBusinessInactive(user?.businessId) ||
+            subscription?.status === 'canceled' ||
+            subscription?.status === 'inactive'
+          )
+    ),
+    isSubscriptionActive: ['active', 'trialing'].includes(subscription?.status) && !isTrialExpired && !(business?.isInactive || business?.status === 'inactive' || business?.subscriptionStatus === 'canceled'),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

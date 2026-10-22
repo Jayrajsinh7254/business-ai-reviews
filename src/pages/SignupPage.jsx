@@ -201,7 +201,7 @@ export default function SignupPage() {
         {/* Header */}
         <div className="page-header text-center auth-header-wrap">
           <div className="signup-badge animate-fade-in">
-            <span>🎁 7-Day Free Trial • Instant QR Generation</span>
+            <span>🎁 3-Day Free Trial • Instant QR Generation</span>
           </div>
           <h1 className="page-title">
             Register Your Business &amp; <br />

@@ -200,9 +200,9 @@ export default function LoginPage() {
           <div className="auth-footer-links text-center">
             <p>
               New to ReviewAssist?{' '}
-              <Link to="/signup" className="auth-action-link font-semibold">
+              {/* <Link to="/signup" className="auth-action-link font-semibold">
                 Start 7-Day Free Trial &rarr;
-              </Link>
+              </Link> */}
             </p>
           </div>
         </div>

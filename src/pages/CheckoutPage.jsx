@@ -148,9 +148,9 @@ export default function CheckoutPage() {
             <div className="checkout-trial-note">
               <span className="trial-icon">🎁</span>
               <div>
-                <strong>7-Day Free Trial Active</strong>
+                <strong>3-Day Free Trial Active</strong>
                 <p>
-                  Enjoy 7 days completely free with zero upfront charge. First payment on{" "}
+                  Enjoy 3 days completely free with zero upfront charge. First payment on{" "}
                   <strong>
                     {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("en-IN", {
                       day: "numeric",

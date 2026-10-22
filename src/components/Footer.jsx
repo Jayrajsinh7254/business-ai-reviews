@@ -42,11 +42,11 @@ export default function Footer() {
           <div className="footer-col">
             <h4 className="footer-col-title">Industries</h4>
             <ul className="footer-links-list">
-              <li><Link to="/signup?cat=automobile">Auto Care & Garages</Link></li>
-              <li><Link to="/signup?cat=salon">Salons & Spas</Link></li>
-              <li><Link to="/signup?cat=restaurant">Restaurants & Cafes</Link></li>
-              <li><Link to="/signup?cat=healthcare">Clinics & Healthcare</Link></li>
-              <li><Link to="/signup?cat=homeservices">Home & Trade Services</Link></li>
+              <li><Link to="/">Auto Care & Garages</Link></li>
+              <li><Link to="/">Salons & Spas</Link></li>
+              <li><Link to="/">Restaurants & Cafes</Link></li>
+              <li><Link to="/">Clinics & Healthcare</Link></li>
+              <li><Link to="/">Home & Trade Services</Link></li>
             </ul>
           </div>
 

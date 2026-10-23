@@ -89,7 +89,7 @@ export default function SubscriptionPage() {
             <div className="sub-badge-row">
               <span className="sub-header-badge">💳 Subscription & Billing Hub</span>
               {currentStatus === 'trialing' && (
-                <span className="sub-trial-badge">🎁 7-Day Free Trial ({daysRemaining} Days Left)</span>
+                <span className="sub-trial-badge">🎁 3-Day Free Trial ({daysRemaining} Days Left)</span>
               )}
               {currentStatus === 'active' && (
                 <span className="sub-active-badge">✓ Active Paid Subscription</span>
@@ -153,7 +153,7 @@ export default function SubscriptionPage() {
               <div className="sub-trial-notice-box">
                 <div className="sub-trial-icon">🎁</div>
                 <div className="sub-trial-text">
-                  <strong>7-Day Free Trial In Progress</strong>
+                  <strong>3-Day Free Trial In Progress</strong>
                   <p>
                     Your trial gives you unrestricted access to Pro Growth features until{' '}
                     <strong>{nextBillingDate}</strong> with zero upfront debit/credit card charge.
@@ -314,7 +314,7 @@ export default function SubscriptionPage() {
                   className={`sub-toggle-btn ${billingInterval === 'annual' ? 'active' : ''}`}
                   onClick={() => setBillingInterval('annual')}
                 >
-                  Annual Billing <span className="save-tag">Save up to 60% + Free Standee 🪔</span>
+                  Annual Billing <span className="save-tag">Save up to 50% + Free Standee 🪔</span>
                 </button>
               </div>
             </div>

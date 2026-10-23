@@ -177,7 +177,7 @@ export default function SignupPage() {
           email: email.trim(),
           phone: phone.trim(),
           googleProfileUrl: cleanGoogleLink,
-          message: `New signup from registration page. Selected Plan: ${selectedPlan.toUpperCase()} (7-day trial). Configured Google Review Link: ${cleanGoogleLink}`,
+          message: `New signup from registration page. Selected Plan: ${selectedPlan.toUpperCase()} (3-day trial). Configured Google Review Link: ${cleanGoogleLink}`,
         });
       } catch (leadErr) {
         console.warn('Lead capture notice:', leadErr);
@@ -501,13 +501,13 @@ export default function SignupPage() {
                 </div>
               )}
 
-              {/* STEP 3: Plan Selection & 7-Day Free Trial */}
+              {/* STEP 3: Plan Selection & 3-Day Free Trial */}
               {step === 3 && (
                 <div className="wizard-step-content animate-fade-in">
                   <div className="step-content-header">
-                    <h2 className="step-title">Step 3: Select Plan &amp; Start 7-Day Trial</h2>
+                    <h2 className="step-title">Step 3: Select Plan &amp; Start 3-Day Trial</h2>
                     <p className="step-desc">
-                      Enjoy 7 days of full unrestricted access. No credit/debit card charged today.
+                      Enjoy 3 days of full unrestricted access. No credit/debit card charged today.
                     </p>
                   </div>
 
@@ -526,7 +526,7 @@ export default function SignupPage() {
                         className={`pricing-toggle-btn ${billingInterval === 'annual' ? 'active' : ''}`}
                         onClick={() => setBillingInterval('annual')}
                       >
-                        Annual Billing <span className="save-badge">Save up to 60% + Free Standee 🪔</span>
+                        Annual Billing <span className="save-badge">Save up to 50% + Free Standee 🪔</span>
                       </button>
                     </div>
                   </div>
@@ -576,7 +576,7 @@ export default function SignupPage() {
                   <div className="trial-summary-banner">
                     <div className="trial-icon-col">🎁</div>
                     <div className="trial-info-col">
-                      <strong>7-Day Free Trial on {selectedPlanObj.name}</strong>
+                      <strong>3-Day Free Trial on {selectedPlanObj.name}</strong>
                       <p>
                         Full access to unlimited AI reviews, WhatsApp 1-click sharing &amp; high-res QR standees.
                         Zero upfront payment required.

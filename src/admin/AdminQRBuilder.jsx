@@ -18,8 +18,8 @@ const CATEGORY_OPTIONS = CATEGORIES.map((c) => ({
 
 const PLAN_OPTIONS = [
   { id: 'starter', name: 'Starter', price: '₹299/mo', desc: '1 loc • 1 seat • was ₹499' },
-  { id: 'pro', name: 'Pro Growth', price: '₹499/mo', desc: '3 loc • 5 seats • was ₹699' },
-  { id: 'enterprise', name: 'Enterprise', price: '₹799/mo', desc: 'unlimited • custom voice • was ₹1,199' },
+  { id: 'pro', name: 'Pro Growth', price: '₹499/mo', desc: '1 loc • 1 seat • was ₹699' },
+  { id: 'enterprise', name: 'Enterprise', price: '₹799/mo', desc: '3 loc • 5 seats • was ₹1,199' },
 ];
 
 export default function AdminQRBuilder() {

@@ -350,15 +350,15 @@ export default function DashboardPage() {
             </span>
             <span className={`plan-pill-tag ${isTrialing ? 'trial-tag' : ''}`}>
               {isTrialing
-                ? `🎁 ${currentPlan.name} (7-Day Trial)`
+                ? `🎁 ${currentPlan.name} (3-Day Trial)`
                 : `💎 ${currentPlan.name} Plan (₹${currentPlan.monthlyPrice?.toLocaleString('en-IN')}/mo)`}
             </span>
             <span className="plan-quota-badge">
               {currentPlan.id === 'starter'
                 ? '📊 100 AI Reviews / mo • 1 Seat'
                 : currentPlan.id === 'pro'
-                ? '⚡ Unlimited AI • 5 Seats • WhatsApp'
-                : '🚀 Unlimited Multi-Location'}
+                ? '⚡ Unlimited AI • 1 Seat • WhatsApp'
+                : '🏢 3 Locations • 5 Seats • Unlimited AI'}
             </span>
             <span className="biz-id-badge">ID: {activeBusinessId}</span>
             {isInactive && (
@@ -464,7 +464,7 @@ export default function DashboardPage() {
       </div>
 
       {/* =========================================================
-          TRIAL EXPIRED MODAL — blocks access when 7-day trial ends
+          TRIAL EXPIRED MODAL — blocks access when 3-day trial ends
           (Never shown to Super Admin)
           ========================================================= */}
       {!isSuperAdmin && isTrialExpired && (
@@ -495,7 +495,7 @@ export default function DashboardPage() {
               <span className="trial-banner-sub">
                 {trialDaysLeft <= 2
                   ? 'Upgrade now to avoid any interruption to your review collection service.'
-                  : 'You are on a 7-day free trial. No card needed yet — upgrade anytime.'}
+                  : 'You are on a 3-day free trial. No card needed yet — upgrade anytime.'}
               </span>
             </div>
           </div>

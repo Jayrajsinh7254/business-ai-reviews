@@ -201,7 +201,7 @@ export default function LoginPage() {
             <p>
               New to ReviewAssist?{' '}
               {/* <Link to="/signup" className="auth-action-link font-semibold">
-                Start 7-Day Free Trial &rarr;
+                Start 3-Day Free Trial &rarr;
               </Link> */}
             </p>
           </div>

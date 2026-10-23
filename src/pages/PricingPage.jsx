@@ -29,8 +29,8 @@ export default function PricingPage() {
       a: 'Yes, absolutely! ReviewAssist offers month-to-month flexibility with zero lock-in contracts. You can upgrade, downgrade, or cancel your subscription directly from your dashboard billing settings in 1 click.',
     },
     {
-      q: 'How does the 7-day free trial work?',
-      a: 'When you register your business, you get full 7-day access to our Pro Growth Plan with unlimited AI review generations, customized standee printing, and WhatsApp invite automation without being charged upfront.',
+      q: 'How does the 3-day free trial work?',
+      a: 'When you register your business, you get full 3-day access to our Pro Growth Plan with unlimited AI review generations, customized standee printing, and WhatsApp invite automation without being charged upfront.',
     },
     {
       q: 'What happens when my staff invites customers via WhatsApp or SMS?',
@@ -38,7 +38,7 @@ export default function PricingPage() {
     },
     {
       q: 'Can I add multiple locations under one account?',
-      a: 'Yes! The Pro Plan supports up to 3 locations, while the Enterprise Plan supports unlimited locations with centralized multi-store analytics and team role delegation.',
+      a: 'Yes! The Starter and Pro Growth Plans support 1 location, while the Enterprise Plan supports up to 3 business locations with multi-store switcher and up to 5 team seats.',
     },
     {
       q: 'Do you offer white-labeling for marketing agencies and multi-franchise owners?',
@@ -74,7 +74,7 @@ export default function PricingPage() {
           <div className="pricing-hero-badge animate-fade-in">
             <span className="badge-sparkle">💎</span>
             <span>Simple, Transparent SaaS Pricing</span>
-            <span className="badge-pill">7-Day Free Trial</span>
+            <span className="badge-pill">3-Day Free Trial</span>
           </div>
 
           <h1 className="pricing-headline">
@@ -83,7 +83,7 @@ export default function PricingPage() {
           </h1>
 
           <p className="pricing-subheadline">
-            Get more 5-star reviews on autopilot. Start free for 7 days, upgrade as you grow, cancel anytime.
+            Get more 5-star reviews on autopilot. Start free for 3 days, upgrade as you grow, cancel anytime.
           </p>
 
           {/* Billing Interval Toggle */}
@@ -101,7 +101,7 @@ export default function PricingPage() {
                 className={`pricing-toggle-btn ${billingInterval === 'annual' ? 'active' : ''}`}
                 onClick={() => setBillingInterval('annual')}
               >
-                Annual Billing <span className="save-badge">Save up to 60% + Diwali Standee 🪔</span>
+                Annual Billing <span className="save-badge">Save up to 50% + Diwali Standee 🪔</span>
               </button>
             </div>
           </div>
@@ -198,7 +198,7 @@ export default function PricingPage() {
                     >
                       {isCurrent ? '✓ Current Plan' : `Get Started with ${plan.name}`}
                     </button>
-                    <span className="tier-guarantee-note">7-day free trial • No credit card required</span>
+                    <span className="tier-guarantee-note">3-day free trial • No credit card required</span>
                   </div>
 
                   <div className="tier-features-divider">
@@ -246,8 +246,8 @@ export default function PricingPage() {
                     <span>Separate review hubs & QR codes</span>
                   </td>
                   <td>1 Location</td>
-                  <td className="col-highlight"><strong>3 Locations</strong></td>
-                  <td><strong>Unlimited</strong></td>
+                  <td className="col-highlight"><strong>1 Location</strong></td>
+                  <td><strong>3 Locations</strong></td>
                 </tr>
 
                 <tr>
@@ -262,7 +262,7 @@ export default function PricingPage() {
 
                 <tr>
                   <td className="feature-name-cell">
-                    <strong>WhatsApp & SMS 1-Click Inviter</strong>
+                    <strong>WhatsApp 1-Click Inviter</strong>
                     <span>Direct review requests to customer phones</span>
                   </td>
                   <td className="text-muted"><span className="feature-not-included">— (Pro &amp; Enterprise)</span></td>
@@ -296,8 +296,8 @@ export default function PricingPage() {
                     <span>Front-desk staff & manager user accounts</span>
                   </td>
                   <td>1 Seat</td>
-                  <td className="col-highlight"><strong>Up to 5 Seats</strong></td>
-                  <td><strong>Unlimited Seats</strong></td>
+                  <td className="col-highlight"><strong>1 Staff Seat</strong></td>
+                  <td><strong>Up to 5 Seats (RBAC)</strong></td>
                 </tr>
 
                 <tr>
@@ -371,13 +371,13 @@ export default function PricingPage() {
           <div className="bottom-cta-card">
             <div className="cta-glow-bg"></div>
             <div className="cta-content text-center">
-              <h2 className="cta-headline">Start Your 7-Day Free Pro Trial Today</h2>
+              <h2 className="cta-headline">Start Your 3-Day Free Pro Trial Today</h2>
               <p className="cta-subtext">
                 Set up your business profile in 2 minutes and start collecting 5-star Google reviews immediately.
               </p>
               <div className="cta-buttons-group">
                 <Link to="/signup?plan=pro" className="btn-primary btn-xl">
-                  🚀 Start Free 7-Day Trial — No Card Required
+                  🚀 Start Free 3-Day Trial — No Card Required
                 </Link>
                 <Link to="/dashboard/demo-1" className="btn-outline-white btn-xl">
                   📊 Explore Interactive Dashboard

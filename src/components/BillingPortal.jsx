@@ -36,7 +36,7 @@ export default function BillingPortal({ business: propBusiness, subscription: pr
   const waLimit = planObj.limits.whatsappInvitesPerMonth === Infinity ? null : planObj.limits.whatsappInvitesPerMonth;
 
   const statusConfig = {
-    trialing: { label: "7-Day Free Trial", color: "status-trial", icon: "🎁" },
+    trialing: { label: "3-Day Free Trial", color: "status-trial", icon: "🎁" },
     active: { label: "Active Member", color: "status-active", icon: "✅" },
     past_due: { label: "Payment Failed", color: "status-danger", icon: "⚠️" },
     canceled: { label: "Canceled", color: "status-canceled", icon: "❌" },
@@ -112,7 +112,7 @@ export default function BillingPortal({ business: propBusiness, subscription: pr
               <strong>
                 {isTrialUrgent
                   ? `🔴 Trial Expires ${daysRemaining === 0 ? 'Today!' : `in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}!`}`
-                  : `7-Day Free Trial Active (${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining)`}
+                  : `3-Day Free Trial Active (${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining)`}
               </strong>
               <p>
                 {isTrialUrgent

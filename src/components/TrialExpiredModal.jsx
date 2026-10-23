@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 
 /**
  * TrialExpiredModal
- * Full-screen blocking overlay shown when a user's 7-day free trial has ended
+ * Full-screen blocking overlay shown when a user's 3-day free trial has ended
  * and they haven't upgraded. Provides WhatsApp contact and direct upgrade CTA.
  */
 export default function TrialExpiredModal({ businessName }) {
   const navigate = useNavigate();
 
   const waText = encodeURIComponent(
-    `Hi ReviewAssist team! My 7-day free trial for "${businessName || 'my business'}" has ended. I'd like to upgrade my plan to continue using the service. Please share the UPI QR / GPay details or activation instructions.`
+    `Hi ReviewAssist team! My 3-day free trial for "${businessName || 'my business'}" has ended. I'd like to upgrade my plan to continue using the service. Please share the UPI QR / GPay details or activation instructions.`
   );
 
   return (
@@ -27,7 +27,7 @@ export default function TrialExpiredModal({ businessName }) {
         {/* Body */}
         <div className="trial-expired-body">
           <h2 id="trial-expired-title" className="trial-expired-title">
-            Your 7-Day Free Trial Has Ended
+            Your 3-Day Free Trial Has Ended
           </h2>
           <p className="trial-expired-desc">
             Thank you for trying ReviewAssist! Your trial period for{' '}
@@ -53,16 +53,16 @@ export default function TrialExpiredModal({ businessName }) {
           <div className="trial-expired-pricing-row">
             <div className="trial-pricing-chip starter">
               <span className="chip-plan">Starter</span>
-              <span className="chip-price">₹499/mo</span>
+              <span className="chip-price">₹299/mo</span>
             </div>
             <div className="trial-pricing-chip pro popular">
               <span className="chip-badge">⭐ Most Popular</span>
               <span className="chip-plan">Pro Growth</span>
-              <span className="chip-price">₹1,299/mo</span>
+              <span className="chip-price">₹499/mo</span>
             </div>
             <div className="trial-pricing-chip enterprise">
               <span className="chip-plan">Enterprise</span>
-              <span className="chip-price">₹2,999/mo</span>
+              <span className="chip-price">₹799/mo</span>
             </div>
           </div>
         </div>

@@ -143,18 +143,18 @@ export default function TermsOfServicePage() {
             </p>
             <ul>
               <li>
-                <strong>Starter Plan:</strong> ₹299/month or ₹199/month billed annually (₹2,388/year).
+                <strong>Starter Plan:</strong> ₹299/month or ₹249/month billed annually (₹2,988/year).
                 Includes 1 business location, 100 AI review generations per month, standard QR standees,
                 and 1 staff seat.
               </li>
               <li>
-                <strong>Pro Growth Plan:</strong> ₹499/month or ₹349/month billed annually (₹4,188/year).
-                Includes up to 3 locations, unlimited AI reviews, unlimited WhatsApp invites, AI Auto-Reply
-                Copilot, all standee styles, custom branding, CSV export, and up to 5 team seats.
+                <strong>Pro Growth Plan:</strong> ₹499/month or ₹449/month billed annually (₹5,388/year).
+                Includes up to 1 business location, unlimited AI reviews, unlimited WhatsApp invites, AI Auto-Reply
+                Copilot, all standee styles, custom branding, CSV export, and 1 staff seat.
               </li>
               <li>
-                <strong>Enterprise / Agency Plan:</strong> ₹799/month or ₹599/month billed annually
-                (₹7,188/year). Includes unlimited locations, unlimited reviews and invites, unlimited staff
+                <strong>Enterprise / Agency Plan:</strong> ₹799/month or ₹699/month billed annually
+                (₹8,388/year). Includes up to 3 business locations with multi-store switcher, unlimited reviews and invites, up to 5 staff
                 seats with full RBAC, white-label review pages, custom domain support, webhook integration,
                 custom AI tone fine-tuning, and a dedicated account manager with 24/7 SLA support.
               </li>

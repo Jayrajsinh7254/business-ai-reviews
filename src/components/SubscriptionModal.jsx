@@ -63,7 +63,7 @@ export default function SubscriptionModal({ isOpen, onClose, selectedPlanId = nu
                     className={`interval-toggle-btn ${billingInterval === 'annual' ? 'active' : ''}`}
                     onClick={() => setBillingInterval('annual')}
                   >
-                    Annual Billing <span className="discount-pill">Save up to 60% 🪔</span>
+                    Annual Billing <span className="discount-pill">Save up to 50% 🪔</span>
                   </button>
                 </div>
               </div>

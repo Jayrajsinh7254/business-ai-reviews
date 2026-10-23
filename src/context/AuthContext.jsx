@@ -54,8 +54,8 @@ export function AuthProvider({ children }) {
     planId: 'starter',
     status: 'trialing', // Free trial by default
     billingInterval: 'monthly',
-    amount: 499, // INR
-    currentPeriodEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7-day trial
+    amount: 299, // INR
+    currentPeriodEnd: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3-day trial
     trialStartedAt: new Date().toISOString(),
     aiGenerationsUsed: 0,
     whatsappInvitesUsed: 0,
@@ -241,17 +241,17 @@ export function AuthProvider({ children }) {
         isSuperAdmin: false,
       };
 
-      // Set selected plan or default to Starter 7-day trial — no card required
+      // Set selected plan or default to Starter 3-day trial — no card required
       const initialPlan = formData.planId || 'starter';
       const trialStartedAt = new Date().toISOString();
       const initialSub = {
         businessId: res.business?.id || 'demo-1',
         planId: initialPlan,
-        status: 'trialing', // Free 7-day trial, no charge required
+        status: 'trialing', // Free 3-day trial, no charge required
         billingInterval: formData.billingInterval || 'monthly',
         // INR pricing
-        amount: initialPlan === 'starter' ? 499 : initialPlan === 'pro' ? 1299 : 2999,
-        currentPeriodEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        amount: initialPlan === 'starter' ? 299 : initialPlan === 'pro' ? 499 : 799,
+        currentPeriodEnd: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
         trialStartedAt,
         aiGenerationsUsed: 0,
         whatsappInvitesUsed: 0,

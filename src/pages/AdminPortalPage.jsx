@@ -362,9 +362,9 @@ export default function AdminPortalPage() {
                   value={newPlanSelection}
                   onChange={(e) => setNewPlanSelection(e.target.value)}
                 >
-                  <option value="starter">Starter Plan ($19 / mo - 1 Location, 100 AI/mo)</option>
-                  <option value="pro">Pro Growth Plan ($49 / mo - 3 Locations, Unlimited AI)</option>
-                  <option value="enterprise">Enterprise Plan ($99 / mo - Unlimited Locations & Seats)</option>
+                  <option value="starter">Starter Plan (₹299 / mo - 1 Location, 100 AI/mo)</option>
+                  <option value="pro">Pro Growth Plan (₹499 / mo - 1 Location, Unlimited AI)</option>
+                  <option value="enterprise">Enterprise Plan (₹799 / mo - 3 Locations, 5 Seats)</option>
                 </select>
               </div>
 

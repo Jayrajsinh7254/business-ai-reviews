@@ -152,7 +152,7 @@ export default function CheckoutPage() {
                 <p>
                   Enjoy 3 days completely free with zero upfront charge. First payment on{" "}
                   <strong>
-                    {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("en-IN", {
+                    {new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString("en-IN", {
                       day: "numeric",
                       month: "long",
                       year: "numeric",

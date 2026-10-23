@@ -19,8 +19,8 @@ import { getCategoryServices } from '../lib/categories';
 
 const PLAN_OPTIONS = [
   { id: 'starter',    name: 'Starter',    price: '₹299/mo',   tag: '1 loc • 1 seat • was ₹499' },
-  { id: 'pro',        name: 'Pro Growth', price: '₹499/mo',   tag: '3 loc • 5 seats • was ₹699' },
-  { id: 'enterprise', name: 'Enterprise', price: '₹799/mo',   tag: 'unlimited • was ₹1,199' },
+  { id: 'pro',        name: 'Pro Growth', price: '₹499/mo',   tag: '1 loc • 1 seat • was ₹699' },
+  { id: 'enterprise', name: 'Enterprise', price: '₹799/mo',   tag: '3 loc • 5 seats • was ₹1,199' },
 ];
 
 const EDIT_CATEGORY_OPTIONS = [
@@ -1033,7 +1033,7 @@ export default function AdminClients() {
             <div className="admin-trial-notice-bar">
               <span>🎁</span>
               <span>
-                <strong>{counts.trial} user{counts.trial > 1 ? 's are' : ' is'} on a free 7-day trial.</strong>{' '}
+                <strong>{counts.trial} user{counts.trial > 1 ? 's are' : ' is'} on a free 3-day trial.</strong>{' '}
                 When they're ready to pay, click <em>"Activate as Member"</em> to convert them instantly.
               </span>
             </div>
@@ -1080,7 +1080,7 @@ export default function AdminClients() {
                     </div>
                   ) : clientType === 'trial' ? (
                     <div className="client-payment-bar payment-trial">
-                      <span>🎁 Free 7-day trial — pending payment activation</span>
+                      <span>🎁 Free 3-day trial — pending payment activation</span>
                     </div>
                   ) : null}
 
@@ -1489,7 +1489,7 @@ export default function AdminClients() {
                         onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
                       >
                         <option value="active">✅ Active (Live)</option>
-                        <option value="trial">🎁 Free 7-Day Trial</option>
+                        <option value="trial">🎁 Free 3-Day Trial</option>
                         <option value="inactive">⛔ Inactive (Paused)</option>
                       </select>
                     </div>

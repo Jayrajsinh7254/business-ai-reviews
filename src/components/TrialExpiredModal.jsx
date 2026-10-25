@@ -1,13 +1,15 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * TrialExpiredModal
  * Full-screen blocking overlay shown when a user's 3-day free trial has ended
- * and they haven't upgraded. Provides WhatsApp contact and direct upgrade CTA.
+ * and they haven't upgraded. Provides WhatsApp contact, upgrade CTA, and logout.
  */
 export default function TrialExpiredModal({ businessName }) {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const waText = encodeURIComponent(
     `Hi ReviewAssist team! My 3-day free trial for "${businessName || 'my business'}" has ended. I'd like to upgrade my plan to continue using the service. Please share the UPI QR / GPay details or activation instructions.`
@@ -83,6 +85,37 @@ export default function TrialExpiredModal({ businessName }) {
             onClick={() => navigate('/pricing')}
           >
             💎 View All Plans &amp; Pricing
+          </button>
+          <button
+            type="button"
+            className="btn-trial-logout"
+            style={{
+              marginTop: '10px',
+              background: 'transparent',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#ef4444',
+              padding: '10px 16px',
+              borderRadius: '8px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+            onClick={async () => {
+              try {
+                localStorage.removeItem('reviewassist_current_user');
+                localStorage.removeItem('reviewassist_auth_state');
+                localStorage.removeItem('reviewassist_token');
+                localStorage.removeItem('review_assist_token');
+                localStorage.removeItem('reviewassist_session');
+                if (logout) await logout();
+              } catch {}
+              navigate('/login?logged_out=1', { replace: true });
+            }}
+          >
+            🚪 Sign Out of Account
           </button>
         </div>
 

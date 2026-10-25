@@ -16,8 +16,19 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     closeMobileMenu();
-    await logout();
-    navigate('/login', { replace: true });
+    try {
+      localStorage.removeItem('reviewassist_current_user');
+      localStorage.removeItem('reviewassist_auth_state');
+      localStorage.removeItem('reviewassist_token');
+      localStorage.removeItem('review_assist_token');
+      localStorage.removeItem('reviewassist_session');
+      if (typeof logout === 'function') {
+        await logout();
+      }
+    } catch (err) {
+      console.warn('Navbar logout notice:', err);
+    }
+    navigate('/login?logged_out=1', { replace: true });
   };
 
   return (

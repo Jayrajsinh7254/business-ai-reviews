@@ -170,11 +170,9 @@ export default function App() {
           <Route
             path="/login"
             element={
-              <VisitorRoute>
-                <PublicLayout>
-                  <LoginPage />
-                </PublicLayout>
-              </VisitorRoute>
+              <PublicLayout>
+                <LoginPage />
+              </PublicLayout>
             }
           />
 

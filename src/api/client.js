@@ -1271,20 +1271,25 @@ export const api = {
    * Log out user
    */
   async logout() {
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.warn('Supabase signout error:', err);
-      }
-    }
     clearToken();
     try {
       localStorage.removeItem('reviewassist_current_user');
       localStorage.removeItem('reviewassist_auth_state');
       localStorage.removeItem('reviewassist_token');
+      localStorage.removeItem(STORAGE_KEY_TOKEN);
       localStorage.removeItem('reviewassist_session');
     } catch {}
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await Promise.race([
+          supabase.auth.signOut(),
+          new Promise((resolve) => setTimeout(resolve, 800)),
+        ]);
+      } catch (err) {
+        console.warn('Supabase signout error:', err);
+      }
+    }
   },
 
   getStoredBusinesses() {

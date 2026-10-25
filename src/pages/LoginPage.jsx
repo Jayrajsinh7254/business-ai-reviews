@@ -23,8 +23,11 @@ export default function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState(emailParam);
   const [forgotSuccess, setForgotSuccess] = useState(false);
 
-  // If already logged in, redirect directly to dashboard (or admin)
+  // If already logged in, redirect directly to dashboard (or admin), unless user explicitly logged out
   React.useEffect(() => {
+    const isExplicitLogout = searchParams.get('logged_out') === '1' || searchParams.get('logout') === 'true';
+    if (isExplicitLogout) return;
+
     if (user) {
       if (role === ROLES.SUPER_ADMIN) {
         navigate('/admin', { replace: true });
@@ -32,7 +35,7 @@ export default function LoginPage() {
         navigate('/dashboard', { replace: true });
       }
     }
-  }, [user, role, navigate]);
+  }, [user, role, navigate, searchParams]);
 
   const isSubmitDisabled = !email.trim() || !password || loading;
 

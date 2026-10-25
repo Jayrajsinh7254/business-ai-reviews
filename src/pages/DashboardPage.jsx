@@ -26,7 +26,7 @@ export default function DashboardPage() {
   const { businessId: paramBizId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, role, hasPermission, subscription, isTrialing, isTrialExpired, trialDaysLeft, teamMembers } = useAuth();
+  const { user, role, hasPermission, subscription, isTrialing, isTrialExpired, trialDaysLeft, teamMembers, logout } = useAuth();
 
   const hasAdminParam = searchParams.get('admin') === '1' || searchParams.get('admin') === 'true' || searchParams.get('demo') === 'true' || searchParams.get('preview') === 'true';
   const isSuperAdmin = role === ROLES.SUPER_ADMIN || Boolean(user?.isSuperAdmin) || hasAdminParam;
@@ -205,8 +205,21 @@ export default function DashboardPage() {
   }, [activeBusinessId, loadData]);
 
   const handleLogout = async () => {
-    await api.logout();
-    navigate('/login', { replace: true });
+    try {
+      localStorage.removeItem('reviewassist_current_user');
+      localStorage.removeItem('reviewassist_auth_state');
+      localStorage.removeItem('reviewassist_token');
+      localStorage.removeItem('review_assist_token');
+      localStorage.removeItem('reviewassist_session');
+      if (typeof logout === 'function') {
+        await logout();
+      } else {
+        await api.logout();
+      }
+    } catch (err) {
+      console.warn('Logout notice:', err);
+    }
+    navigate('/login?logged_out=1', { replace: true });
   };
 
   const showToastMsg = (msg) => {
@@ -541,6 +554,7 @@ export default function DashboardPage() {
 
           <button
             type="button"
+            id="dashboard-logout-btn"
             className="btn-logout"
             onClick={handleLogout}
             title="Sign out of your account"
@@ -719,6 +733,7 @@ export default function DashboardPage() {
             </Link>
             <button
               type="button"
+              id="lockout-logout-btn"
               className="btn-lockout-logout"
               onClick={handleLogout}
             >

@@ -275,9 +275,28 @@ export function AuthProvider({ children }) {
 
   // Sign Out
   const logout = async () => {
-    await api.logout();
+    // 1. Immediately reset user state and local storage keys so UI updates immediately
     persistUser(null);
     setBusiness(null);
+    setTeamMembers([]);
+    try {
+      localStorage.removeItem(STORAGE_AUTH_STATE);
+      localStorage.removeItem('reviewassist_current_user');
+      localStorage.removeItem('reviewassist_token');
+      localStorage.removeItem('review_assist_token');
+      localStorage.removeItem('reviewassist_session');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('storage'));
+        window.dispatchEvent(new CustomEvent('reviewassist:logout'));
+      }
+    } catch {}
+
+    // 2. Clear backend / Supabase session without blocking immediate client logout
+    try {
+      await api.logout();
+    } catch (err) {
+      console.warn('api.logout notice:', err);
+    }
   };
 
   // Upgrade / Update Subscription Plan — called after Razorpay payment verified

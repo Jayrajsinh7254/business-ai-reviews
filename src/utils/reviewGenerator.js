@@ -15,6 +15,7 @@
  */
 
 import { synthesizeMultilingualReview } from './multilingualReviewEngine.js';
+import { getStaffPraisePhrase } from './staffLeaderboardEngine.js';
 
 export const recentDraftsHistory = [];
 
@@ -102,9 +103,12 @@ export function generateMockDraft({
   seed,
   lengthPreference = 'auto',
   language = 'english',
+  staffName = '',
 }) {
   const stars = Number(rating) || 5;
   const lang = (language || 'english').toLowerCase().trim();
+
+  let finalDraft = '';
 
   // If a supported non-English language is chosen, generate through the combinatorial engine
   if (lang !== 'english') {
@@ -116,21 +120,36 @@ export function generateMockDraft({
       previousDraft,
     });
     if (multiDraft) {
-      return multiDraft;
+      finalDraft = multiDraft;
     }
   }
 
   // English fallback or primary generation
-  return _generateMockDraftInternal({
-    serviceType,
-    whatStoodOut,
-    whatCouldImprove,
-    rating,
-    previousDraft,
-    businessCategory,
-    seed,
-    lengthPreference,
-  });
+  if (!finalDraft) {
+    finalDraft = _generateMockDraftInternal({
+      serviceType,
+      whatStoodOut,
+      whatCouldImprove,
+      rating,
+      previousDraft,
+      businessCategory,
+      seed,
+      lengthPreference,
+    });
+  }
+
+  // Weave organic staff praise if staffName is provided and rating >= 4
+  if (staffName && staffName.trim() && stars >= 4) {
+    const cleanStaff = staffName.trim();
+    if (!finalDraft.toLowerCase().includes(cleanStaff.toLowerCase())) {
+      const staffCompliment = getStaffPraisePhrase(cleanStaff, lang);
+      if (staffCompliment) {
+        finalDraft = `${finalDraft} ${staffCompliment}`;
+      }
+    }
+  }
+
+  return finalDraft;
 }
 
 function _generateMockDraftInternal({

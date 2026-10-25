@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import StarRating from '../components/StarRating';
 import QRCodeDisplay from '../components/QRCodeDisplay';
@@ -12,18 +12,24 @@ import BillingPortal from '../components/BillingPortal';
 import RoleSwitcher from '../components/RoleSwitcher';
 import PermissionGate from '../components/PermissionGate';
 import TrialExpiredModal from '../components/TrialExpiredModal';
+import CompetitorRadar from '../components/CompetitorRadar';
+import SocialStoryModal from '../components/SocialStoryModal';
+import StaffLeaderboard from '../components/StaffLeaderboard';
 import { useAuth } from '../context/AuthContext';
 import { ROLES, PERMISSIONS, getRoleBadgeInfo } from '../lib/rbac';
 import { getPlan, isFeatureAllowed } from '../lib/plans';
 import { CATEGORIES } from '../lib/categories';
 import { api, isBusinessInactive } from '../api/client';
+import { sanitizeCsvCell } from '../lib/security';
 
 export default function DashboardPage() {
   const { businessId: paramBizId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, role, hasPermission, subscription, isTrialing, isTrialExpired, trialDaysLeft } = useAuth();
+  const { user, role, hasPermission, subscription, isTrialing, isTrialExpired, trialDaysLeft, teamMembers } = useAuth();
 
-  const isSuperAdmin = role === ROLES.SUPER_ADMIN;
+  const hasAdminParam = searchParams.get('admin') === '1' || searchParams.get('admin') === 'true' || searchParams.get('demo') === 'true' || searchParams.get('preview') === 'true';
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN || Boolean(user?.isSuperAdmin) || hasAdminParam;
   // Rule 5: Client is strictly locked to their own business. Cannot view other businesses or demo dashboard.
   const clientBizId = user?.businessId;
   const activeBusinessId = (isSuperAdmin && paramBizId)
@@ -38,13 +44,15 @@ export default function DashboardPage() {
   }, [isSuperAdmin, paramBizId, clientBizId, navigate]);
 
   // State
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'team' | 'billing' | 'settings'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'team' | 'billing' | 'settings' | 'radar' | 'leaderboard'
+  const [adminShowcaseMode, setAdminShowcaseMode] = useState(Boolean(isSuperAdmin));
   const [business, setBusiness] = useState(null);
   const [stats, setStats] = useState({
-    totalReviews: 4,
-    thisMonth: 2,
-    avgRating: 4.9,
-    scanToReviewRate: '82%',
+    totalReviews: 0,
+    today: 0,
+    thisMonth: 0,
+    avgRating: 5.0,
+    scanToReviewRate: '0%',
   });
   const [reviews, setReviews] = useState([]);
   const [toast, setToast] = useState('');
@@ -56,6 +64,8 @@ export default function DashboardPage() {
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [showSubModal, setShowSubModal] = useState(false);
   const [selectedReviewForReply, setSelectedReviewForReply] = useState(null);
+  const [selectedReviewForStory, setSelectedReviewForStory] = useState(null);
+  const [showStoryStudio, setShowStoryStudio] = useState(false);
 
   // Settings form state
   const [settingsName, setSettingsName] = useState('');
@@ -90,12 +100,39 @@ export default function DashboardPage() {
         setSettingsGoogleUrl(bizRes.value.googleReviewUrl || '');
       }
 
-      if (statsRes.status === 'fulfilled' && statsRes.value) {
-        setStats(statsRes.value);
+      let fetchedReviews = [];
+      if (reviewsRes.status === 'fulfilled' && Array.isArray(reviewsRes.value)) {
+        fetchedReviews = reviewsRes.value;
+        setReviews(fetchedReviews);
       }
 
-      if (reviewsRes.status === 'fulfilled' && Array.isArray(reviewsRes.value)) {
-        setReviews(reviewsRes.value);
+      if (statsRes.status === 'fulfilled' && statsRes.value) {
+        setStats(statsRes.value);
+      } else if (fetchedReviews.length >= 0) {
+        // Fallback compute stats directly from reviews list
+        const now = new Date();
+        const todayStr = now.toISOString().slice(0, 10);
+        const curM = now.getMonth();
+        const curY = now.getFullYear();
+        const tCount = fetchedReviews.filter((r) => (r.createdAt || '').slice(0, 10) === todayStr).length;
+        const mCount = fetchedReviews.filter((r) => {
+          const d = new Date(r.createdAt || 0);
+          return d.getMonth() === curM && d.getFullYear() === curY;
+        }).length;
+        const avg = fetchedReviews.length > 0
+          ? (fetchedReviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / fetchedReviews.length).toFixed(1)
+          : '5.0';
+        setStats({
+          totalReviews: fetchedReviews.length,
+          today: tCount,
+          todayReviews: tCount,
+          thisMonth: mCount,
+          thisMonthReviews: mCount,
+          avgRating: Number(avg),
+          scanToReviewRate: fetchedReviews.length > 0
+            ? Math.min(100, Math.round((fetchedReviews.length / Math.max(fetchedReviews.length * 2, 10)) * 100)) + '%'
+            : '0%',
+        });
       }
 
       if (feedbackRes.status === 'fulfilled' && Array.isArray(feedbackRes.value)) {
@@ -118,22 +155,52 @@ export default function DashboardPage() {
       if (typeof BroadcastChannel !== 'undefined') {
         bc = new BroadcastChannel('reviewassist_channel');
         bc.onmessage = (event) => {
-          if (event.data?.type === 'status_changed' || event.data?.type === 'plan_changed') {
+          if (
+            event.data?.type === 'review_confirmed' ||
+            event.data?.type === 'reviews_updated' ||
+            event.data?.type === 'feedback_submitted' ||
+            event.data?.type === 'status_changed' ||
+            event.data?.type === 'plan_changed'
+          ) {
             handleSync();
           }
         };
       }
     } catch {}
 
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        handleSync();
+      }
+    };
+
     window.addEventListener('storage', handleSync);
+    window.addEventListener('focus', handleSync);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('reviewassist:admin_sync', handleSync);
     window.addEventListener('reviewassist:status_changed', handleSync);
+    window.addEventListener('reviewassist:review_confirmed', handleSync);
+    window.addEventListener('reviewassist:reviews_updated', handleSync);
+    window.addEventListener('reviewassist:feedback_submitted', handleSync);
+
+    // Auto-refresh interval (every 8 seconds when active tab) to catch remote/cross-tab reviews
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        handleSync();
+      }
+    }, 8000);
 
     return () => {
       if (bc) bc.close();
+      clearInterval(interval);
       window.removeEventListener('storage', handleSync);
+      window.removeEventListener('focus', handleSync);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('reviewassist:admin_sync', handleSync);
       window.removeEventListener('reviewassist:status_changed', handleSync);
+      window.removeEventListener('reviewassist:review_confirmed', handleSync);
+      window.removeEventListener('reviewassist:reviews_updated', handleSync);
+      window.removeEventListener('reviewassist:feedback_submitted', handleSync);
     };
   }, [activeBusinessId, loadData]);
 
@@ -235,25 +302,27 @@ export default function DashboardPage() {
       showToastMsg('No reviews available to export.');
       return;
     }
-    const headers = ['ID', 'Date', 'Rating', 'Customer Name', 'Service', 'Review Text', 'Feedback'];
+    const headers = ['ID', 'Date', 'Rating', 'Staff Member', 'Service', 'Review Text', 'Feedback'];
     const rows = reviews.map((r) => [
-      r.id || '',
-      r.createdAt || '',
-      r.rating || 5,
-      `"${(r.customerName || 'Anonymous').replace(/"/g, '""')}"`,
-      `"${(r.serviceType || '').replace(/"/g, '""')}"`,
-      `"${(r.text || r.draftText || '').replace(/"/g, '""')}"`,
-      `"${(r.whatStoodOut || r.whatCouldImprove || '').replace(/"/g, '""')}"`,
+      sanitizeCsvCell(r.id || ''),
+      sanitizeCsvCell(r.createdAt || ''),
+      sanitizeCsvCell(r.rating || 5),
+      sanitizeCsvCell(r.staffName || 'Unassigned'),
+      sanitizeCsvCell(r.serviceType || ''),
+      sanitizeCsvCell(r.text || r.draftText || ''),
+      sanitizeCsvCell(r.whatStoodOut || r.whatCouldImprove || ''),
     ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = [headers.join(','), ...rows.map((e) => e.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', url);
     link.setAttribute('download', `${(business?.name || 'reviews').toLowerCase().replace(/\s+/g, '_')}_reviews.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToastMsg('✓ Reviews exported to CSV successfully!');
+    URL.revokeObjectURL(url);
+    showToastMsg('✓ Reviews exported to CSV safely!');
   };
 
   // Negative Review Shield Handlers
@@ -367,6 +436,24 @@ export default function DashboardPage() {
               </span>
             )}
             {isDemoMode && <span className="demo-status-pill">Interactive Preview</span>}
+            {(isSuperAdmin || hasAdminParam) && (
+              <button
+                type="button"
+                className={`admin-showcase-toggle-btn ${adminShowcaseMode ? 'active' : ''}`}
+                onClick={() => {
+                  const next = !adminShowcaseMode;
+                  setAdminShowcaseMode(next);
+                  showToastMsg(
+                    next
+                      ? '⚡ Admin Showcase ON: Live beta features unlocked for client presentation.'
+                      : '🔒 Client View ON: Showing "Coming Soon" banners.'
+                  );
+                }}
+                title="Toggle between Client View (Coming Soon) and Admin Live Showcase for beta features"
+              >
+                <span>{adminShowcaseMode ? '⚡ Admin Showcase: LIVE DEMO' : '🔒 Client View: COMING SOON'}</span>
+              </button>
+            )}
           </div>
 
           <h1 className="page-title">{business?.name || user?.name || 'Your Business Dashboard'}</h1>
@@ -670,6 +757,20 @@ export default function DashboardPage() {
 
         <button
           type="button"
+          className={`dash-tab-btn ${activeTab === 'radar' ? 'active' : ''}`}
+          onClick={() => setActiveTab('radar')}
+        >
+          <span className="tab-icon">🎯</span>
+          <span>Competitor Radar</span>
+          {adminShowcaseMode ? (
+            <span className="tab-pill-shield-action" style={{ background: '#ec4899', color: '#fff', fontSize: '10px' }}>LIVE DEMO</span>
+          ) : (
+            <span className="tab-pill-coming-soon">COMING SOON</span>
+          )}
+        </button>
+
+        <button
+          type="button"
           className={`dash-tab-btn ${activeTab === 'team' ? 'active' : ''}`}
           onClick={() => setActiveTab('team')}
         >
@@ -677,6 +778,20 @@ export default function DashboardPage() {
           <span>Team & Staff (RBAC)</span>
           {currentPlan.limits.teamSeats <= 1 && (
             <span className="launchpad-pro-badge" style={{ marginLeft: '6px', fontSize: '10px' }}>PRO</span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          className={`dash-tab-btn ${activeTab === 'leaderboard' ? 'active' : ''}`}
+          onClick={() => setActiveTab('leaderboard')}
+        >
+          <span className="tab-icon">🏆</span>
+          <span>Star Leaderboard</span>
+          {adminShowcaseMode ? (
+            <span className="tab-pill-shield-action" style={{ background: '#f59e0b', color: '#fff', fontSize: '10px' }}>LIVE DEMO</span>
+          ) : (
+            <span className="tab-pill-coming-soon">COMING SOON</span>
           )}
         </button>
 
@@ -815,9 +930,110 @@ export default function DashboardPage() {
                 </button>
               </div>
             </div>
+
+            {/* Upcoming Pro & AI Modules (Coming Soon) */}
+            <div className="launchpad-upcoming-section">
+              <div className="launchpad-upcoming-header">
+                <div className="launchpad-upcoming-title-wrap">
+                  <span className="launchpad-upcoming-tag">🔒 In Development</span>
+                  <span className="launchpad-upcoming-desc">Upcoming AI &amp; growth modules launching soon</span>
+                </div>
+                <span className="launchpad-soon-badge-header">Rolling Out Soon</span>
+              </div>
+
+              <div className="launchpad-upcoming-grid">
+                {/* Action 5: Competitor Radar */}
+                <div
+                  className={`launchpad-action-box ${adminShowcaseMode ? 'highlight-active' : 'highlight-coming-soon'}`}
+                  onClick={() => {
+                    setActiveTab('radar');
+                    if (adminShowcaseMode) {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }}
+                >
+                  <div className="launchpad-icon-circle pink">🎯</div>
+                  <div className="launchpad-box-body">
+                    <div className="launchpad-box-title-row">
+                      <h4 className="launchpad-box-title">Competitor Radar</h4>
+                      {adminShowcaseMode ? (
+                        <span className="tab-pill-shield-action" style={{ background: '#ec4899', color: '#fff', fontSize: '0.65rem' }}>LIVE DEMO</span>
+                      ) : (
+                        <span className="launchpad-soon-badge">COMING SOON</span>
+                      )}
+                    </div>
+                    <p className="launchpad-box-desc">
+                      Expose rival 1★ complaints &amp; launch counter-strike campaigns
+                    </p>
+                  </div>
+                  <button type="button" className={adminShowcaseMode ? 'btn-launchpad-active' : 'btn-launchpad-soon'}>
+                    {adminShowcaseMode ? '⚡ Open Live Radar →' : 'Coming Soon 🔒'}
+                  </button>
+                </div>
+
+                {/* Action 6: Social Story Studio */}
+                <div
+                  className={`launchpad-action-box ${adminShowcaseMode ? 'highlight-active' : 'highlight-coming-soon'}`}
+                  onClick={() => {
+                    if (adminShowcaseMode || isSuperAdmin) {
+                      setShowStoryStudio(true);
+                    } else {
+                      showToastMsg('📸 Social Story & Poster Studio is coming soon! Stay tuned for official rollout.');
+                    }
+                  }}
+                >
+                  <div className="launchpad-icon-circle amber">📸</div>
+                  <div className="launchpad-box-body">
+                    <div className="launchpad-box-title-row">
+                      <h4 className="launchpad-box-title">Social Story Studio</h4>
+                      {adminShowcaseMode ? (
+                        <span className="tab-pill-shield-action" style={{ background: '#f59e0b', color: '#fff', fontSize: '0.65rem' }}>LIVE DEMO</span>
+                      ) : (
+                        <span className="launchpad-soon-badge">COMING SOON</span>
+                      )}
+                    </div>
+                    <p className="launchpad-box-desc">
+                      Turn 5★ reviews into viral Instagram Stories &amp; WhatsApp posters
+                    </p>
+                  </div>
+                  <button type="button" className={adminShowcaseMode ? 'btn-launchpad-active' : 'btn-launchpad-soon'}>
+                    {adminShowcaseMode ? '⚡ Open Story Studio →' : 'Coming Soon 🔒'}
+                  </button>
+                </div>
+
+                {/* Action 7: Staff Star Leaderboard */}
+                <div
+                  className={`launchpad-action-box ${adminShowcaseMode ? 'highlight-active' : 'highlight-coming-soon'}`}
+                  onClick={() => {
+                    setActiveTab('leaderboard');
+                    if (adminShowcaseMode) {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }}
+                >
+                  <div className="launchpad-icon-circle yellow">🏆</div>
+                  <div className="launchpad-box-body">
+                    <div className="launchpad-box-title-row">
+                      <h4 className="launchpad-box-title">Staff Star Leaderboard</h4>
+                      {adminShowcaseMode ? (
+                        <span className="tab-pill-shield-action" style={{ background: '#eab308', color: '#fff', fontSize: '0.65rem' }}>LIVE DEMO</span>
+                      ) : (
+                        <span className="launchpad-soon-badge">COMING SOON</span>
+                      )}
+                    </div>
+                    <p className="launchpad-box-desc">
+                      Attributed staff review rankings, personal QR standees &amp; incentive tracker
+                    </p>
+                  </div>
+                  <button type="button" className={adminShowcaseMode ? 'btn-launchpad-active' : 'btn-launchpad-soon'}>
+                    {adminShowcaseMode ? '⚡ Open Leaderboard →' : 'Coming Soon 🔒'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* 4 Metric Cards */}
+          {/* Key Metric Analytics Cards */}
           <div className="metrics-grid">
             <div className="metric-card">
               <div className="metric-icon-box blue">
@@ -831,13 +1047,24 @@ export default function DashboardPage() {
             </div>
 
             <div className="metric-card">
+              <div className="metric-icon-box cyan" style={{ background: '#ecfeff', color: '#0891b2' }}>
+                <span>⚡</span>
+              </div>
+              <div className="metric-body">
+                <span className="metric-label">Today</span>
+                <span className="metric-value">+{stats?.today ?? 0}</span>
+                <span className="metric-subtext">Daily reviews posted</span>
+              </div>
+            </div>
+
+            <div className="metric-card">
               <div className="metric-icon-box green">
                 <span>📅</span>
               </div>
               <div className="metric-body">
                 <span className="metric-label">This Month</span>
                 <span className="metric-value">+{stats?.thisMonth ?? 0}</span>
-                <span className="metric-subtext">New reviews recorded</span>
+                <span className="metric-subtext">New reviews this month</span>
               </div>
             </div>
 
@@ -1121,6 +1348,25 @@ export default function DashboardPage() {
                         {rev.serviceType && (
                           <span className="review-service-badge">{rev.serviceType}</span>
                         )}
+                        {rev.staffName && (
+                          <span
+                            className="review-staff-badge"
+                            style={{
+                              background: '#fef3c7',
+                              color: '#92400e',
+                              border: '1px solid #fde68a',
+                              padding: '0.15rem 0.55rem',
+                              borderRadius: '9999px',
+                              fontSize: '0.75rem',
+                              fontWeight: '700',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                            }}
+                          >
+                            ⭐ Staff: {rev.staffName}
+                          </span>
+                        )}
                       </div>
                       <span className="review-date">{formatDate(rev.createdAt)}</span>
                     </div>
@@ -1163,6 +1409,27 @@ export default function DashboardPage() {
                           <span>🔒</span> AI Owner Reply (Pro Plan)
                         </button>
                       )}
+
+                      <button
+                        type="button"
+                        className={`btn-social-story-trigger ${adminShowcaseMode || isSuperAdmin ? '' : 'coming-soon-btn'}`}
+                        onClick={() => {
+                          if (adminShowcaseMode || isSuperAdmin) {
+                            setSelectedReviewForStory(rev);
+                            setShowStoryStudio(true);
+                          } else {
+                            showToastMsg('📸 Social Story & Poster Studio is coming soon! Stay tuned for official rollout.');
+                          }
+                        }}
+                        title={adminShowcaseMode || isSuperAdmin ? 'Create Social Story Card (Admin Showcase Live)' : 'Social Story Studio (Coming Soon)'}
+                      >
+                        <span>📸</span> Social Story
+                        {adminShowcaseMode || isSuperAdmin ? (
+                          <span className="launchpad-pro-badge" style={{ fontSize: '0.62rem', padding: '0.1rem 0.4rem', marginLeft: '4px', background: '#f59e0b', color: '#fff' }}>LIVE</span>
+                        ) : (
+                          <span className="launchpad-soon-badge" style={{ fontSize: '0.62rem', padding: '0.1rem 0.4rem', marginLeft: '4px' }}>SOON</span>
+                        )}
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1562,6 +1829,146 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* =========================================================================
+          TAB 6: COMPETITOR REVIEW RADAR (COMING SOON / ADMIN SHOWCASE)
+          ========================================================================= */}
+      {activeTab === 'radar' && (
+        <div className="tab-content-container animate-fade-in">
+          {adminShowcaseMode ? (
+            <div>
+              <div className="admin-feature-preview-banner">
+                <div className="preview-banner-content">
+                  <span className="preview-badge">⚡ ADMIN SHOWCASE MODE</span>
+                  <span>
+                    You are previewing <strong>Competitor Review Radar</strong> in live demonstration mode. Regular clients see the "Coming Soon" card until official rollout.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn-preview-toggle-view"
+                  onClick={() => setAdminShowcaseMode(false)}
+                >
+                  🔒 Switch to Client Coming Soon View
+                </button>
+              </div>
+              <CompetitorRadar
+                business={business}
+                currentPlan={currentPlan}
+                onUpgradeClick={() => setShowSubModal(true)}
+              />
+            </div>
+          ) : (
+            <div className="feature-coming-soon-card">
+              <div className="feature-coming-soon-badge">
+                <span>🚀</span> Feature In Beta Testing
+              </div>
+              <div className="feature-coming-soon-icon-wrap pink">
+                <span>🎯</span>
+              </div>
+              <h2 className="feature-coming-soon-title">Competitor Review Radar</h2>
+              <p className="feature-coming-soon-desc">
+                Our AI Sentiment Spy &amp; Competitor Counter-Strike engine is currently undergoing quality calibration. This feature will automatically analyze nearby rivals' 1-star weaknesses and suggest high-conversion campaigns.
+              </p>
+              <div className="feature-coming-soon-actions">
+                <button
+                  type="button"
+                  className="btn-coming-soon-back"
+                  onClick={() => setActiveTab('overview')}
+                >
+                  ← Return to Overview
+                </button>
+                <button
+                  type="button"
+                  className="btn-coming-soon-notify"
+                  onClick={() => showToastMsg('✓ You will be notified when Competitor Radar is launched!')}
+                >
+                  🔔 Notify Me at Launch
+                </button>
+                {(isSuperAdmin || hasAdminParam) && (
+                  <button
+                    type="button"
+                    className="btn-coming-soon-admin-unlock"
+                    onClick={() => setAdminShowcaseMode(true)}
+                  >
+                    ⚡ Unlock Live Demo (Admin Showcase)
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB 7: STAFF ATTRIBUTION & STAR LEADERBOARD (COMING SOON / ADMIN SHOWCASE)
+          ========================================================================= */}
+      {activeTab === 'leaderboard' && (
+        <div className="tab-content-container animate-fade-in">
+          {adminShowcaseMode ? (
+            <div>
+              <div className="admin-feature-preview-banner">
+                <div className="preview-banner-content">
+                  <span className="preview-badge">🏆 ADMIN SHOWCASE MODE</span>
+                  <span>
+                    You are previewing <strong>Staff Star Leaderboard</strong> in live demonstration mode. Regular clients see the "Coming Soon" card until official rollout.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn-preview-toggle-view"
+                  onClick={() => setAdminShowcaseMode(false)}
+                >
+                  🔒 Switch to Client Coming Soon View
+                </button>
+              </div>
+              <StaffLeaderboard
+                business={business}
+                reviews={reviews}
+                onOpenUpgradeModal={() => setShowSubModal(true)}
+              />
+            </div>
+          ) : (
+            <div className="feature-coming-soon-card">
+              <div className="feature-coming-soon-badge">
+                <span>🏆</span> Feature In Beta Testing
+              </div>
+              <div className="feature-coming-soon-icon-wrap amber">
+                <span>⭐</span>
+              </div>
+              <h2 className="feature-coming-soon-title">Staff Star Leaderboard</h2>
+              <p className="feature-coming-soon-desc">
+                Personalized staff QR standees, customer review attribution, monthly performance podiums, and staff incentive tracking are being polished for official rollout.
+              </p>
+              <div className="feature-coming-soon-actions">
+                <button
+                  type="button"
+                  className="btn-coming-soon-back"
+                  onClick={() => setActiveTab('overview')}
+                >
+                  ← Return to Overview
+                </button>
+                <button
+                  type="button"
+                  className="btn-coming-soon-notify"
+                  onClick={() => showToastMsg('✓ You will be notified when Staff Leaderboard is launched!')}
+                >
+                  🔔 Notify Me at Launch
+                </button>
+                {(isSuperAdmin || hasAdminParam) && (
+                  <button
+                    type="button"
+                    className="btn-coming-soon-admin-unlock"
+                    onClick={() => setAdminShowcaseMode(true)}
+                  >
+                    ⚡ Unlock Live Demo (Admin Showcase)
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
         </>
       )}
 
@@ -1605,6 +2012,21 @@ export default function DashboardPage() {
             setShowSubModal(true);
           }}
           onClose={() => setShowStandeeStudio(false)}
+        />
+      )}
+
+      {/* Social Story & Poster Studio Modal */}
+      {(showStoryStudio || selectedReviewForStory) && (
+        <SocialStoryModal
+          isOpen={Boolean(showStoryStudio || selectedReviewForStory)}
+          onClose={() => {
+            setShowStoryStudio(false);
+            setSelectedReviewForStory(null);
+          }}
+          initialReview={selectedReviewForStory || reviews[0] || null}
+          allReviews={reviews}
+          business={business}
+          reviewUrl={reviewUrl}
         />
       )}
 

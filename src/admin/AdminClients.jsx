@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { api, isGenericOrEmptyServices } from '../api/client';
 import { getCategoryServices } from '../lib/categories';
+import { generateSecurePassword } from '../lib/security';
 
 /**
  * AdminClients — Real-Time Client & Lead Management
@@ -291,7 +292,7 @@ export default function AdminClients() {
       ownerName: client.ownerName && client.ownerName !== '—' ? client.ownerName : (client.businessName || ''),
       email: client.email || '',
       phone: client.phone || '',
-      password: client.password || creds.password || 'welcome123',
+      password: client.password || creds.password || '',
       category: client.businessType || 'Other / Local Business',
       services: servicesStr,
       googleReviewUrl: client.googleReviewUrl || '',
@@ -306,21 +307,17 @@ export default function AdminClients() {
   };
 
   const handleGenerateRandomPassword = () => {
-    const prefixes = ['Review', 'Apex', 'Star', 'Trust', 'Growth', 'Boost', 'Prime'];
-    const p = prefixes[Math.floor(Math.random() * prefixes.length)];
-    const n = Math.floor(1000 + Math.random() * 9000);
-    const symbols = ['!', '@', '#', '$'];
-    const s = symbols[Math.floor(Math.random() * symbols.length)];
-    const newPass = `${p}${n}${s}`;
+    const newPass = generateSecurePassword(16);
     setEditForm((prev) => ({ ...prev, password: newPass }));
     setShowEditPassword(true);
-    showToast(`🎲 Generated password: ${newPass}`);
+    showToast(`🎲 Generated secure password: ${newPass}`);
   };
 
   const handleCopyCredentials = (targetForm) => {
     const form = targetForm || editForm;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const text = `ReviewAssist Dashboard Login Details:\n🏢 Business: ${form.businessName}\n🔗 Portal: ${origin}/login\n📧 Email: ${form.email}\n🔑 Password: ${form.password || 'welcome123'}`;
+    const passDisplay = form.password ? form.password : '(Configured on activation / generate new to reset)';
+    const text = `ReviewAssist Dashboard Login Details:\n🏢 Business: ${form.businessName}\n🔗 Portal: ${origin}/login\n📧 Email: ${form.email}\n🔑 Password: ${passDisplay}`;
     navigator.clipboard.writeText(text);
     setCopyFeedback(true);
     setTimeout(() => setCopyFeedback(false), 2500);
@@ -332,7 +329,7 @@ export default function AdminClients() {
     const cleanPhone = (target.phone || '').replace(/[^0-9]/g, '');
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const creds = api.getClientCredentials(target.id || target.email);
-    const pass = target.password || creds.password || 'welcome123';
+    const pass = target.password || creds.password || '(Use your chosen secure password)';
     const bName = target.businessName || target.name || 'Your Business';
     const oName = target.ownerName && target.ownerName !== '—' ? target.ownerName : bName;
     const mail = target.email || creds.email;
@@ -378,7 +375,7 @@ export default function AdminClients() {
         ownerName: editForm.ownerName.trim(),
         email: editForm.email.trim(),
         phone: editForm.phone.trim(),
-        password: editForm.password.trim() || 'welcome123',
+        password: editForm.password?.trim() || undefined,
         category: editForm.category,
         services: servicesArray,
         googleReviewUrl: editForm.googleReviewUrl.trim(),

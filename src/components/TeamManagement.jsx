@@ -18,6 +18,7 @@ export default function TeamManagement({
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [invitePhone, setInvitePhone] = useState('');
+  const [invitePassword, setInvitePassword] = useState('staff123');
   const [inviteRole, setInviteRole] = useState(ROLES.BUSINESS_STAFF);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
@@ -53,11 +54,13 @@ export default function TeamManagement({
 
     try {
       const cleanEmail = inviteEmail.trim().toLowerCase();
+      const initialPassword = invitePassword.trim() || 'staff123';
       await inviteMember({
         name: inviteName.trim(),
         email: cleanEmail,
         role: inviteRole,
         phone: invitePhone.trim(),
+        password: initialPassword,
       });
 
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -68,6 +71,7 @@ export default function TeamManagement({
         email: cleanEmail,
         phone: invitePhone.trim(),
         role: inviteRole,
+        password: initialPassword,
         inviteUrl,
       });
 
@@ -75,6 +79,7 @@ export default function TeamManagement({
       setInviteName('');
       setInviteEmail('');
       setInvitePhone('');
+      setInvitePassword('staff123');
       setInviteRole(ROLES.BUSINESS_STAFF);
       setShowInviteModal(false);
     } catch (err) {
@@ -372,6 +377,23 @@ export default function TeamManagement({
               </div>
 
               <div className="form-group">
+                <label className="form-label">
+                  Initial Login Password <span style={{ color: '#64748b', fontWeight: 'normal' }}>(Default: staff123)</span>
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={invitePassword}
+                  onChange={(e) => setInvitePassword(e.target.value)}
+                  placeholder="e.g. staff123"
+                  required
+                />
+                <span className="field-hint">
+                  The staff member will use their email and this password to sign in.
+                </span>
+              </div>
+
+              <div className="form-group">
                 <label className="form-label">Assign RBAC Role</label>
                 <select
                   className="form-select"
@@ -442,16 +464,33 @@ export default function TeamManagement({
                     whiteSpace: 'nowrap',
                     color: '#475569',
                     fontSize: '0.8rem',
+                    marginBottom: '8px',
                   }}
                 >
                   {invitedSuccess.inviteUrl}
+                </div>
+                <div style={{ fontWeight: 600, color: '#334155', marginBottom: '4px' }}>Login Password:</div>
+                <div
+                  style={{
+                    fontFamily: 'monospace',
+                    background: '#fff',
+                    padding: '6px 10px',
+                    borderRadius: '4px',
+                    border: '1px solid #cbd5e1',
+                    color: '#0f172a',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    display: 'inline-block',
+                  }}
+                >
+                  {invitedSuccess.password}
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <a
                   href={`https://wa.me/${invitedSuccess.phone ? invitedSuccess.phone.replace(/[^0-9]/g, '') : ''}?text=${encodeURIComponent(
-                    `Hi ${invitedSuccess.name}! You've been added to our ${business?.name || 'ReviewAssist'} workspace to help collect customer reviews. Click here to sign in to your staff portal: ${invitedSuccess.inviteUrl}`
+                    `Hi ${invitedSuccess.name}! You've been added to our ${business?.name || 'ReviewAssist'} workspace to help collect customer reviews.\n\n👉 Staff Sign In Link: ${invitedSuccess.inviteUrl}\n🔑 Password: ${invitedSuccess.password}`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -473,9 +512,9 @@ export default function TeamManagement({
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => copyToClipboard(invitedSuccess.inviteUrl)}
+                  onClick={() => copyToClipboard(`Staff Link: ${invitedSuccess.inviteUrl}\nPassword: ${invitedSuccess.password}`)}
                 >
-                  {copiedLink ? '✓ Copied to Clipboard!' : '📋 Copy Direct Login Link'}
+                  {copiedLink ? '✓ Copied Link & Password!' : '📋 Copy Link & Password'}
                 </button>
               </div>
 

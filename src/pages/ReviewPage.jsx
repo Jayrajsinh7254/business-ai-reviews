@@ -4,12 +4,14 @@ import confetti from 'canvas-confetti';
 import StarRating from '../components/StarRating';
 import { api, resolveGoogleReviewUrl, isBusinessInactive, isGenericOrEmptyServices } from '../api/client';
 import { getCategoryServices } from '../lib/categories';
+import { getBusinessStaffList } from '../utils/staffLeaderboardEngine';
+import { sanitizeGoogleReviewUrl } from '../lib/security';
 
 /**
  * Normalizes any phone number into international WhatsApp format (defaults to India 91 prefix)
  */
 export function normalizeWhatsAppNumber(rawPhone) {
-  if (!rawPhone) return '919537370561';
+  if (!rawPhone) return '';
   let cleaned = String(rawPhone).replace(/[^0-9]/g, '');
   if (cleaned.startsWith('0') && cleaned.length === 11) {
     cleaned = cleaned.substring(1);
@@ -17,7 +19,7 @@ export function normalizeWhatsAppNumber(rawPhone) {
   if (cleaned.length === 10) {
     return '91' + cleaned;
   }
-  return cleaned || '919537370561';
+  return cleaned;
 }
 
 export default function ReviewPage() {
@@ -40,6 +42,11 @@ export default function ReviewPage() {
   const [rating, setRating] = useState(5);
   const [lengthStyle, setLengthStyle] = useState('auto'); // 'auto' | 'short' | 'medium' | 'detailed'
   const [reviewLanguage, setReviewLanguage] = useState('english'); // language for AI review generation
+
+  // Staff Attribution states
+  const [staffMembers, setStaffMembers] = useState([]);
+  const [selectedStaff, setSelectedStaff] = useState(null); // { id, name, role, avatar }
+  const [isStaffPreselectedFromUrl, setIsStaffPreselectedFromUrl] = useState(false);
 
   // 1-3 Star Protection Shield states
   const [bypassShieldToGoogle, setBypassShieldToGoogle] = useState(false);
@@ -121,11 +128,11 @@ export default function ReviewPage() {
 
         const sp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
         const urlName = sp.get('name') || '';
-        const urlPhone = sp.get('phone') || sp.get('ownerPhone') || sp.get('owner_phone') || '';
         const urlCat = sp.get('cat') || sp.get('category') || 'service';
         const sParam = sp.get('services');
         const urlServices = sParam ? sParam.split(',').map((s) => s.trim()).filter(Boolean) : null;
-        const urlGoogle = sp.get('google') || sp.get('googleUrl') || sp.get('googleLink') || '';
+        const rawUrlGoogle = sp.get('google') || sp.get('googleUrl') || sp.get('googleLink') || '';
+        const urlGoogle = sanitizeGoogleReviewUrl(rawUrlGoogle, '');
 
         if (!data) {
           const slugClean = effectiveId
@@ -136,7 +143,7 @@ export default function ReviewPage() {
             ? slugClean.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
             : 'Local Business');
 
-          const finalLink = urlGoogle || 'https://g.page/r/example/review';
+          const finalLink = sanitizeGoogleReviewUrl(urlGoogle, 'https://g.page/r/example/review');
           const defaultServices = getCategoryServices(urlCat);
           const effectiveServices = (urlServices && urlServices.length > 0 && !isGenericOrEmptyServices(urlServices))
             ? urlServices
@@ -146,7 +153,7 @@ export default function ReviewPage() {
             id: effectiveId,
             name: derivedName,
             category: urlCat,
-            phone: urlPhone || '9537370561',
+            phone: '', // Only authoritative database contact is trusted for private feedback
             services: effectiveServices,
             google_review_link: finalLink,
             googleReviewLink: finalLink,
@@ -167,16 +174,53 @@ export default function ReviewPage() {
             ? getCategoryServices(data.category || data.businessType || urlCat)
             : data.services;
 
+          const authoritativeLink = sanitizeGoogleReviewUrl(
+            data.google_review_link || data.googleReviewLink || data.google_review_url || data.googleReviewUrl || urlGoogle,
+            'https://g.page/r/example/review'
+          );
+
           data = {
             ...data,
             services: finalServices,
-            phone: data.phone || urlPhone || '9537370561',
+            phone: data.phone || '', // Authoritative phone only
+            google_review_link: authoritativeLink,
+            googleReviewLink: authoritativeLink,
+            googleReviewUrl: authoritativeLink,
           };
         }
+
+        const urlStaff = sp.get('staff') || sp.get('staffName') || '';
+        const urlStaffId = sp.get('staffId') || '';
 
         setBusiness(data);
         if (data.services && data.services.length > 0) {
           setServiceType(data.services[0]);
+        }
+
+        // Load staff and resolve URL attribution
+        const loadedStaff = getBusinessStaffList(effectiveId);
+        setStaffMembers(loadedStaff);
+
+        if (urlStaff || urlStaffId) {
+          const match = loadedStaff.find(
+            (s) => (urlStaffId && s.id === urlStaffId) ||
+                   (urlStaff && s.name.toLowerCase().includes(urlStaff.toLowerCase())) ||
+                   (urlStaff && urlStaff.toLowerCase().includes(s.name.toLowerCase()))
+          );
+          if (match) {
+            setSelectedStaff(match);
+            setIsStaffPreselectedFromUrl(true);
+          } else if (urlStaff) {
+            const customStaff = {
+              id: urlStaffId || 'staff-url',
+              name: urlStaff.trim(),
+              role: 'Assisting Specialist',
+              avatar: '⭐',
+              initials: urlStaff.slice(0, 2).toUpperCase(),
+            };
+            setSelectedStaff(customStaff);
+            setIsStaffPreselectedFromUrl(true);
+          }
         }
       } catch (err) {
         console.error('Error loading business:', err);
@@ -185,6 +229,8 @@ export default function ReviewPage() {
         const urlCat = sp.get('cat') || sp.get('category') || 'service';
         const sParam = sp.get('services');
         const urlServices = sParam ? sParam.split(',').map((s) => s.trim()).filter(Boolean) : null;
+        const urlStaff = sp.get('staff') || sp.get('staffName') || '';
+        const urlStaffId = sp.get('staffId') || '';
         const fallbackBiz = {
           id: businessId || 'demo-1',
           name: 'Local Business',
@@ -202,6 +248,18 @@ export default function ReviewPage() {
         setBusiness(fallbackBiz);
         if (fallbackBiz.services && fallbackBiz.services.length > 0) {
           setServiceType(fallbackBiz.services[0]);
+        }
+        const fallbackStaff = getBusinessStaffList(businessId || 'demo-1');
+        setStaffMembers(fallbackStaff);
+        if (urlStaff || urlStaffId) {
+          const match = fallbackStaff.find(
+            (s) => (urlStaffId && s.id === urlStaffId) ||
+                   (urlStaff && s.name.toLowerCase().includes(urlStaff.toLowerCase()))
+          );
+          if (match) {
+            setSelectedStaff(match);
+            setIsStaffPreselectedFromUrl(true);
+          }
         }
       } finally {
         setLoadingBusiness(false);
@@ -249,6 +307,7 @@ export default function ReviewPage() {
         seed: Date.now() + Math.floor(Math.random() * 1000000),
         lengthPreference: lengthStyle,
         language: reviewLanguage,
+        staffName: selectedStaff?.name || '',
       });
       setRating(5);
       setDraftText(response.draftText || '');
@@ -337,6 +396,7 @@ export default function ReviewPage() {
         seed: Date.now() + Math.floor(Math.random() * 1000000),
         lengthPreference: lengthStyle,
         language: reviewLanguage,
+        staffName: selectedStaff?.name || '',
       });
 
       setDraftText(response.draftText || '');
@@ -374,6 +434,7 @@ export default function ReviewPage() {
         seed: Date.now() + Math.floor(Math.random() * 1000000),
         lengthPreference: activeLength,
         language: reviewLanguage,
+        staffName: selectedStaff?.name || '',
       });
       setDraftText(response.draftText || '');
       showToast('✨ Review regenerated with fresh wording!');
@@ -413,6 +474,7 @@ export default function ReviewPage() {
           seed: Date.now() + Math.floor(Math.random() * 1000000),
           lengthPreference: lengthStyle,
           language: newLang,
+          staffName: selectedStaff?.name || '',
         });
         setDraftText(response.draftText || '');
         showToast(`🌐 Review regenerated in ${SUPPORTED_LANGUAGES.find(l => l.code === newLang)?.label || newLang}!`);
@@ -436,6 +498,12 @@ export default function ReviewPage() {
   // Direct WhatsApp Message to Owner (1-3 Star Protection Shield)
   const handleSendDirectWhatsApp = async () => {
     const ownerWaNumber = normalizeWhatsAppNumber(business?.phone);
+    if (!ownerWaNumber) {
+      showToast('Business phone not registered. Submitting via secure in-app shield...');
+      handleSubmitPrivateFeedback();
+      return;
+    }
+
     const effectiveService = getEffectiveService();
     const feedbackNotes = (whatStoodOut || whatCouldImprove || draftText || 'Not completely satisfied with recent visit').trim();
 
@@ -524,7 +592,10 @@ export default function ReviewPage() {
     copyToClipboard(textToCopy);
     setCopied(true);
 
-    const rawLink = (business?.google_review_link || business?.googleReviewLink || business?.google_review_url || business?.googleReviewUrl || '').trim();
+    const rawLink = sanitizeGoogleReviewUrl(
+      (business?.google_review_link || business?.googleReviewLink || business?.google_review_url || business?.googleReviewUrl || '').trim(),
+      ''
+    );
 
     // Popup-blocker safety: Open new tab synchronously inside click event
     let newTab = null;
@@ -541,15 +612,27 @@ export default function ReviewPage() {
 
     try {
       const effectiveService = getEffectiveService();
+      const targetBizId = businessId || business?.id || 'demo-1';
       // 2. Save review confirmation
       const result = await api.confirmReview({
-        businessId,
+        businessId: targetBizId,
         serviceType: effectiveService,
         finalText: textToCopy,
         rating,
         whatStoodOut,
         whatCouldImprove,
+        staffId: selectedStaff?.id || '',
+        staffName: selectedStaff?.name || '',
       });
+
+      try {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('storage'));
+          window.dispatchEvent(new CustomEvent('reviewassist:review_confirmed', {
+            detail: { businessId: targetBizId }
+          }));
+        }
+      } catch {}
 
       // 3. Re-affirm clipboard copy
       await copyToClipboard(textToCopy);
@@ -566,8 +649,9 @@ export default function ReviewPage() {
       // 5. Show toast instruction
       showToast('✓ Review copied! Opening Google — tap Paste & Post.');
 
-      // 5. Open destination Google review link
-      const targetLink = rawLink || (result?.google_review_link || result?.googleReviewUrl || '').trim();
+      // 5. Open destination Google review link (guaranteed safe HTTPS Google domain)
+      const rawTarget = rawLink || (result?.google_review_link || result?.googleReviewUrl || '').trim();
+      const targetLink = sanitizeGoogleReviewUrl(rawTarget, 'https://g.page/r/example/review');
 
       if (targetLink) {
         if (newTab && !newTab.closed) {
@@ -924,6 +1008,18 @@ export default function ReviewPage() {
               <h2 className="step-heading">What did you get done?</h2>
             </div>
 
+            {selectedStaff && (
+              <div className="staff-welcome-banner animate-fade-in">
+                <span className="staff-welcome-avatar">{selectedStaff.avatar || '⭐'}</span>
+                <div className="staff-welcome-info">
+                  <span className="staff-welcome-eyebrow">Assisted by:</span>
+                  <strong className="staff-welcome-name">{selectedStaff.name}</strong>
+                  <span className="staff-welcome-role">({selectedStaff.role})</span>
+                </div>
+                <span className="staff-welcome-check">✓ Linked to QR</span>
+              </div>
+            )}
+
             {hasServices ? (
               <div className="form-group">
                 <label htmlFor="service-select" className="form-label">
@@ -1097,6 +1193,71 @@ export default function ReviewPage() {
                 })}
               </div>
             </div>
+
+            {/* Staff Attribution Selector */}
+            {staffMembers && staffMembers.length > 0 && (
+              <div className="staff-attribution-section animate-fade-in">
+                <div className="staff-section-header">
+                  <div className="staff-header-left">
+                    <div className="staff-icon-badge">👤</div>
+                    <div className="staff-selector-meta">
+                      <div className="staff-selector-title-row">
+                        <span className="staff-selector-title">Who assisted you today?</span>
+                        <span className="staff-optional-badge">Optional</span>
+                      </div>
+                      <span className="staff-selector-hint">
+                        Credits your 5★ review to their Star Leaderboard profile
+                      </span>
+                    </div>
+                  </div>
+                  {selectedStaff && (
+                    <button
+                      type="button"
+                      className="btn-clear-staff-pill"
+                      onClick={() => {
+                        setSelectedStaff(null);
+                        setIsStaffPreselectedFromUrl(false);
+                      }}
+                    >
+                      ✕ Clear
+                    </button>
+                  )}
+                </div>
+
+                {isStaffPreselectedFromUrl && selectedStaff && (
+                  <div className="staff-preselected-banner">
+                    <span className="preselected-sparkle">✨</span>
+                    <span>Recognized from personal Staff QR:</span>
+                    <strong>{selectedStaff.name}</strong>
+                  </div>
+                )}
+
+                <div className="staff-chips-grid" role="group" aria-label="Staff member selector">
+                  {staffMembers.map((staff) => {
+                    const isSelected = selectedStaff?.id === staff.id || selectedStaff?.name === staff.name;
+                    return (
+                      <button
+                        key={staff.id}
+                        type="button"
+                        className={`staff-chip-pill ${isSelected ? 'active' : ''}`}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedStaff(null);
+                            setIsStaffPreselectedFromUrl(false);
+                          } else {
+                            setSelectedStaff(staff);
+                          }
+                        }}
+                      >
+                        <span className="staff-chip-avatar">{staff.avatar || '👤'}</span>
+                        <span className="staff-chip-name">{staff.name.split(' ')[0]}</span>
+                        {isSelected && <span className="staff-chip-check">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Question 1: What stood out to you? */}
             <div className="review-question-card">
@@ -1749,6 +1910,28 @@ export default function ReviewPage() {
                       <div className="review-copied-badge">✓ Copied to Clipboard</div>
                       <p className="review-summary-quote">&quot;{draftText}&quot;</p>
                     </div>
+
+                    {/* Staff Recognition Card */}
+                    {selectedStaff && (
+                      <div className="staff-credited-banner-card animate-fade-in">
+                        <div className="credited-avatar">{selectedStaff.avatar || '⭐'}</div>
+                        <div className="credited-info">
+                          <span className="credited-label">5-Star Review Attributed To:</span>
+                          <strong className="credited-name">{selectedStaff.name}</strong>
+                          <span className="credited-role">Credited on {business?.name}&apos;s Star Leaderboard 🏆</span>
+                        </div>
+                        <a
+                          href={`https://wa.me/${normalizeWhatsAppNumber(business?.phone)}?text=${encodeURIComponent(
+                            `Hi! I just left a 5-star review for ${business?.name} and wanted to pass on my personal compliments to ${selectedStaff.name} for outstanding service! ⭐`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-send-manager-compliment"
+                        >
+                          💬 Send Compliment
+                        </a>
+                      </div>
+                    )}
 
                     <div className="step-4-quick-actions">
                       <a

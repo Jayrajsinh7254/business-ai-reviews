@@ -11,6 +11,15 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
 async function verifySignature(
   orderId: string,
   paymentId: string,
@@ -26,7 +35,7 @@ async function verifySignature(
   const generatedSignature = Array.from(new Uint8Array(signatureBuffer))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
-  return generatedSignature === signature;
+  return timingSafeEqual(generatedSignature, signature);
 }
 
 serve(async (req) => {
@@ -74,32 +83,66 @@ serve(async (req) => {
       });
     }
 
-    // Payment verified — activate subscription in Supabase
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // Replay Protection: Check if this payment proof was already consumed
+    const { data: existingPayment } = await supabase
+      .from("payment_events")
+      .select("id")
+      .eq("razorpay_payment_id", razorpay_payment_id)
+      .eq("status", "captured")
+      .maybeSingle();
+
+    if (existingPayment) {
+      return new Response(JSON.stringify({ error: "Payment proof has already been processed and consumed." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Binding check: Load original server-side order to verify target business and plan
+    const { data: orderEvent } = await supabase
+      .from("payment_events")
+      .select("business_id, plan_id, billing_interval, amount_paise")
+      .eq("razorpay_order_id", razorpay_order_id)
+      .eq("event_type", "order.created")
+      .maybeSingle();
+
+    if (orderEvent && orderEvent.business_id && orderEvent.business_id !== businessId) {
+      return new Response(JSON.stringify({ error: "Payment order does not match target business" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const targetBusinessId = orderEvent?.business_id || businessId;
+    const targetPlanId = orderEvent?.plan_id || planId;
+    const targetBillingInterval = orderEvent?.billing_interval || billingInterval || "monthly";
+
     const AMOUNT_MAP: Record<string, Record<string, number>> = {
-      starter: { monthly: 499, annual: 399 },
-      pro: { monthly: 1299, annual: 999 },
-      enterprise: { monthly: 2999, annual: 2399 },
+      starter: { monthly: 299, annual: 2988 },
+      pro: { monthly: 499, annual: 5388 },
+      enterprise: { monthly: 799, annual: 8388 },
     };
 
-    const amount = AMOUNT_MAP[planId]?.[billingInterval] || 1299;
+    const amount = (orderEvent?.amount_paise ? Math.round(orderEvent.amount_paise / 100) : null) ||
+      AMOUNT_MAP[targetPlanId]?.[targetBillingInterval] || 499;
     const now = new Date();
     const periodEnd = new Date(now);
-    periodEnd.setDate(periodEnd.getDate() + (billingInterval === "annual" ? 365 : 30));
+    periodEnd.setDate(periodEnd.getDate() + (targetBillingInterval === "annual" ? 365 : 30));
 
     // Update or insert subscription record
     const { error: subError } = await supabase
       .from("subscriptions")
       .upsert(
         {
-          business_id: businessId,
-          plan_id: planId,
+          business_id: targetBusinessId,
+          plan_id: targetPlanId,
           status: "active",
-          billing_interval: billingInterval,
+          billing_interval: targetBillingInterval,
           amount,
           current_period_start: now.toISOString(),
           current_period_end: periodEnd.toISOString(),
@@ -112,24 +155,28 @@ serve(async (req) => {
 
     if (subError) {
       console.error("Subscription upsert error:", subError);
+      return new Response(JSON.stringify({ error: "Failed to activate subscription in database" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Update business plan status
     await supabase
       .from("businesses")
-      .update({ plan_id: planId, subscription_status: "active" })
-      .eq("id", businessId);
+      .update({ plan_id: targetPlanId, subscription_status: "active" })
+      .eq("id", targetBusinessId);
 
-    // Log payment event
+    // Log payment event atomically
     await supabase.from("payment_events").insert({
-      business_id: businessId,
+      business_id: targetBusinessId,
       event_type: "payment.captured",
       razorpay_order_id,
       razorpay_payment_id,
       amount_paise: amount * 100,
       currency: "INR",
-      plan_id: planId,
-      billing_interval: billingInterval,
+      plan_id: targetPlanId,
+      billing_interval: targetBillingInterval,
       status: "captured",
       raw_payload: { razorpay_order_id, razorpay_payment_id },
     });

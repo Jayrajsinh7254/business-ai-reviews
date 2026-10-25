@@ -7,6 +7,7 @@ import QRStandeeCard from '../components/QRStandeeCard';
 import { exportHighResStandee } from '../utils/standeeExport';
 import { createQRDataUrlWithCenterLogo, SAMPLE_BRAND_LOGO } from '../utils/qrLogoHelper';
 import { CATEGORIES, getCategoryServices } from '../lib/categories';
+import { generateSecurePassword, sanitizeGoogleReviewUrl } from '../lib/security';
 
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -54,10 +55,10 @@ export default function AdminQRBuilder() {
     services: initialServices,
     planId: params.get('planId') || 'pro',
     paidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    password: 'welcome123',
+    password: generateSecurePassword(14),
     accentColor: '#6366f1',
     tagline: 'Scan the above QR code with your smartphone and make our day by leaving us a review on Google!',
-    googleReviewLink: params.get('google') || params.get('googleUrl') || params.get('googleLink') || params.get('googleProfileUrl') || 'https://g.page/r/example/review',
+    googleReviewLink: sanitizeGoogleReviewUrl(params.get('google') || params.get('googleUrl') || params.get('googleLink') || params.get('googleProfileUrl') || '', 'https://g.page/r/example/review'),
     leadId: params.get('leadId') || '',
   });
 
@@ -299,13 +300,9 @@ export default function AdminQRBuilder() {
   };
 
   const generateRandomPassword = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#';
-    let res = '';
-    for (let i = 0; i < 9; i++) {
-      res += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
+    const res = generateSecurePassword(16);
     handleChange('password', res);
-    showToast('🔑 Generated new password');
+    showToast('🔑 Generated new secure password');
   };
 
   const handleDownloadQR = async () => {

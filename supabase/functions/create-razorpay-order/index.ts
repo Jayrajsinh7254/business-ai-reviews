@@ -36,11 +36,11 @@ serve(async (req) => {
       });
     }
 
-    // Pricing in paise (1 INR = 100 paise)
+    // Pricing in paise (1 INR = 100 paise) matching plans.js authoritative pricing
     const PRICE_MAP: Record<string, Record<string, number>> = {
-      starter: { monthly: 49900, annual: 39900 },
-      pro: { monthly: 129900, annual: 99900 },
-      enterprise: { monthly: 299900, annual: 239900 },
+      starter: { monthly: 29900, annual: 298800 },
+      pro: { monthly: 49900, annual: 538800 },
+      enterprise: { monthly: 79900, annual: 838800 },
     };
 
     const amount = PRICE_MAP[planId]?.[billingInterval];

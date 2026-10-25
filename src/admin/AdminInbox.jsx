@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api, isGenericOrEmptyServices } from '../api/client';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { getCategoryServices } from '../lib/categories';
+import { generateSecurePassword } from '../lib/security';
 
 const STATUS_CONFIG = {
   new: { label: 'New', cls: 'status-new', icon: '🔵' },
@@ -199,11 +200,12 @@ export default function AdminInbox() {
         ? req.services
         : getCategoryServices(req.businessType);
 
+      const initialPass = generateSecurePassword(14);
       await api.saveClientAccount({
         businessId: cleanBizId,
         businessName: req.businessName,
         email: req.email,
-        password: 'welcome123',
+        password: initialPass,
         ownerName: req.ownerName,
         category: req.businessType,
         planId: 'pro',
@@ -212,7 +214,7 @@ export default function AdminInbox() {
       });
 
       await updateStatus(req.id, 'done');
-      showToast(`🎉 ${req.businessName} account created! Default password: welcome123`);
+      showToast(`🎉 ${req.businessName} account created! Password: ${initialPass}`);
     } catch (err) {
       console.error('Fast-track error:', err);
       showToast('⚠️ Could not provision account.');

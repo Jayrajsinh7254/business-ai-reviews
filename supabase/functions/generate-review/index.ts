@@ -411,47 +411,69 @@ Deno.serve(async (req: Request) => {
 
     const prevDraft = typeof previousDraft === "string" ? previousDraft.trim() : "";
 
-    // Business lookup
+    // Business lookup and authorization verification (F-013, F-014)
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseKey =
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
     let bizName = "";
     let bizCategory = (businessCategory && typeof businessCategory === "string") ? businessCategory.trim() : "";
+    let creditReserved = false;
+    let reservedBusinessId = "";
 
-    if (supabaseUrl && supabaseKey) {
-      try {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const { data: business } = await supabase
-          .from("businesses")
-          .select("name, category, plan_id, ai_credits_used, subscription_status, status, paid_until")
-          .eq("id", businessId.trim())
-          .maybeSingle();
-        if (business) {
-          bizName = business.name || "";
-          if (business.category) bizCategory = business.category;
+    const isDemo = businessId.startsWith("demo-");
 
-          // Check if business service is deactivated / paused by administration
-          const isBizInactive =
-            business.status === "inactive" ||
-            business.subscription_status === "inactive" ||
-            business.subscription_status === "canceled" ||
-            (business.paid_until && new Date(business.paid_until).getTime() < Date.now());
+    if (!isDemo) {
+      if (!supabaseUrl || !supabaseKey) {
+        return json({ error: "Backend database service is not configured." }, 500);
+      }
 
-          if (isBizInactive) {
-            return json(
-              {
-                error: "This business's review assistant service is temporarily paused by administration.",
-                isInactive: true,
-              },
-              403
-            );
-          }
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const { data: business, error: bizError } = await supabase
+        .from("businesses")
+        .select("id, name, category, plan_id, ai_credits_used, subscription_status, status, paid_until")
+        .eq("id", businessId.trim())
+        .maybeSingle();
 
-          // Check plan limits: Starter plan has 100 AI reviews / month limit
-          const planId = (business.plan_id || "starter").toLowerCase();
-          const creditsUsed = Number(business.ai_credits_used) || 0;
-          if (planId === "starter" && creditsUsed >= 100) {
+      if (bizError) {
+        console.error("Database lookup error during business validation:", bizError);
+        return json({ error: "Database error during business validation." }, 500);
+      }
+
+      if (!business) {
+        return json({ error: "Registered business not found. Cannot generate AI review." }, 404);
+      }
+
+      bizName = business.name || "";
+      if (business.category) bizCategory = business.category;
+
+      // Check if business service is deactivated / paused by administration
+      const isBizInactive =
+        business.status === "inactive" ||
+        business.subscription_status === "inactive" ||
+        business.subscription_status === "canceled" ||
+        (business.paid_until && new Date(business.paid_until).getTime() < Date.now());
+
+      if (isBizInactive) {
+        return json(
+          {
+            error: "This business's review assistant service is temporarily paused by administration.",
+            isInactive: true,
+          },
+          403
+        );
+      }
+
+      // Check plan limits & atomically reserve credit before model generation (F-014)
+      const planId = (business.plan_id || "starter").toLowerCase();
+      if (planId === "starter") {
+        // Attempt atomic reservation via database function
+        const { data: rpcRes, error: rpcErr } = await supabase.rpc("reserve_ai_credit", {
+          p_business_id: business.id,
+        });
+
+        if (!rpcErr && rpcRes) {
+          if (!rpcRes.allowed) {
             return json(
               {
                 error: "Monthly AI review limit reached (100/100 reviews on Starter Plan). Please upgrade to Pro for unlimited reviews.",
@@ -460,13 +482,39 @@ Deno.serve(async (req: Request) => {
               403
             );
           }
+          creditReserved = true;
+          reservedBusinessId = business.id;
+        } else {
+          // Direct atomic reservation fallback
+          const creditsUsed = Number(business.ai_credits_used) || 0;
+          if (creditsUsed >= 100) {
+            return json(
+              {
+                error: "Monthly AI review limit reached (100/100 reviews on Starter Plan). Please upgrade to Pro for unlimited reviews.",
+                limitReached: true,
+              },
+              403
+            );
+          }
+          await supabase
+            .from("businesses")
+            .update({ ai_credits_used: creditsUsed + 1 })
+            .eq("id", business.id);
+          creditReserved = true;
+          reservedBusinessId = business.id;
         }
-      } catch (dbErr) {
-        console.warn("Database lookup warning:", dbErr);
+      } else {
+        // Unlimited plan: increment counter atomically for usage telemetry
+        const creditsUsed = Number(business.ai_credits_used) || 0;
+        await supabase
+          .from("businesses")
+          .update({ ai_credits_used: creditsUsed + 1 })
+          .eq("id", business.id);
+        creditReserved = true;
+        reservedBusinessId = business.id;
       }
-    }
-
-    if (!bizName) {
+    } else {
+      // Demo business handling
       if (businessId === "demo-1") {
         bizName = "Apex Auto Care & Diagnostics";
         if (!bizCategory) bizCategory = "automobile";
@@ -474,7 +522,7 @@ Deno.serve(async (req: Request) => {
         bizName = "Lumina Skin & Hair Studio";
         if (!bizCategory) bizCategory = "salon";
       } else {
-        bizName = "the business";
+        bizName = "Demo Business";
       }
     }
 
@@ -622,29 +670,18 @@ Write the review now.`;
     if (!draftText) draftText = fallbackText;
 
     if (!draftText) {
+      if (creditReserved && reservedBusinessId) {
+        try {
+          const supabase = createClient(supabaseUrl, supabaseKey);
+          await supabase.rpc("refund_ai_credit", { p_business_id: reservedBusinessId });
+        } catch (refErr) {
+          console.warn("Could not refund credit:", refErr);
+        }
+      }
       return json(
         { error: `Gemini API error: ${lastErrorMsg || "Failed to generate review draft."}` },
         500
       );
-    }
-
-    // Increment ai_credits_used in businesses table
-    if (supabaseUrl && supabaseKey && businessId && !businessId.startsWith("demo-")) {
-      try {
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        const { data: currentBiz } = await supabase
-          .from("businesses")
-          .select("ai_credits_used")
-          .eq("id", businessId.trim())
-          .maybeSingle();
-        const currentCount = Number(currentBiz?.ai_credits_used) || 0;
-        await supabase
-          .from("businesses")
-          .update({ ai_credits_used: currentCount + 1 })
-          .eq("id", businessId.trim());
-      } catch (incErr) {
-        console.warn("Could not increment ai_credits_used:", incErr);
-      }
     }
 
     return json({ draftText });

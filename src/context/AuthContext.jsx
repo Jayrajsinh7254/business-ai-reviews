@@ -310,13 +310,15 @@ export function AuthProvider({ children }) {
   };
 
   // Invite Team Member
-  const inviteMember = async ({ email, name, role }) => {
+  const inviteMember = async ({ email, name, role, phone, password }) => {
     const targetBizId = user?.businessId || 'demo-1';
     const newMember = {
       id: `mem-${Math.random().toString(36).substring(2, 8)}`,
       businessId: targetBizId,
       email: email.trim(),
       name: name.trim(),
+      phone: (phone || '').trim(),
+      password: password || 'staff123',
       role: role || ROLES.BUSINESS_STAFF,
       status: 'active',
       invitedAt: new Date().toISOString(),

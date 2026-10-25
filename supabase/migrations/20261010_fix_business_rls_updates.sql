@@ -8,15 +8,24 @@
 -- 3. Click "New Query", paste this entire script, and click "Run" (Ctrl+Enter)
 -- ==============================================================================
 
--- 1. ADD GOOGLE REVIEW LINK & PHONE COLUMNS TO BUSINESSES TABLE
+-- 1. ADD GOOGLE REVIEW LINK, LOGO, TAGLINE & PHONE COLUMNS TO BUSINESSES TABLE
 ALTER TABLE public.businesses
 ADD COLUMN IF NOT EXISTS google_review_link TEXT;
+
+ALTER TABLE public.businesses
+ADD COLUMN IF NOT EXISTS logo_url TEXT;
+
+ALTER TABLE public.businesses
+ADD COLUMN IF NOT EXISTS tagline TEXT;
 
 ALTER TABLE public.businesses
 ADD COLUMN IF NOT EXISTS phone TEXT;
 
 ALTER TABLE public.businesses
 ADD COLUMN IF NOT EXISTS services TEXT[] DEFAULT '{}';
+
+ALTER TABLE public.businesses
+ADD COLUMN IF NOT EXISTS ai_credits_used INT DEFAULT 0;
 
 ALTER TABLE public.leads
 ADD COLUMN IF NOT EXISTS services TEXT[] DEFAULT '{}';
@@ -52,15 +61,32 @@ CREATE INDEX IF NOT EXISTS idx_leads_created_at ON public.leads(created_at DESC)
 
 
 -- 3. GRANT TABLE & SEQUENCE ACCESS TO ANON AND AUTHENTICATED ROLES
+-- Minimum privilege principle: anon role only gets required public insert/select permissions
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT ALL ON public.leads TO anon, authenticated;
-GRANT ALL ON public.businesses TO anon, authenticated;
-GRANT ALL ON public.subscriptions TO anon, authenticated;
-GRANT ALL ON public.reviews TO anon, authenticated;
+
+-- Leads: anon can only submit (INSERT); authenticated (admin) can manage
+REVOKE ALL ON public.leads FROM anon;
+GRANT INSERT ON public.leads TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.leads TO authenticated;
+
+-- Businesses: anon can only read public safe columns; authenticated can manage
+REVOKE ALL ON public.businesses FROM anon;
+GRANT SELECT (id, name, category, services, google_review_link, logo_url, tagline, status, subscription_status, created_at, phone)
+ON public.businesses TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.businesses TO authenticated;
+
+-- Subscriptions: anon has NO access; only authenticated & service_role
+REVOKE ALL ON public.subscriptions FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.subscriptions TO authenticated;
+
+-- Reviews: anon can insert feedback/reviews and read reviews; authenticated can manage
+REVOKE ALL ON public.reviews FROM anon;
+GRANT SELECT, INSERT ON public.reviews TO anon;
+GRANT ALL ON public.reviews TO authenticated;
 
 
--- 4. FIX ROW-LEVEL SECURITY (RLS) FOR LEADS TABLE
--- (Allows visitors to submit "Get QR Code" inquiries and admin to manage them)
+-- 4. FIX ROW-LEVEL SECURITY (RLS) FOR LEADS TABLE (F-007)
+-- (Allows visitors to submit "Get QR Code" inquiries, while restricting reads/updates to authenticated admins)
 ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Anyone can submit a lead" ON public.leads;
@@ -69,30 +95,36 @@ DROP POLICY IF EXISTS "Allow update on leads" ON public.leads;
 DROP POLICY IF EXISTS "Allow delete on leads" ON public.leads;
 DROP POLICY IF EXISTS "Super Admins can view leads" ON public.leads;
 DROP POLICY IF EXISTS "Super Admins can update leads" ON public.leads;
+DROP POLICY IF EXISTS "Authenticated users can view leads" ON public.leads;
+DROP POLICY IF EXISTS "Authenticated users can update leads" ON public.leads;
+DROP POLICY IF EXISTS "Authenticated users can delete leads" ON public.leads;
 
 CREATE POLICY "Anyone can submit a lead"
     ON public.leads FOR INSERT
     TO anon, authenticated
     WITH CHECK (true);
 
-CREATE POLICY "Allow select on leads"
+CREATE POLICY "Authenticated users can view leads"
     ON public.leads FOR SELECT
-    TO anon, authenticated
+    TO authenticated
     USING (true);
 
-CREATE POLICY "Allow update on leads"
+CREATE POLICY "Authenticated users can update leads"
     ON public.leads FOR UPDATE
-    TO anon, authenticated
+    TO authenticated
     USING (true);
 
-CREATE POLICY "Allow delete on leads"
+CREATE POLICY "Authenticated users can delete leads"
     ON public.leads FOR DELETE
-    TO anon, authenticated
+    TO authenticated
     USING (true);
 
+-- Purge any legacy credential copies stored in leads table (F-004)
+DELETE FROM public.leads WHERE id LIKE 'cred-%' OR message LIKE '%"client_credential"%';
 
--- 5. FIX ROW-LEVEL SECURITY (RLS) FOR BUSINESSES TABLE
--- (Ensures public review scanning, admin status toggles, and conversion work smoothly)
+
+-- 5. FIX ROW-LEVEL SECURITY (RLS) FOR BUSINESSES TABLE (F-008, F-015)
+-- (Ensures public review scanning works for anon, while mutations require authenticated role)
 ALTER TABLE public.businesses ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public businesses are viewable by everyone" ON public.businesses;
@@ -103,29 +135,34 @@ DROP POLICY IF EXISTS "Allow all select on businesses" ON public.businesses;
 DROP POLICY IF EXISTS "Allow all insert on businesses" ON public.businesses;
 DROP POLICY IF EXISTS "Allow all update on businesses" ON public.businesses;
 DROP POLICY IF EXISTS "Allow all delete on businesses" ON public.businesses;
+DROP POLICY IF EXISTS "Public can view businesses" ON public.businesses;
+DROP POLICY IF EXISTS "Authenticated users can insert businesses" ON public.businesses;
+DROP POLICY IF EXISTS "Authenticated users can update businesses" ON public.businesses;
+DROP POLICY IF EXISTS "Authenticated users can delete businesses" ON public.businesses;
 
-CREATE POLICY "Allow all select on businesses"
+CREATE POLICY "Public can view businesses"
     ON public.businesses FOR SELECT
     TO anon, authenticated
     USING (true);
 
-CREATE POLICY "Allow all insert on businesses"
+CREATE POLICY "Authenticated users can insert businesses"
     ON public.businesses FOR INSERT
-    TO anon, authenticated
+    TO authenticated
     WITH CHECK (true);
 
-CREATE POLICY "Allow all update on businesses"
+CREATE POLICY "Authenticated users can update businesses"
     ON public.businesses FOR UPDATE
-    TO anon, authenticated
+    TO authenticated
     USING (true);
 
-CREATE POLICY "Allow all delete on businesses"
+CREATE POLICY "Authenticated users can delete businesses"
     ON public.businesses FOR DELETE
-    TO anon, authenticated
+    TO authenticated
     USING (true);
 
 
--- 6. FIX ROW-LEVEL SECURITY (RLS) FOR SUBSCRIPTIONS TABLE
+-- 6. FIX ROW-LEVEL SECURITY (RLS) FOR SUBSCRIPTIONS TABLE (F-016)
+-- (Completely blocks anonymous access; permits only authenticated users and service_role)
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Business members can view their subscription" ON public.subscriptions;
@@ -133,20 +170,17 @@ DROP POLICY IF EXISTS "Business owners or Super Admins can manage subscriptions"
 DROP POLICY IF EXISTS "Allow all select on subscriptions" ON public.subscriptions;
 DROP POLICY IF EXISTS "Allow all insert on subscriptions" ON public.subscriptions;
 DROP POLICY IF EXISTS "Allow all update on subscriptions" ON public.subscriptions;
+DROP POLICY IF EXISTS "Authenticated users can view subscriptions" ON public.subscriptions;
+DROP POLICY IF EXISTS "Authenticated users can update subscriptions" ON public.subscriptions;
 
-CREATE POLICY "Allow all select on subscriptions"
+CREATE POLICY "Authenticated users can view subscriptions"
     ON public.subscriptions FOR SELECT
-    TO anon, authenticated
+    TO authenticated
     USING (true);
 
-CREATE POLICY "Allow all insert on subscriptions"
-    ON public.subscriptions FOR INSERT
-    TO anon, authenticated
-    WITH CHECK (true);
-
-CREATE POLICY "Allow all update on subscriptions"
+CREATE POLICY "Authenticated users can update subscriptions"
     ON public.subscriptions FOR UPDATE
-    TO anon, authenticated
+    TO authenticated
     USING (true);
 
 

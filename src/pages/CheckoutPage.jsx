@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { PLANS } from "../lib/plans";
 import { initiateRazorpayCheckout, formatInr } from "../lib/razorpay";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../api/client";
 
 export default function CheckoutPage() {
   const [searchParams] = useSearchParams();
@@ -16,6 +17,8 @@ export default function CheckoutPage() {
   const [billingInterval, setBillingInterval] = useState(interval);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
+  const [upiReference, setUpiReference] = useState("");
+  const [upiSubmitting, setUpiSubmitting] = useState(false);
 
   const planObj = PLANS[planId.toUpperCase()] || PLANS.PRO;
   const price = billingInterval === "annual" ? planObj.annualPrice : planObj.monthlyPrice;
@@ -58,6 +61,28 @@ export default function CheckoutPage() {
       }
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleSubmitUpi = async (event) => {
+    event.preventDefault();
+    if (!upiReference.trim()) return;
+    setUpiSubmitting(true);
+    setError("");
+    try {
+      await api.submitManualPaymentRequest({
+        businessId,
+        planId: planObj.id,
+        billingInterval,
+        amount: totalCharge,
+        upiReference,
+      });
+      setError("");
+      navigate(`/checkout/success?plan=${planObj.id}&interval=${billingInterval}&payment=pending`);
+    } catch (err) {
+      setError(err.message || "Could not submit UPI payment details.");
+    } finally {
+      setUpiSubmitting(false);
     }
   };
 
@@ -214,28 +239,47 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {/* Option B: Direct UPI & WhatsApp Activation */}
+            {/* Separate UPI and WhatsApp payment options */}
             <div className="offline-payment-callout" style={{ marginBottom: "16px", marginTop: "8px" }}>
               <div className="offline-payment-info">
                 <span className="offline-icon">⚡</span>
                 <div>
-                  <strong className="offline-title">Instant UPI & Direct Activation</strong>
+                  <strong className="offline-title">Choose a payment option</strong>
                   <p className="offline-desc">
-                    Pay ₹{totalCharge.toLocaleString("en-IN")} directly via GPay / PhonePe / Paytm / UPI QR. Instant plan activation by admin.
+                  Pay ₹{totalCharge.toLocaleString("en-IN")} by UPI and submit the transaction reference, or contact admin on WhatsApp for help.
                   </p>
                 </div>
               </div>
-              <a
-                href={`https://wa.me/919537370561?text=${encodeURIComponent(
-                  `Hi ReviewAssist Admin, I want to activate the ${planObj.name} plan (${billingInterval === 'annual' ? `₹${totalCharge.toLocaleString('en-IN')}/yr (Annual Deal)` : `₹${planObj.monthlyPrice.toLocaleString('en-IN')}/mo (Diwali Special)`}) for my business: ${businessName}. Please share your UPI QR / GPay details for instant activation.`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-offline-wa"
-                style={{ width: "100%", textAlign: "center", display: "block", textDecoration: "none", marginTop: "10px" }}
-              >
-                💬 Pay Directly via UPI / WhatsApp
-              </a>
+              <div style={{ marginTop: "10px" }}>
+                <div className="offline-desc">
+                  UPI ID: <strong>{import.meta.env.VITE_REVIEWASSIST_UPI_ID || "Configure VITE_REVIEWASSIST_UPI_ID"}</strong>
+                </div>
+                <form onSubmit={handleSubmitUpi} style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
+                  <input
+                  className="form-input"
+                  value={upiReference}
+                  onChange={(event) => setUpiReference(event.target.value)}
+                  placeholder="UPI transaction reference / UTR"
+                  aria-label="UPI transaction reference"
+                  required
+                  style={{ flex: "1 1 220px" }}
+                  />
+                  <button type="submit" className="btn-primary" disabled={upiSubmitting || !upiReference.trim()}>
+                  {upiSubmitting ? "Submitting..." : "Pay via UPI"}
+                  </button>
+                </form>
+                <a
+                  href={`https://wa.me/919537370561?text=${encodeURIComponent(
+                  `Hi ReviewAssist Admin, I need help activating the ${planObj.name} plan (${billingInterval === 'annual' ? `₹${totalCharge.toLocaleString('en-IN')}/yr` : `₹${totalCharge.toLocaleString('en-IN')}/mo`}) for my business: ${businessName}.`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-offline-wa"
+                  style={{ width: "100%", textAlign: "center", display: "block", textDecoration: "none", marginTop: "10px" }}
+                >
+                  💬 Ask for help via WhatsApp
+                </a>
+              </div>
             </div>
 
             <div style={{ textAlign: "center", margin: "14px 0 10px", color: "var(--text-muted, #94a3b8)", fontSize: "0.85rem", fontWeight: 600 }}>

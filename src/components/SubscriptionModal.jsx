@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { PLANS, PLAN_LIST } from '../lib/plans';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api/client';
 export default function SubscriptionModal({ isOpen, onClose, selectedPlanId = null }) {
   const navigate = useNavigate();
   const { user, business, subscription } = useAuth();
@@ -10,6 +11,8 @@ export default function SubscriptionModal({ isOpen, onClose, selectedPlanId = nu
   const [chosenPlan, setChosenPlan] = useState(selectedPlanId || subscription?.planId || 'pro');
   const [paymentError, setPaymentError] = useState('');
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
+  const [upiReference, setUpiReference] = useState('');
+  const [submittingUpi, setSubmittingUpi] = useState(false);
 
   if (!isOpen) return null;
 
@@ -22,6 +25,31 @@ export default function SubscriptionModal({ isOpen, onClose, selectedPlanId = nu
 
   const activePlanObj = PLANS[chosenPlan.toUpperCase()] || PLANS.PRO;
   const price = billingInterval === 'annual' ? activePlanObj.annualPrice : activePlanObj.monthlyPrice;
+  const totalAmount = billingInterval === 'annual'
+    ? (activePlanObj.annualTotalAmount || activePlanObj.annualPrice * 12)
+    : activePlanObj.monthlyPrice;
+
+  const handleSubmitUpi = async (event) => {
+    event.preventDefault();
+    if (!upiReference.trim()) return;
+    setSubmittingUpi(true);
+    setPaymentError('');
+    try {
+      await api.submitManualPaymentRequest({
+        businessId: user?.businessId || business?.id,
+        planId: activePlanObj.id,
+        billingInterval,
+        amount: totalAmount,
+        upiReference,
+      });
+      setUpiReference('');
+      setShowCheckoutSuccess(true);
+    } catch (err) {
+      setPaymentError(err.message || 'Could not submit UPI payment details.');
+    } finally {
+      setSubmittingUpi(false);
+    }
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -40,10 +68,10 @@ export default function SubscriptionModal({ isOpen, onClose, selectedPlanId = nu
           {showCheckoutSuccess ? (
             <div className="checkout-success-state text-center animate-fade-in">
               <div className="checkout-success-icon">🎉</div>
-              <h3>Plan Successfully Updated!</h3>
+              <h3>Payment Submitted for Verification</h3>
               <p>
-                Your business is now upgraded to <strong>{activePlanObj.name} Plan</strong>.
-                All features and limits have been unlocked immediately.
+                Your request for the <strong>{activePlanObj.name} Plan</strong> was submitted.
+                The plan will activate after the admin verifies your UPI payment.
               </p>
             </div>
           ) : (
@@ -149,27 +177,48 @@ export default function SubscriptionModal({ isOpen, onClose, selectedPlanId = nu
                 </div>
               )}
 
-              {/* External / Offline Payment Option */}
+              {/* Separate UPI and WhatsApp payment options */}
               <div className="offline-payment-callout">
                 <div className="offline-payment-info">
                   <span className="offline-icon">🤝</span>
                   <div>
-                    <strong className="offline-title">Direct / Offline Payment (UPI or Hand-to-Hand)</strong>
+                    <strong className="offline-title">Choose your payment method</strong>
                     <p className="offline-desc">
-                      Selected Tier: <strong>{activePlanObj.name} ({billingInterval === 'annual' ? `₹${(activePlanObj.annualPrice * 12).toLocaleString('en-IN')}/yr` : `₹${activePlanObj.monthlyPrice.toLocaleString('en-IN')}/mo`})</strong>. Pay via direct UPI QR, bank transfer, or offline invoice. Admin will activate your tier instantly.
+                      Selected Tier: <strong>{activePlanObj.name} — ₹{totalAmount.toLocaleString('en-IN')}</strong>. UPI payment requires admin verification.
                     </p>
                   </div>
                 </div>
-                <a
-                  href={`https://wa.me/919537370561?text=${encodeURIComponent(
-                    `Hi ReviewAssist Admin, I would like to activate/renew the ${activePlanObj.name} plan (${billingInterval === 'annual' ? `₹${(activePlanObj.annualPrice * 12).toLocaleString('en-IN')}/yr` : `₹${activePlanObj.monthlyPrice.toLocaleString('en-IN')}/mo`}) for ${business?.name || user?.name || 'my business'}. Please share the UPI QR code or bank transfer details.`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-offline-wa"
-                >
-                  💬 Pay via WhatsApp / UPI
-                </a>
+                <div style={{ display: 'grid', gap: '10px', marginTop: '12px' }}>
+                  <div>
+                    <div className="offline-desc">
+                      UPI ID: <strong>{import.meta.env.VITE_REVIEWASSIST_UPI_ID || 'Configure VITE_REVIEWASSIST_UPI_ID'}</strong>
+                    </div>
+                    <form onSubmit={handleSubmitUpi} style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                      <input
+                        className="form-input"
+                        value={upiReference}
+                        onChange={(event) => setUpiReference(event.target.value)}
+                        placeholder="UPI transaction reference / UTR"
+                        aria-label="UPI transaction reference"
+                        required
+                        style={{ flex: '1 1 220px' }}
+                      />
+                      <button type="submit" className="btn-primary" disabled={submittingUpi || !upiReference.trim()}>
+                        {submittingUpi ? 'Submitting...' : 'Pay via UPI'}
+                      </button>
+                    </form>
+                  </div>
+                  <a
+                    href={`https://wa.me/919537370561?text=${encodeURIComponent(
+                      `Hi ReviewAssist Admin, I need help activating the ${activePlanObj.name} plan (${billingInterval === 'annual' ? `₹${totalAmount.toLocaleString('en-IN')}/yr` : `₹${totalAmount.toLocaleString('en-IN')}/mo`}) for ${business?.name || user?.name || 'my business'}.`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-offline-wa"
+                  >
+                    💬 Ask for help via WhatsApp
+                  </a>
+                </div>
               </div>
             </>
           )}

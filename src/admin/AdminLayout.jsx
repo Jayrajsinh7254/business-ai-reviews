@@ -7,6 +7,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 const NAV_ITEMS = [
   { to: '/admin', icon: '📊', label: 'Overview', end: true },
   { to: '/admin/inbox', icon: '📥', label: 'Contact Inbox', hasBadge: true },
+  { to: '/admin/payments', icon: '💸', label: 'UPI Payments' },
   { to: '/admin/qr-builder', icon: '🔲', label: 'QR Builder' },
   { to: '/admin/clients', icon: '🏢', label: 'Clients' },
 ];

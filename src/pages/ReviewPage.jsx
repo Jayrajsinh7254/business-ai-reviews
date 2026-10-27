@@ -123,10 +123,9 @@ export default function ReviewPage() {
       setLoadingBusiness(true);
       setBusinessError('');
       try {
-        const effectiveId = businessId || 'demo-1';
-        let data = await api.getBusiness(effectiveId, { isPublic: true });
-
         const sp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+        const effectiveId = businessId || sp.get('businessId') || sp.get('bizId') || sp.get('id') || 'demo-1';
+        let data = await api.getBusiness(effectiveId, { isPublic: true });
         const urlName = sp.get('name') || '';
         const urlCat = sp.get('cat') || sp.get('category') || 'service';
         const sParam = sp.get('services');
@@ -573,7 +572,7 @@ export default function ReviewPage() {
       setCurrentStep(4);
     } catch (err) {
       console.error('Failed to submit private feedback:', err);
-      setErrorMsg('Could not submit feedback. Please use the WhatsApp button above.');
+      setErrorMsg(err?.message || 'Could not submit feedback. Please try again.');
     } finally {
       setSubmittingPrivate(false);
     }
@@ -612,7 +611,8 @@ export default function ReviewPage() {
 
     try {
       const effectiveService = getEffectiveService();
-      const targetBizId = businessId || business?.id || 'demo-1';
+      const sp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+      const targetBizId = businessId || business?.id || sp.get('businessId') || sp.get('bizId') || sp.get('id') || 'demo-1';
       // 2. Save review confirmation
       const result = await api.confirmReview({
         businessId: targetBizId,

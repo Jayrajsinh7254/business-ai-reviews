@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { PLANS, PLAN_LIST } from '../lib/plans';
 import { initiateRazorpayCheckout } from '../lib/razorpay';
 import SubscriptionModal from '../components/SubscriptionModal';
+import { api } from '../api/client';
 
 export default function SubscriptionPage() {
   const { user, business, subscription, updateSubscriptionPlan } = useAuth();
@@ -16,6 +17,9 @@ export default function SubscriptionPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedPlanForModal, setSelectedPlanForModal] = useState('pro');
+  const [manualPaymentPlan, setManualPaymentPlan] = useState(null);
+  const [upiReference, setUpiReference] = useState('');
+  const [paymentNote, setPaymentNote] = useState('');
 
   const currentPlanId = subscription?.planId || 'pro';
   const currentPlanObj = PLANS[currentPlanId.toUpperCase()] || PLANS.PRO;
@@ -73,6 +77,38 @@ export default function SubscriptionPage() {
     } finally {
       setIsProcessing(false);
       setProcessingPlanId(null);
+    }
+  };
+
+  const handleManualPaymentSubmit = async (event) => {
+    event.preventDefault();
+    if (!manualPaymentPlan || !upiReference.trim()) return;
+
+    setIsProcessing(true);
+    setError('');
+    setSuccessMsg('');
+    const targetPlan = PLANS[manualPaymentPlan.toUpperCase()] || PLANS.PRO;
+    const amount = billingInterval === 'annual'
+      ? (targetPlan.annualTotalAmount || targetPlan.annualPrice * 12)
+      : targetPlan.monthlyPrice;
+
+    try {
+      await api.submitManualPaymentRequest({
+        businessId: user?.businessId || business?.id,
+        planId: targetPlan.id,
+        billingInterval,
+        amount,
+        upiReference,
+        customerNote: paymentNote,
+      });
+      setSuccessMsg('✓ Payment details submitted. Your plan will activate after admin verification.');
+      setManualPaymentPlan(null);
+      setUpiReference('');
+      setPaymentNote('');
+    } catch (err) {
+      setError(err.message || 'Could not submit payment details.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -296,7 +332,7 @@ export default function SubscriptionPage() {
             <span className="sub-tag-pill">AVAILABLE TIERS</span>
             <h2 className="sub-section-title">Upgrade Your Business Plan</h2>
             <p className="sub-section-desc">
-              Instant activation via Razorpay (UPI, Credit/Debit Cards, Net Banking). No downtime or data loss.
+              Pay by UPI and submit the transaction reference. Your plan activates after manual verification.
             </p>
 
             {/* Billing Interval Toggle */}
@@ -374,15 +410,17 @@ export default function SubscriptionPage() {
                       <button
                         type="button"
                         className={`btn-block btn-lg ${plan.isPopular ? 'btn-primary btn-glow' : 'btn-secondary'}`}
-                        onClick={() => handleUpgradePlan(plan.id)}
+                        onClick={() => setManualPaymentPlan(plan.id)}
                         disabled={isProcessing}
                       >
                         {isProcessing && processingPlanId === plan.id ? (
                           <span className="btn-loading-state">
-                            <span className="spinner" /> Activating via Razorpay...
+                            <span className="spinner" /> Submitting payment...
                           </span>
                         ) : (
-                          `Upgrade to ${plan.name} →`
+                          `Pay ₹${(billingInterval === 'annual'
+                            ? (plan.annualTotalAmount || plan.annualPrice * 12)
+                            : plan.monthlyPrice).toLocaleString('en-IN')} by UPI →`
                         )}
                       </button>
                     )}
@@ -402,6 +440,49 @@ export default function SubscriptionPage() {
           </div>
         </div>
 
+        {manualPaymentPlan && (
+          <div className="card" style={{ maxWidth: '680px', margin: '24px auto' }}>
+            <div className="sub-card-label-row">
+              <div>
+                <span className="sub-card-label">MANUAL UPI PAYMENT</span>
+                <h3 className="sub-usage-title">Submit payment for {PLANS[manualPaymentPlan.toUpperCase()]?.name} Plan</h3>
+              </div>
+              <button type="button" className="btn-outline btn-sm" onClick={() => setManualPaymentPlan(null)}>
+                Cancel
+              </button>
+            </div>
+            <p style={{ marginBottom: '12px' }}>
+              Send the exact plan amount to the UPI ID provided by ReviewAssist, then enter the UPI transaction reference below.
+            </p>
+            <div className="alert-banner alert-info">
+              UPI ID: <strong>{import.meta.env.VITE_REVIEWASSIST_UPI_ID || 'Configure VITE_REVIEWASSIST_UPI_ID'}</strong>
+            </div>
+            <form onSubmit={handleManualPaymentSubmit}>
+              <label className="form-label" htmlFor="upi-reference">UPI transaction reference *</label>
+              <input
+                id="upi-reference"
+                className="form-input"
+                value={upiReference}
+                onChange={(event) => setUpiReference(event.target.value)}
+                placeholder="12-digit UTR / transaction ID"
+                required
+              />
+              <label className="form-label" htmlFor="payment-note">Optional note</label>
+              <textarea
+                id="payment-note"
+                className="form-input"
+                value={paymentNote}
+                onChange={(event) => setPaymentNote(event.target.value)}
+                placeholder="Any detail that helps us verify the payment"
+                rows={3}
+              />
+              <button type="submit" className="btn-primary btn-block" disabled={isProcessing || !upiReference.trim()}>
+                {isProcessing ? 'Submitting...' : 'Submit payment for verification'}
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* Invoices & Billing History Section */}
         <div className="card sub-invoices-card">
           <div className="sub-card-label-row">
@@ -412,7 +493,7 @@ export default function SubscriptionPage() {
             <div className="sub-security-badges">
               <span className="sec-chip">🔒 256-bit SSL</span>
               <span className="sec-chip">🛡️ PCI-DSS Certified</span>
-              <span className="sec-chip">✓ Razorpay Verified</span>
+              <span className="sec-chip">✓ UPI verification</span>
             </div>
           </div>
 

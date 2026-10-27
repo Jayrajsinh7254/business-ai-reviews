@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { ROLES, hasPermission } from '../lib/rbac';
 import { getPlan, isFeatureAllowed } from '../lib/plans';
 import { api, isBusinessInactive } from '../api/client';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const AuthContext = createContext(null);
 
@@ -38,6 +39,9 @@ export const DEMO_PROFILES = {
 export function AuthProvider({ children }) {
   // Initialize user from localStorage or null (no unauthenticated auto-login)
   const [user, setUser] = useState(() => {
+    if (isSupabaseConfigured()) {
+      return null;
+    }
     try {
       const saved = localStorage.getItem(STORAGE_AUTH_STATE);
       if (saved) return JSON.parse(saved);
@@ -137,6 +141,51 @@ export function AuthProvider({ children }) {
       console.warn('Failed to load user business context:', err);
     }
   }, [user?.businessId]);
+
+  // Restore only the Supabase session in production mode. LocalStorage user
+  // metadata is intentionally ignored there because it is not authentication.
+  useEffect(() => {
+    if (!isSupabaseConfigured() || !supabase) return undefined;
+
+    let active = true;
+    const restoreSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !active || !data.session?.user) return;
+
+      const sessionUser = data.session.user;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, role, business_id')
+        .eq('id', sessionUser.id)
+        .maybeSingle();
+      const businessId = profile?.business_id || sessionUser.user_metadata?.businessId || null;
+      const restoredUser = {
+        id: sessionUser.id,
+        email: sessionUser.email || '',
+        name: profile?.full_name || sessionUser.user_metadata?.name || 'Business User',
+        role: profile?.role || ROLES.BUSINESS_OWNER,
+        originalRole: profile?.role || ROLES.BUSINESS_OWNER,
+        businessId,
+        isSuperAdmin: profile?.role === ROLES.SUPER_ADMIN,
+      };
+      setUser(restoredUser);
+    };
+
+    restoreSession().catch((err) => {
+      console.warn('Could not restore Supabase session:', err);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session?.user) {
+        if (active) setUser(null);
+      }
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (user?.businessId) {

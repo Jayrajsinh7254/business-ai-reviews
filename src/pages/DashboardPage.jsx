@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
 import StarRating from '../components/StarRating';
 import QRCodeDisplay from '../components/QRCodeDisplay';
@@ -21,27 +21,44 @@ import { getPlan, isFeatureAllowed } from '../lib/plans';
 import { CATEGORIES } from '../lib/categories';
 import { api, isBusinessInactive } from '../api/client';
 import { sanitizeCsvCell } from '../lib/security';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 export default function DashboardPage() {
   const { businessId: paramBizId } = useParams();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, role, hasPermission, subscription, isTrialing, isTrialExpired, trialDaysLeft, teamMembers, logout } = useAuth();
 
-  const hasAdminParam = searchParams.get('admin') === '1' || searchParams.get('admin') === 'true' || searchParams.get('demo') === 'true' || searchParams.get('preview') === 'true';
-  const isSuperAdmin = role === ROLES.SUPER_ADMIN || Boolean(user?.isSuperAdmin) || hasAdminParam;
-  // Rule 5: Client is strictly locked to their own business. Cannot view other businesses or demo dashboard.
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN || Boolean(user?.isSuperAdmin);
+
+  // Super admins may preview a selected business; tenant users stay scoped to their account.
   const clientBizId = user?.businessId;
-  const activeBusinessId = (isSuperAdmin && paramBizId)
-    ? paramBizId
+  const requestedBusinessId = paramBizId || null;
+  const activeBusinessId = isSuperAdmin
+    ? (requestedBusinessId || clientBizId || 'demo-1')
     : (clientBizId || 'demo-1');
 
-  // Enforce security: If client tries to view another business via URL param, redirect to their own dashboard
+  // Auto-resolve business from Supabase if logged-in user has an email but clientBizId is empty or demo-1
   useEffect(() => {
-    if (!isSuperAdmin && paramBizId && clientBizId && paramBizId !== clientBizId) {
-      navigate('/dashboard', { replace: true });
+    async function resolveUserBusiness() {
+      if (!paramBizId && user?.email && (!clientBizId || clientBizId === 'demo-1') && isSupabaseConfigured() && supabase) {
+        try {
+          const { data: bData } = await supabase
+            .from('businesses')
+            .select('id, name')
+            .or(`email.eq.${user.email.toLowerCase()},user_id.eq.${user.id || '00000000-0000-0000-0000-000000000000'}`)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (bData?.id && bData.id !== activeBusinessId) {
+            navigate(`/dashboard/${bData.id}`, { replace: true });
+          }
+        } catch (e) {
+          console.warn('Auto-resolve user business note:', e);
+        }
+      }
     }
-  }, [isSuperAdmin, paramBizId, clientBizId, navigate]);
+    resolveUserBusiness();
+  }, [user, clientBizId, activeBusinessId, paramBizId, navigate]);
 
   // State
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'team' | 'billing' | 'settings' | 'radar' | 'leaderboard'
@@ -449,7 +466,7 @@ export default function DashboardPage() {
               </span>
             )}
             {isDemoMode && <span className="demo-status-pill">Interactive Preview</span>}
-            {(isSuperAdmin || hasAdminParam) && (
+            {isSuperAdmin && (
               <button
                 type="button"
                 className={`admin-showcase-toggle-btn ${adminShowcaseMode ? 'active' : ''}`}
@@ -1900,7 +1917,7 @@ export default function DashboardPage() {
                 >
                   🔔 Notify Me at Launch
                 </button>
-                {(isSuperAdmin || hasAdminParam) && (
+                {isSuperAdmin && (
                   <button
                     type="button"
                     className="btn-coming-soon-admin-unlock"
@@ -1970,7 +1987,7 @@ export default function DashboardPage() {
                 >
                   🔔 Notify Me at Launch
                 </button>
-                {(isSuperAdmin || hasAdminParam) && (
+                {isSuperAdmin && (
                   <button
                     type="button"
                     className="btn-coming-soon-admin-unlock"

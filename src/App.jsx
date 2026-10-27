@@ -25,6 +25,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const AdminLayout = lazy(() => import('./admin/AdminLayout'));
 const AdminOverview = lazy(() => import('./admin/AdminOverview'));
 const AdminInbox = lazy(() => import('./admin/AdminInbox'));
+const AdminPayments = lazy(() => import('./admin/AdminPayments'));
 const AdminQRBuilder = lazy(() => import('./admin/AdminQRBuilder'));
 const AdminClients = lazy(() => import('./admin/AdminClients'));
 const AdminLoginPage = lazy(() => import('./admin/AdminLoginPage'));
@@ -222,6 +223,7 @@ export default function App() {
           >
             <Route index element={<AdminOverview />} />
             <Route path="inbox" element={<AdminInbox />} />
+            <Route path="payments" element={<AdminPayments />} />
             <Route path="qr-builder" element={<AdminQRBuilder />} />
             <Route path="clients" element={<AdminClients />} />
           </Route>

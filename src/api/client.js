@@ -518,11 +518,18 @@ export const api = {
     return isSupabaseConfigured();
   },
 
+  isDemoMode() {
+    return !isSupabaseConfigured();
+  },
+
   getToken() {
     return getToken();
   },
 
   getCurrentUser() {
+    if (isSupabaseConfigured()) {
+      return null;
+    }
     try {
       const data = localStorage.getItem('reviewassist_current_user');
       return data ? JSON.parse(data) : null;
@@ -579,18 +586,15 @@ export const api = {
             authError.code === 'over_email_send_rate_limit';
 
           if (isRateLimit) {
-            console.warn('Supabase Auth email rate limit reached. Proceeding with direct business onboarding.');
-          } else {
-            throw new Error(authError.message);
+            throw new Error('Supabase Auth email rate limit reached. Please wait and try again.');
           }
+          throw new Error(authError.message);
         } else {
           authUser = authData.user;
           token = authData.session?.access_token || authData.user?.id;
         }
       } catch (authErr) {
-        if (!authErr.message?.toLowerCase().includes('rate limit')) {
-          throw authErr;
-        }
+        throw authErr;
       }
 
       const id = 'biz-' + Math.random().toString(36).substring(2, 9);
@@ -685,10 +689,8 @@ export const api = {
           email: email.trim(),
           name: name.trim(),
           businessId: id,
-          password: password || 'welcome123',
           role: 'business_owner',
         };
-        saveStoredUser(userData);
         try {
           localStorage.setItem('reviewassist_current_user', JSON.stringify(userData));
         } catch {}
@@ -699,7 +701,7 @@ export const api = {
           user: authUser || userData,
         };
       } catch (bizErr) {
-        console.warn('Direct business insert fallback:', bizErr);
+        throw new Error(bizErr?.message || 'Supabase business onboarding failed. Please try again.');
       }
     }
 
@@ -1042,7 +1044,11 @@ export const api = {
     let cleanEmail = email?.trim().toLowerCase();
     if (!cleanEmail) throw new Error('Please enter your email address.');
 
-    // If identifier is not an email format (e.g. phone or businessId), resolve to registered email
+    if (isSupabaseConfigured() && !cleanEmail.includes('@')) {
+      throw new Error('Please sign in with the email address linked to your account.');
+    }
+
+    // Local demo mode supports business IDs and phone identifiers.
     if (!cleanEmail.includes('@')) {
       const cleanPhone = cleanEmail.replace(/[^0-9]/g, '');
       const users = getStoredUsers();
@@ -1075,10 +1081,6 @@ export const api = {
       throw new Error(`Too many login attempts. For security, please wait ${waitSec} seconds before trying again.`);
     }
 
-    const isSuperAdminEmail =
-      cleanEmail === 'support.reviewassist@gmail.com' ||
-      cleanEmail.includes('admin@reviewassist');
-
     // 1. Supabase auth if configured
     if (isSupabaseConfigured() && supabase) {
       try {
@@ -1100,7 +1102,7 @@ export const api = {
             biz = bizData;
           }
 
-          if (!biz) {
+          if (!biz && !isSupabaseConfigured()) {
             const { data: bizByEmail } = await supabase
               .from('businesses')
               .select('*')
@@ -1114,44 +1116,9 @@ export const api = {
             }
           }
 
-          // If still not found by direct email, check leads credential record for businessId
-          if (!biz) {
-            try {
-              const { data: credRows } = await supabase
-                .from('leads')
-                .select('*')
-                .or(`email.eq.${cleanEmail},id.eq.cred-${cleanEmail}`)
-                .order('updated_at', { ascending: false });
-
-              if (credRows && credRows.length > 0) {
-                for (const row of credRows) {
-                  if (row.message && row.message.startsWith('{')) {
-                    const parsed = JSON.parse(row.message);
-                    if (parsed.businessId) {
-                      const { data: leadBiz } = await supabase
-                        .from('businesses')
-                        .select('*')
-                        .eq('id', parsed.businessId)
-                        .maybeSingle();
-                      if (leadBiz) {
-                        biz = leadBiz;
-                        if (!biz.user_id && authData.user.id) {
-                          supabase.from('businesses').update({ user_id: authData.user.id }).eq('id', biz.id).then();
-                        }
-                        break;
-                      }
-                    }
-                  }
-                }
-              }
-            } catch (leadBizErr) {
-              console.warn('Leads business association note:', leadBizErr);
-            }
-          }
-
           let staffRole = null;
           // If not the owner, check if user is an invited staff/team member of a business
-          if (!biz) {
+          if (!biz && !isSupabaseConfigured()) {
             try {
               const { data: teamRow } = await supabase
                 .from('team_members')
@@ -1196,12 +1163,8 @@ export const api = {
             // ignore
           }
 
-          if (!profileRole) {
-            if (isSuperAdminEmail) {
-              profileRole = 'super_admin';
-            } else if (staffRole) {
-              profileRole = staffRole;
-            }
+          if (!profileRole && staffRole) {
+            profileRole = staffRole;
           }
 
           const token = authData.session?.access_token || authData.user.id;
@@ -1228,25 +1191,11 @@ export const api = {
           };
         }
 
-        // If Supabase returned an authError, attempt local credential verification fallback
-        const localVerified = await this._verifyLocalCredentials(cleanEmail, password);
-        if (localVerified) {
-          if (cleanEmail) delete this._loginAttempts[cleanEmail];
-          return localVerified;
-        }
-
         const list = this._loginAttempts[cleanEmail] || [];
         list.push(Date.now());
         this._loginAttempts[cleanEmail] = list;
         throw new Error(authError?.message || 'Invalid email or password. Please check your credentials.');
       } catch (authErr) {
-        // Fallback check if local credentials match (e.g. offline account, unconfirmed email, or network blip)
-        const localVerified = await this._verifyLocalCredentials(cleanEmail, password);
-        if (localVerified) {
-          if (cleanEmail) delete this._loginAttempts[cleanEmail];
-          return localVerified;
-        }
-
         const list = this._loginAttempts[cleanEmail] || [];
         list.push(Date.now());
         this._loginAttempts[cleanEmail] = list;
@@ -1312,8 +1261,10 @@ export const api = {
     // 1. If Supabase is configured and not a demo ID, query Supabase FIRST to get real-time authoritative status!
     if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
       try {
+        // Public-safe columns allowed by Supabase RLS
+        const publicSafeColumns = 'id, name, category, services, google_review_link, status, subscription_status, created_at';
         const selectFields = options.isPublic
-          ? 'id, name, category, services, google_review_link, google_review_url, phone, subscription_status, created_at, plan_id'
+          ? publicSafeColumns
           : '*';
 
         let { data, error } = await supabase
@@ -1322,24 +1273,16 @@ export const api = {
           .eq('id', cleanId)
           .maybeSingle();
 
-        if (error && (error.message?.includes('google_review_link') || error.message?.includes('phone'))) {
+        // If select('*') or column list fails due to RLS/permissions (42501) or missing column, fallback to publicSafeColumns
+        if (error) {
           const fb = await supabase
             .from('businesses')
-            .select('id, name, category, services, google_review_url, phone, subscription_status, created_at, plan_id')
+            .select(publicSafeColumns)
             .eq('id', cleanId)
             .maybeSingle();
           if (!fb.error && fb.data) {
             data = fb.data;
             error = null;
-          } else {
-            // Further fallback if phone column does not exist yet in Supabase
-            const basic = await supabase
-              .from('businesses')
-              .select('id, name, category, services, google_review_url, subscription_status, created_at, plan_id')
-              .eq('id', cleanId)
-              .maybeSingle();
-            data = basic.data;
-            error = basic.error;
           }
         }
 
@@ -1352,32 +1295,6 @@ export const api = {
             localStorage.setItem(STORAGE_KEY_BUSINESSES, JSON.stringify(stored));
           } catch {}
         }
-
-        // Also check if remote leads record has an override or extra status
-        try {
-          const { data: leadCred } = await supabase
-            .from('leads')
-            .select('message')
-            .eq('id', `cred-${cleanId}`)
-            .maybeSingle();
-          if (leadCred && leadCred.message) {
-            let parsed = {};
-            try { parsed = JSON.parse(leadCred.message); } catch {}
-            if (parsed.status === 'inactive' || parsed.subscriptionStatus === 'canceled' || parsed.isInactive === true) {
-              if (biz) {
-                biz.status = 'inactive';
-                biz.subscriptionStatus = 'canceled';
-                biz.isInactive = true;
-              }
-            } else if (parsed.status === 'active' || parsed.subscriptionStatus === 'active') {
-              if (biz) {
-                biz.status = 'active';
-                biz.subscriptionStatus = 'active';
-                biz.isInactive = false;
-              }
-            }
-          }
-        } catch {}
 
         if (biz) {
           try {
@@ -1392,7 +1309,7 @@ export const api = {
     }
 
     // 2. If not found in Supabase or demo mode, check local storage
-    if (!biz) {
+    if (!biz && (!isSupabaseConfigured() || cleanId.startsWith('demo-'))) {
       const stored = getStoredBusinesses();
       if (stored[cleanId]) {
         biz = { ...stored[cleanId] };
@@ -1400,7 +1317,7 @@ export const api = {
     }
 
     // 2b. Check admin clients list for newly created or updated clients
-    if (!biz) {
+    if (!biz && (!isSupabaseConfigured() || cleanId.startsWith('demo-'))) {
       try {
         const raw = localStorage.getItem('reviewassist_admin_clients');
         const list = raw ? JSON.parse(raw) : [];
@@ -1427,7 +1344,7 @@ export const api = {
     }
 
     // 2c. Check admin leads list for inquiries converted or previewed
-    if (!biz) {
+    if (!biz && !isSupabaseConfigured()) {
       try {
         const rawLeads = localStorage.getItem('reviewassist_admin_leads');
         const leads = rawLeads ? JSON.parse(rawLeads) : [];
@@ -1473,7 +1390,7 @@ export const api = {
     }
 
     // 3b. Resilient auto-recovery: If accessed via QR scan / review URL, reconstruct business from slug & URL metadata
-    if (!biz) {
+    if (!biz && !isSupabaseConfigured()) {
       let urlName = '';
       let urlCat = '';
       let urlServices = null;
@@ -1745,10 +1662,136 @@ export const api = {
       createdAt: nowIso,
     };
 
-    // 1. ALWAYS persist to local storage cache immediately
+    let targetGoogleUrl = 'https://g.page/r/example/review';
+
+    let supabaseSyncSucceeded = false;
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        // Helper to detect column-related schema errors
+        const isColumnError = (err) =>
+          err?.message?.includes('column') ||
+          err?.code === 'PGRST204' ||
+          err?.message?.includes('schema');
+
+        // Helper to detect RLS / permission errors
+        const isRLSError = (err) =>
+          err?.message?.toLowerCase().includes('row-level security') ||
+          err?.message?.toLowerCase().includes('permission denied') ||
+          err?.message?.toLowerCase().includes('rls') ||
+          err?.code === '42501' ||
+          err?.code === 'PGRST301';
+
+        // First attempt: try stored procedure submit_customer_review (SECURITY DEFINER, auto-handles FK and credits)
+        try {
+          const { data: rpcRes, error: rpcErr } = await supabase.rpc('submit_customer_review', {
+            p_id: reviewId,
+            p_business_id: cleanId,
+            p_service_type: review.serviceType,
+            p_rating: review.rating,
+            p_text: review.text,
+            p_what_stood_out: review.whatStoodOut || '',
+            p_what_could_improve: review.whatCouldImprove || '',
+            p_staff_id: staffId || null,
+            p_staff_name: staffName || null,
+          });
+
+          if (!rpcErr && rpcRes && rpcRes.success !== false) {
+            supabaseSyncSucceeded = true;
+            console.info('[ReviewAssist] ✅ Review saved to Supabase via submit_customer_review RPC.');
+          }
+        } catch {
+          // RPC may not exist yet, proceed to direct table insert
+        }
+
+        // Second attempt: direct insert if RPC did not succeed
+        if (!supabaseSyncSucceeded) {
+          const newReviewRow = {
+            id: reviewId,
+            business_id: cleanId,
+            service_type: review.serviceType,
+            rating: review.rating,
+            text: review.text,
+            what_stood_out: review.whatStoodOut,
+            what_could_improve: review.whatCouldImprove,
+            staff_id: staffId || null,
+            staff_name: staffName || null,
+          };
+
+          const { error: insertErr } = await supabase.from('reviews').insert([newReviewRow]);
+
+          if (insertErr) {
+            if (insertErr.code === '23503' || insertErr.message?.includes('foreign key')) {
+              console.error(
+                `[ReviewAssist] 🚫 Foreign Key Violation: Business '${cleanId}' does not exist in Supabase businesses table.\n` +
+                'The review cannot be linked because the business was only created locally in localStorage.\n' +
+                '👉 Fix: In Supabase SQL Editor, run the sync SQL or register this business in Supabase.'
+              );
+            } else if (isRLSError(insertErr)) {
+              console.error(
+                '[ReviewAssist] 🚫 Supabase RLS is blocking review submissions from customers!\n' +
+                'Reviews are only saved locally and will NOT appear on the dashboard.\n' +
+                '👉 Fix: Run the migration SQL in your Supabase SQL Editor.',
+                insertErr
+              );
+            } else if (isColumnError(insertErr)) {
+              // Schema mismatch — retry without staff columns
+              console.warn('[ReviewAssist] Staff columns missing in reviews table. Retrying without staff fields.', insertErr.message);
+              const baseReviewRow = {
+                id: reviewId,
+                business_id: cleanId,
+                service_type: review.serviceType,
+                rating: review.rating,
+                text: review.text,
+                what_stood_out: review.whatStoodOut,
+                what_could_improve: review.whatCouldImprove,
+              };
+              const { error: retryErr } = await supabase.from('reviews').insert([baseReviewRow]);
+              if (retryErr) {
+                if (retryErr.code === '23503' || retryErr.message?.includes('foreign key')) {
+                  console.error(`[ReviewAssist] 🚫 Foreign Key: Business '${cleanId}' not found in Supabase businesses table.`);
+                } else if (isRLSError(retryErr)) {
+                  console.error('[ReviewAssist] 🚫 Supabase RLS blocked review insert (retry):', retryErr.message);
+                } else {
+                  console.error('[ReviewAssist] Supabase review insert retry failed:', retryErr.message, retryErr);
+                }
+              } else {
+                supabaseSyncSucceeded = true;
+                console.info('[ReviewAssist] ✅ Review saved to Supabase (without staff columns).');
+              }
+            } else {
+              console.error('[ReviewAssist] Supabase review insert failed with unknown error:', insertErr.message, insertErr);
+            }
+          } else {
+            supabaseSyncSucceeded = true;
+            console.info('[ReviewAssist] ✅ Review saved to Supabase successfully.');
+          }
+        }
+
+        const { data: biz } = await supabase
+          .from('businesses')
+          .select('name, google_review_link')
+          .eq('id', cleanId)
+          .maybeSingle();
+
+        const rawUrl = biz?.google_review_link || biz?.google_review_url;
+        targetGoogleUrl = rawUrl ? rawUrl.trim() : resolveGoogleReviewUrl(null, biz?.name);
+      } catch (err) {
+        console.error('[ReviewAssist] Supabase review insert exception:', err);
+      }
+    } else {
+      const businesses = getStoredBusinesses();
+      const biz = businesses[cleanId] || {};
+      targetGoogleUrl = biz.google_review_link || biz.googleReviewLink || biz.googleReviewUrl || 'https://g.page/r/example/review';
+      supabaseSyncSucceeded = false; // localStorage-only mode
+    }
+
+    if (isSupabaseConfigured() && !supabaseSyncSucceeded) {
+      throw new Error('We could not save your review. Please try again before opening Google Reviews.');
+    }
+
     saveStoredReview(review);
 
-    // 2. Cross-tab & Cross-window sync dispatch
     try {
       if (typeof BroadcastChannel !== 'undefined') {
         const bc = new BroadcastChannel('reviewassist_channel');
@@ -1773,63 +1816,9 @@ export const api = {
       console.warn('CustomEvent notice:', e);
     }
 
-    let targetGoogleUrl = 'https://g.page/r/example/review';
-
-    if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
-      try {
-        // Try inserting full row with staff_id and staff_name
-        const newReviewRow = {
-          id: reviewId,
-          business_id: cleanId,
-          service_type: review.serviceType,
-          rating: review.rating,
-          text: review.text,
-          what_stood_out: review.whatStoodOut,
-          what_could_improve: review.whatCouldImprove,
-          staff_id: staffId || null,
-          staff_name: staffName || null,
-        };
-
-        const { error: insertErr } = await supabase.from('reviews').insert([newReviewRow]);
-        if (insertErr) {
-          console.warn('Supabase review insert with staff notice:', insertErr.message);
-          // If staff columns don't exist in Supabase schema, retry with base columns
-          if (insertErr.message?.includes('column') || insertErr.code === 'PGRST204') {
-            const baseReviewRow = {
-              id: reviewId,
-              business_id: cleanId,
-              service_type: review.serviceType,
-              rating: review.rating,
-              text: review.text,
-              what_stood_out: review.whatStoodOut,
-              what_could_improve: review.whatCouldImprove,
-            };
-            const { error: retryErr } = await supabase.from('reviews').insert([baseReviewRow]);
-            if (retryErr) {
-              console.warn('Supabase review base retry insert notice:', retryErr.message);
-            }
-          }
-        }
-
-        const { data: biz } = await supabase
-          .from('businesses')
-          .select('name, google_review_link, google_review_url')
-          .eq('id', cleanId)
-          .maybeSingle();
-
-        const rawUrl = biz?.google_review_link || biz?.google_review_url;
-        targetGoogleUrl = rawUrl ? rawUrl.trim() : resolveGoogleReviewUrl(null, biz?.name);
-      } catch (err) {
-        console.warn('Supabase review insert notice:', err);
-      }
-    } else {
-      const businesses = getStoredBusinesses();
-      const biz = businesses[cleanId] || {};
-      targetGoogleUrl = biz.google_review_link || biz.googleReviewLink || biz.googleReviewUrl || 'https://g.page/r/example/review';
-    }
-
     return {
       success: true,
+      supabaseSynced: supabaseSyncSucceeded,
       google_review_link: targetGoogleUrl,
       googleReviewLink: targetGoogleUrl,
       googleReviewUrl: targetGoogleUrl,
@@ -1842,10 +1831,10 @@ export const api = {
    */
   async getBusinessReviews(businessId) {
     const cleanId = businessId || 'demo-1';
-    const localReviews = getStoredReviews(cleanId) || [];
+    const localReviews = isSupabaseConfigured() ? [] : (getStoredReviews(cleanId) || []);
     let supaReviews = [];
 
-    if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
+    if (isSupabaseConfigured() && supabase) {
       try {
         const { data: reviews, error } = await supabase
           .from('reviews')
@@ -1868,8 +1857,15 @@ export const api = {
           }));
         }
       } catch (err) {
+        if (isSupabaseConfigured()) {
+          throw err;
+        }
         console.warn('Supabase getBusinessReviews notice:', err);
       }
+    }
+
+    if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
+      return supaReviews;
     }
 
     // Merge Supabase + LocalStorage reviews without duplicate IDs or matching signatures
@@ -1992,6 +1988,10 @@ export const api = {
       } catch (err) {
         console.warn('Supabase getSubscription error:', err);
       }
+    }
+
+    if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
+      return sub;
     }
 
     try {
@@ -2276,6 +2276,35 @@ export const api = {
     google_review_link = '',
     googleReviewLink = '',
   }) {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase.functions.invoke('admin-manage-client', {
+        body: {
+          action: 'create',
+          businessId,
+          businessName,
+          email,
+          password,
+          ownerName,
+          category,
+          planId,
+          paidUntil,
+          phone,
+          tagline,
+          services,
+          logoUrl,
+          googleReviewUrl: googleReviewUrl || google_review_link || googleReviewLink,
+        },
+      });
+      if (error || !data?.success) {
+        throw new Error(error?.message || data?.error || 'Secure admin onboarding failed.');
+      }
+      return {
+        user: { email: data.credentials.email, role: 'business_owner', businessId: data.business.id },
+        business: formatBusinessRow(data.business),
+        credentials: data.credentials,
+      };
+    }
+
     const cleanBizId = businessId.trim();
     const cleanEmail = email.trim().toLowerCase();
     const cleanPass = (password || generateSecurePassword(16)).trim();
@@ -2285,48 +2314,11 @@ export const api = {
     const defaultExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const expiryDate = paidUntil || defaultExpiry;
 
-    let authUserId = null;
-
-    // 1. Create or register user login account in Supabase Auth if configured
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        const { data: authData, error: authErr } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password: cleanPass,
-          options: {
-            data: {
-              name: cleanOwner,
-              businessId: cleanBizId,
-              role: 'business_owner',
-            },
-          },
-        });
-
-        if (!authErr && authData?.user) {
-          authUserId = authData.user.id;
-        } else if (authErr) {
-          console.log('Supabase Auth signUp status:', authErr.message);
-          try {
-            const { data: rpcRes } = await supabase.rpc('admin_update_user_credentials', {
-              p_email: cleanEmail,
-              p_new_password: cleanPass,
-              p_business_id: cleanBizId,
-            });
-            if (rpcRes?.user_id) {
-              authUserId = rpcRes.user_id;
-            }
-          } catch {}
-        }
-      } catch (err) {
-        console.warn('Supabase Auth signUp note:', err);
-      }
-    }
-
-    // 1b. Create or update user login account in local cache
+    // Demo mode stores its credentials only in the local demo store.
     const users = getStoredUsers();
     const uIdx = users.findIndex((u) => u.email.toLowerCase() === cleanEmail);
     const userObj = {
-      id: authUserId || `user-${Date.now().toString(36)}`,
+      id: `user-${Date.now().toString(36)}`,
       email: cleanEmail,
       password: cleanPass,
       name: cleanOwner,
@@ -2368,55 +2360,6 @@ export const api = {
       tagline: tagline || 'Scan to Share Your Review',
     };
     saveStoredBusiness(newBiz);
-
-    // 2b. Sync to Supabase if configured (await for complete consistency)
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        const bizPayload = {
-          id: cleanBizId,
-          user_id: authUserId,
-          name: businessName,
-          category: category || 'other',
-          services: resolvedServices,
-          google_review_link: resolvedGoogleUrl,
-          google_review_url: resolvedGoogleUrl,
-          email: cleanEmail,
-          phone: phone || '',
-          plan_id: planId,
-          status: 'active',
-          subscription_status: 'active',
-          paid_until: expiryDate,
-        };
-        const { error: upsertErr } = await supabase.from('businesses').upsert(bizPayload);
-        if (upsertErr && upsertErr.message?.includes('google_review_link')) {
-          delete bizPayload.google_review_link;
-          await supabase.from('businesses').upsert(bizPayload);
-        }
-
-        await supabase.from('subscriptions').upsert({
-          id: `sub-${cleanBizId}`,
-          business_id: cleanBizId,
-          plan_id: planId,
-          status: 'active',
-          billing_interval: 'monthly',
-          amount: planId === 'starter' ? 299 : planId === 'pro' ? 499 : 799,
-        });
-
-        if (authUserId) {
-          try {
-            await supabase.from('profiles').upsert({
-              id: authUserId,
-              email: cleanEmail,
-              full_name: cleanOwner,
-              role: 'business_owner',
-              business_id: cleanBizId,
-            });
-          } catch {}
-        }
-      } catch (supaErr) {
-        console.warn('Could not upsert business/subscription to Supabase:', supaErr);
-      }
-    }
 
     // 3. Create or update in Super Admin clients list
     try {
@@ -2497,6 +2440,35 @@ export const api = {
     logoUrl,
     tagline,
   }) {
+    if (isSupabaseConfigured()) {
+      const { data, error } = await supabase.functions.invoke('admin-manage-client', {
+        body: {
+          action: 'update',
+          businessId: id,
+          businessName,
+          ownerName,
+          email,
+          phone,
+          password,
+          category,
+          services,
+          googleReviewUrl,
+          planId,
+          status,
+          paidUntil,
+          logoUrl,
+          tagline,
+        },
+      });
+      if (error || !data?.success) {
+        throw new Error(error?.message || data?.error || 'Secure admin client update failed.');
+      }
+      return {
+        business: formatBusinessRow(data.business),
+        credentials: data.credentials,
+      };
+    }
+
     const cleanId = id?.trim();
     if (!cleanId) throw new Error('Client ID is required for update.');
     const cleanEmail = email?.trim().toLowerCase();
@@ -2611,98 +2583,7 @@ export const api = {
       console.warn('Error updating subscription cache:', err);
     }
 
-    // 5. Supabase Sync (if configured)
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        const subStatus = status === 'inactive' ? 'canceled' : status === 'trial' ? 'trialing' : 'active';
-        const updatePayload = {
-          name: cleanName,
-          category: category,
-          services: resolvedServices,
-          email: cleanEmail,
-          google_review_url: googleReviewUrl,
-          google_review_link: googleReviewUrl,
-          plan_id: planId,
-          subscription_status: subStatus,
-          status: status || 'active',
-        };
-        if (phone !== undefined) updatePayload.phone = phone;
-        if (logoUrl !== undefined) updatePayload.logo_url = logoUrl;
-        if (tagline !== undefined) updatePayload.tagline = tagline;
-        if (paidUntil !== undefined) updatePayload.paid_until = paidUntil || null;
-
-        let { error: updateErr } = await supabase
-          .from('businesses')
-          .update(updatePayload)
-          .eq('id', cleanId);
-
-        if (updateErr) {
-          console.warn('Supabase business update notice:', updateErr.message);
-          // Fallback if certain columns don't exist yet
-          const fallbackPayload = { ...updatePayload };
-          if (updateErr.message?.includes('logo_url')) delete fallbackPayload.logo_url;
-          if (updateErr.message?.includes('tagline')) delete fallbackPayload.tagline;
-          if (updateErr.message?.includes('phone')) delete fallbackPayload.phone;
-          if (updateErr.message?.includes('google_review_link')) delete fallbackPayload.google_review_link;
-          if (updateErr.message?.includes('paid_until')) delete fallbackPayload.paid_until;
-
-          await supabase.from('businesses').update(fallbackPayload).eq('id', cleanId);
-        }
-
-        try {
-          await supabase
-            .from('subscriptions')
-            .update({
-              plan_id: planId,
-              status: subStatus,
-            })
-            .eq('business_id', cleanId);
-        } catch {}
-
-        // Synchronize updated password to Supabase Auth so logins work across all devices
-        if (cleanEmail && password) {
-          try {
-            let rpcSuccess = false;
-            try {
-              const { data: rpcRes, error: rpcErr } = await supabase.rpc('admin_update_user_credentials', {
-                p_email: cleanEmail,
-                p_new_password: password,
-                p_business_id: cleanId,
-              });
-              if (!rpcErr && rpcRes?.success) {
-                rpcSuccess = true;
-                console.log('✓ Supabase Auth password updated via RPC');
-              }
-            } catch (rpcEx) {
-              console.warn('RPC admin_update_user_credentials notice:', rpcEx);
-            }
-
-            if (!rpcSuccess) {
-              const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-                email: cleanEmail,
-                password: password,
-                options: {
-                  data: {
-                    name: cleanOwner,
-                    businessId: cleanId,
-                    role: 'business_owner',
-                  },
-                },
-              });
-              if (signUpData?.user && cleanId) {
-                await supabase.from('businesses').update({ user_id: signUpData.user.id }).eq('id', cleanId);
-              }
-            }
-          } catch (authSyncErr) {
-            console.warn('Supabase Auth sync error in updateClientAccount:', authSyncErr);
-          }
-        }
-      } catch (dbErr) {
-        console.warn('Supabase updateClientAccount sync error:', dbErr);
-      }
-    }
-
-    // 6. Broadcast sync events
+    // 5. Broadcast sync events
     try {
       if (typeof BroadcastChannel !== 'undefined') {
         const bc = new BroadcastChannel('reviewassist_channel');
@@ -2724,6 +2605,91 @@ export const api = {
     );
 
     return { success: true, client: updatedClient };
+  },
+
+  async getAdminBusinesses() {
+    if (!isSupabaseConfigured() || !supabase) return [];
+
+    const { data, error } = await supabase.functions.invoke('admin-manage-client', {
+      body: { action: 'list' },
+    });
+    if (error || !data?.success) {
+      throw new Error(error?.message || data?.error || 'Secure admin client list failed.');
+    }
+    return Array.isArray(data.businesses) ? data.businesses : [];
+  },
+
+  async submitManualPaymentRequest({ businessId, planId, billingInterval, amount, upiReference, customerNote = '' }) {
+    const cleanId = businessId?.trim();
+    if (!cleanId || !planId || !billingInterval || !upiReference?.trim()) {
+      throw new Error('Business, plan, billing interval, and UPI reference are required.');
+    }
+
+    if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
+      const request = {
+        id: `upi-${globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
+        business_id: cleanId,
+        plan_id: planId,
+        billing_interval: billingInterval,
+        amount: Number(amount) || 0,
+        upi_reference: upiReference.trim(),
+        customer_note: customerNote.trim(),
+      };
+      const { data, error } = await supabase
+        .from('manual_payment_requests')
+        .insert(request)
+        .select('*')
+        .single();
+      if (error) throw new Error(`Could not submit UPI payment request: ${error.message}`);
+      return data;
+    }
+
+    const request = {
+      id: `upi-${Date.now()}`,
+      business_id: cleanId,
+      plan_id: planId,
+      billing_interval: billingInterval,
+      amount: Number(amount) || 0,
+      upi_reference: upiReference.trim(),
+      customer_note: customerNote.trim(),
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+    const stored = JSON.parse(localStorage.getItem('reviewassist_manual_payment_requests') || '[]');
+    stored.unshift(request);
+    localStorage.setItem('reviewassist_manual_payment_requests', JSON.stringify(stored));
+    return request;
+  },
+
+  async getManualPaymentRequests() {
+    if (isSupabaseConfigured() && supabase) {
+      const { data, error } = await supabase
+        .from('manual_payment_requests')
+        .select('*, businesses(name, email)')
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(`Could not load UPI payment requests: ${error.message}`);
+      return data || [];
+    }
+
+    return JSON.parse(localStorage.getItem('reviewassist_manual_payment_requests') || '[]');
+  },
+
+  async reviewManualPayment(requestId, decision, rejectionReason = '') {
+    if (!isSupabaseConfigured() || !supabase) {
+      throw new Error('Manual payment approval requires configured Supabase mode.');
+    }
+    const { data, error } = await supabase.functions.invoke('admin-manage-client', {
+      body: {
+        action: 'review-manual-payment',
+        requestId,
+        decision,
+        rejectionReason,
+      },
+    });
+    if (error || !data?.success) {
+      throw new Error(error?.message || data?.error || 'Could not review manual payment.');
+    }
+    return data;
   },
 
   /**
@@ -2790,8 +2756,6 @@ export const api = {
     preferredResolution = 'Phone call from owner/manager',
   }) {
     const cleanId = businessId || 'demo-1';
-    const businesses = getStoredBusinesses();
-    const biz = businesses[cleanId] || {};
 
     const feedback = {
       id: 'fb-' + Math.random().toString(36).substring(2, 9),
@@ -2807,7 +2771,28 @@ export const api = {
       createdAt: new Date().toISOString(),
     };
 
-    saveStoredPrivateFeedback(feedback);
+    if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
+      const { error } = await supabase.from('private_feedback').insert({
+        id: feedback.id,
+        business_id: cleanId,
+        service_type: feedback.serviceType,
+        rating: feedback.rating,
+        issue: feedback.issue,
+        customer_name: feedback.customerName,
+        customer_contact: feedback.customerContact,
+        customer_email: feedback.customerEmail,
+        preferred_resolution: feedback.preferredResolution,
+        status: feedback.status,
+        created_at: feedback.createdAt,
+      });
+      if (error) {
+        throw new Error(`Could not save private feedback to Supabase: ${error.message}`);
+      }
+    } else {
+      saveStoredPrivateFeedback(feedback);
+    }
+
+    const biz = await this.getBusiness(cleanId, { isPublic: true });
 
     try {
       if (typeof BroadcastChannel !== 'undefined') {
@@ -2836,6 +2821,31 @@ export const api = {
    */
   async getPrivateFeedback(businessId) {
     const cleanId = businessId || 'demo-1';
+    if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
+      const { data, error } = await supabase
+        .from('private_feedback')
+        .select('*')
+        .eq('business_id', cleanId)
+        .order('created_at', { ascending: false });
+      if (error) {
+        throw new Error(`Could not load private feedback from Supabase: ${error.message}`);
+      }
+      return (data || []).map((row) => ({
+        id: row.id,
+        businessId: row.business_id,
+        serviceType: row.service_type,
+        rating: row.rating,
+        issue: row.issue,
+        customerName: row.customer_name,
+        customerContact: row.customer_contact,
+        customerEmail: row.customer_email,
+        preferredResolution: row.preferred_resolution,
+        status: row.status,
+        resolvedAt: row.resolved_at,
+        resolutionNote: row.resolution_note,
+        createdAt: row.created_at,
+      }));
+    }
     return getStoredPrivateFeedback(cleanId);
   },
 
@@ -2844,6 +2854,23 @@ export const api = {
    */
   async updatePrivateFeedbackStatus(businessId, feedbackId, status, resolutionNote = '') {
     const cleanId = businessId || 'demo-1';
+    if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
+      const { data, error } = await supabase
+        .from('private_feedback')
+        .update({
+          status,
+          resolved_at: status === 'resolved' ? new Date().toISOString() : null,
+          resolution_note: status === 'resolved' ? resolutionNote : '',
+        })
+        .eq('id', feedbackId)
+        .eq('business_id', cleanId)
+        .select('*')
+        .maybeSingle();
+      if (error) {
+        throw new Error(`Could not update private feedback in Supabase: ${error.message}`);
+      }
+      return { success: true, item: data };
+    }
     try {
       const raw = localStorage.getItem(STORAGE_KEY_PRIVATE_FEEDBACK);
       const parsed = raw ? JSON.parse(raw) : { ...DEFAULT_PRIVATE_FEEDBACK };
@@ -2869,6 +2896,21 @@ export const api = {
    * Get Total Intercepted Count across all businesses (for admin & stats)
    */
   async getAllPrivateFeedbackStats() {
+    if (isSupabaseConfigured() && supabase) {
+      const { data, error } = await supabase
+        .from('private_feedback')
+        .select('status');
+      if (error) {
+        throw new Error(`Could not load private feedback stats: ${error.message}`);
+      }
+      const rows = data || [];
+      return {
+        total: rows.length,
+        pending: rows.filter((item) => item.status !== 'resolved').length,
+        resolved: rows.filter((item) => item.status === 'resolved').length,
+      };
+    }
+
     try {
       const raw = localStorage.getItem(STORAGE_KEY_PRIVATE_FEEDBACK);
       const parsed = raw ? JSON.parse(raw) : { ...DEFAULT_PRIVATE_FEEDBACK };
@@ -2950,28 +2992,34 @@ export const api = {
           created_at: nowIso,
         };
 
-        let { data, error } = await supabase.from('leads').insert([insertPayload]).select().single();
+        let { error } = await supabase.from('leads').insert([insertPayload]);
 
         if (error && error.message?.includes('services')) {
           // If Supabase table does not yet have services column, retry without services column
           const retryPayload = { ...insertPayload };
           delete retryPayload.services;
-          const retry = await supabase.from('leads').insert([retryPayload]).select().single();
-          data = retry.data;
+          const retry = await supabase.from('leads').insert([retryPayload]);
           error = retry.error;
         }
 
         if (error) {
-          console.warn('Supabase leads insert notice:', error.message);
-        } else if (data) {
-          console.log('✓ Lead saved to Supabase:', data.id);
+          throw new Error(`Could not save lead to Supabase: ${error.message}`);
+        } else {
+          console.log('Lead saved to Supabase:', leadId);
         }
       } catch (err) {
-        console.warn('Could not insert to Supabase leads table:', err);
+        throw err instanceof Error
+          ? err
+          : new Error('Could not save lead to Supabase.');
       }
     }
 
-    // 2. Always persist to localStorage for instant offline/admin syncing
+    // LocalStorage is only the explicit demo-mode fallback.
+    if (isSupabaseConfigured() && supabase) {
+      return { success: true, lead: leadObject };
+    }
+
+    // 2. Persist local demo leads for instant offline/admin syncing.
     try {
       const raw = localStorage.getItem('reviewassist_admin_leads');
       const leads = raw ? JSON.parse(raw) : [];
@@ -3000,38 +3048,38 @@ export const api = {
   async getLeads() {
     let supabaseLeads = [];
     if (isSupabaseConfigured() && supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('leads')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (!error && Array.isArray(data)) {
-          supabaseLeads = data.map((row) => {
-            const rawSrv = Array.isArray(row.services)
-              ? row.services
-              : typeof row.services === 'string' && row.services.trim()
-              ? row.services.split(',').map((s) => s.trim()).filter(Boolean)
-              : [];
-            return {
-              id: row.id,
-              ownerName: row.owner_name || row.ownerName || '',
-              businessName: row.business_name || row.businessName || '',
-              businessType: row.business_type || row.businessType || '',
-              locations: row.locations || '',
-              email: row.email || '',
-              phone: row.phone || '',
-              googleProfileUrl: row.google_profile_url || row.googleProfileUrl || '',
-              message: row.message || '',
-              status: row.status || 'new',
-              services: resolveEffectiveServices(rawSrv, row.business_type || ''),
-              submittedAt: row.created_at || row.createdAt || new Date().toISOString(),
-            };
-          });
-        }
-      } catch (err) {
-        console.warn('Could not fetch leads from Supabase:', err);
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) {
+        throw new Error(`Could not load leads from Supabase: ${error.message}`);
       }
+      if (Array.isArray(data)) {
+        supabaseLeads = data.map((row) => {
+          const rawSrv = Array.isArray(row.services)
+            ? row.services
+            : typeof row.services === 'string' && row.services.trim()
+            ? row.services.split(',').map((s) => s.trim()).filter(Boolean)
+            : [];
+          return {
+            id: row.id,
+            ownerName: row.owner_name || row.ownerName || '',
+            businessName: row.business_name || row.businessName || '',
+            businessType: row.business_type || row.businessType || '',
+            locations: row.locations || '',
+            email: row.email || '',
+            phone: row.phone || '',
+            googleProfileUrl: row.google_profile_url || row.googleProfileUrl || '',
+            message: row.message || '',
+            status: row.status || 'new',
+            services: resolveEffectiveServices(rawSrv, row.business_type || ''),
+            submittedAt: row.created_at || row.createdAt || new Date().toISOString(),
+          };
+        });
+      }
+
+      return supabaseLeads.filter((l) => !['req-001', 'req-002', 'req-003'].includes(l.id));
     }
 
     // Read local leads
@@ -3087,14 +3135,14 @@ export const api = {
    */
   async updateLeadStatus(leadId, status) {
     if (isSupabaseConfigured() && supabase) {
-      try {
-        await supabase
-          .from('leads')
-          .update({ status, updated_at: new Date().toISOString() })
-          .eq('id', leadId);
-      } catch (err) {
-        console.warn('Error updating lead status in Supabase:', err);
+      const { error } = await supabase
+        .from('leads')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', leadId);
+      if (error) {
+        throw new Error(`Could not update lead in Supabase: ${error.message}`);
       }
+      return { success: true };
     }
 
     // Also update in localStorage
@@ -3124,11 +3172,11 @@ export const api = {
    */
   async deleteLead(leadId) {
     if (isSupabaseConfigured() && supabase) {
-      try {
-        await supabase.from('leads').delete().eq('id', leadId);
-      } catch (err) {
-        console.warn('Error deleting lead from Supabase:', err);
+      const { error } = await supabase.from('leads').delete().eq('id', leadId);
+      if (error) {
+        throw new Error(`Could not delete lead from Supabase: ${error.message}`);
       }
+      return { success: true };
     }
 
     try {
@@ -3177,7 +3225,7 @@ export const api = {
       }
     }
 
-    if (list.length === 0) {
+    if (list.length === 0 && !isSupabaseConfigured()) {
       try {
         const raw = localStorage.getItem('reviewassist_team_members');
         if (raw) {
@@ -3381,4 +3429,3 @@ export const api = {
   },
 
 };
-

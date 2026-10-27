@@ -129,7 +129,13 @@ export default function ContactPage() {
         message: form.message,
       });
     } catch (saveErr) {
-      console.warn('Could not save lead:', saveErr);
+      console.error('Could not save lead:', saveErr);
+      setErrors((current) => ({
+        ...current,
+        submit: saveErr?.message || 'Could not submit your request. Please try again.',
+      }));
+      setSubmitting(false);
+      return;
     }
 
     setSubmitting(false);
@@ -631,6 +637,11 @@ export default function ContactPage() {
                   <>🚀 Send My QR Code Request</>
                 )}
               </button>
+              {errors.submit && (
+                <span className="contact-field-error" role="alert" style={{ display: 'block', marginTop: '0.5rem' }}>
+                  {errors.submit}
+                </span>
+              )}
 
               <p className="contact-form-footer-note">
                 🔒 Your data is private. We never share your information with third parties.

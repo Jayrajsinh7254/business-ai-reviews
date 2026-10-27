@@ -89,6 +89,7 @@ export default function AdminClients() {
   const [clients, setClients] = useState([]);
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [toastMsg, setToastMsg] = useState('');
@@ -118,16 +119,13 @@ export default function AdminClients() {
   // ── Load from Supabase (or localStorage fallback) ──────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
       let supaMapped = [];
       if (isSupabaseConfigured() && supabase) {
         // Load businesses (clients)
-        const { data: bizData, error: bizErr } = await supabase
-          .from('businesses')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (!bizErr && bizData) {
+        try {
+          const bizData = await api.getAdminBusinesses();
           supaMapped = bizData.map((b) => {
             const inactive =
               b.subscription_status === 'canceled' ||
@@ -156,6 +154,9 @@ export default function AdminClients() {
               createdAt: b.created_at,
             };
           });
+        } catch (bizErr) {
+          console.error('AdminClients: businesses load failed:', bizErr);
+          setLoadError(`Could not load clients from Supabase: ${bizErr.message}`);
         }
       }
 
@@ -474,75 +475,44 @@ export default function AdminClients() {
         : `⛔ ${client.businessName} service deactivated. Customer QR scans will show Paused.`
     );
 
-    // 4. Asynchronously sync to Supabase (if configured)
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        const bizUpdatePayload = {
-          subscription_status: subStatusVal,
-          status: newStatus,
-        };
-        if (currentlyInactive) {
-          bizUpdatePayload.paid_until = null;
-        }
-        await supabase
-          .from('businesses')
-          .update(bizUpdatePayload)
-          .eq('id', client.id);
-
-        try {
-          await supabase
-            .from('subscriptions')
-            .update({ status: subStatusVal })
-            .eq('business_id', client.id);
-        } catch {}
-
-        // Also sync deactivation status to the cloud credential record in leads table
-        try {
-          const { data: leadRec } = await supabase
-            .from('leads')
-            .select('*')
-            .eq('id', `cred-${client.id}`)
-            .maybeSingle();
-
-          let parsed = {};
-          if (leadRec && leadRec.message) {
-            try { parsed = JSON.parse(leadRec.message); } catch {}
-          }
-          parsed.businessId = client.id;
-          parsed.status = newStatus;
-          parsed.subscriptionStatus = subStatusVal;
-          parsed.isInactive = currentlyInactive ? false : true;
-          parsed.updatedAt = new Date().toISOString();
-
-          await supabase
-            .from('leads')
-            .upsert({
-              id: `cred-${client.id}`,
-              email: client.email || leadRec?.email || '',
-              name: client.businessName || leadRec?.name || 'Business',
-              status: 'done',
-              message: JSON.stringify(parsed),
-            });
-        } catch (leadSyncErr) {
-          console.warn('Leads status sync note:', leadSyncErr);
-        }
-      } catch (dbErr) {
-        console.error('Supabase status toggle sync error:', dbErr);
-      }
+    // 4. Asynchronously sync to Supabase through the verified admin function.
+    if (isSupabaseConfigured()) {
+      await api.updateClientAccount({
+        id: client.id,
+        businessName: client.businessName,
+        ownerName: client.ownerName,
+        email: client.email,
+        phone: client.phone,
+        category: client.businessType,
+        services: client.services,
+        googleReviewUrl: client.googleReviewUrl,
+        planId: client.planId,
+        status: newStatus,
+        paidUntil: currentlyInactive && isPaidExpired(client.paidUntil) ? null : client.paidUntil,
+        logoUrl: client.logoUrl,
+        tagline: client.tagline,
+      });
     }
   };
 
   const handlePlanChange = async (clientId, newPlanId) => {
-    // 1. Asynchronously update Supabase if configured
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        await supabase.from('businesses').update({ plan_id: newPlanId }).eq('id', clientId);
-        try {
-          await supabase.from('subscriptions').update({ plan_id: newPlanId }).eq('business_id', clientId);
-        } catch {}
-      } catch (err) {
-        console.warn('Plan change Supabase error:', err);
-      }
+    const targetClient = clients.find((client) => client.id === clientId);
+    if (isSupabaseConfigured() && targetClient) {
+      await api.updateClientAccount({
+        id: clientId,
+        businessName: targetClient.businessName,
+        ownerName: targetClient.ownerName,
+        email: targetClient.email,
+        phone: targetClient.phone,
+        category: targetClient.businessType,
+        services: targetClient.services,
+        googleReviewUrl: targetClient.googleReviewUrl,
+        planId: newPlanId,
+        status: targetClient.status,
+        paidUntil: targetClient.paidUntil,
+        logoUrl: targetClient.logoUrl,
+        tagline: targetClient.tagline,
+      });
     }
 
     // 2. Update React state & admin clients cache
@@ -635,44 +605,46 @@ export default function AdminClients() {
     });
     persistClients(updated);
 
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        await supabase
-          .from('businesses')
-          .update({
-            subscription_status: subStatusVal,
-          })
-          .eq('id', clientId);
-      } catch (err) {
-        console.warn('PaidUntil Supabase sync error:', err);
-      }
+    const targetClient = clients.find((client) => client.id === clientId);
+    if (isSupabaseConfigured() && targetClient) {
+      await api.updateClientAccount({
+        id: clientId,
+        businessName: targetClient.businessName,
+        ownerName: targetClient.ownerName,
+        email: targetClient.email,
+        phone: targetClient.phone,
+        category: targetClient.businessType,
+        services: targetClient.services,
+        googleReviewUrl: targetClient.googleReviewUrl,
+        planId: targetClient.planId,
+        status: newStatus,
+        paidUntil: newDate,
+        logoUrl: targetClient.logoUrl,
+        tagline: targetClient.tagline,
+      });
     }
 
     showToast(`📅 Renewal date updated to ${newDate}.`);
   };
 
   const handleActivateMember = async (clientId) => {
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        await supabase.from('businesses').update({ subscription_status: 'active' }).eq('id', clientId);
-        try {
-          await supabase.from('subscriptions').update({ status: 'active' }).eq('business_id', clientId);
-        } catch {}
-        try {
-          const { data: leadRec } = await supabase.from('leads').select('message').eq('id', `cred-${clientId}`).maybeSingle();
-          if (leadRec && leadRec.message) {
-            let parsed = {};
-            try { parsed = JSON.parse(leadRec.message); } catch {}
-            parsed.status = 'active';
-            parsed.subscriptionStatus = 'active';
-            parsed.isInactive = false;
-            parsed.updatedAt = new Date().toISOString();
-            await supabase.from('leads').update({ message: JSON.stringify(parsed) }).eq('id', `cred-${clientId}`);
-          }
-        } catch {}
-      } catch (err) {
-        console.warn('Activate member Supabase error:', err);
-      }
+    const targetClient = clients.find((client) => client.id === clientId);
+    if (isSupabaseConfigured() && targetClient) {
+      await api.updateClientAccount({
+        id: clientId,
+        businessName: targetClient.businessName,
+        ownerName: targetClient.ownerName,
+        email: targetClient.email,
+        phone: targetClient.phone,
+        category: targetClient.businessType,
+        services: targetClient.services,
+        googleReviewUrl: targetClient.googleReviewUrl,
+        planId: targetClient.planId,
+        status: 'active',
+        paidUntil: targetClient.paidUntil,
+        logoUrl: targetClient.logoUrl,
+        tagline: targetClient.tagline,
+      });
     }
     const updated = clients.map((c) =>
       c.id === clientId ? { ...c, status: 'active', subscriptionStatus: 'active' } : c
@@ -894,6 +866,12 @@ export default function AdminClients() {
         <div className="admin-loading-state">
           <div className="admin-loading-spinner" />
           <p>Loading clients from database...</p>
+        </div>
+      )}
+
+      {!loading && loadError && (
+        <div className="admin-login-error" role="alert">
+          {loadError}
         </div>
       )}
 

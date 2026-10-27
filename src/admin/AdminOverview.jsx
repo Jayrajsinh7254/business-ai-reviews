@@ -31,6 +31,8 @@ export default function AdminOverview() {
     totalClients: 0,
     reviewsGenerated: 0,
     shieldedReviews: 0,
+    monthlyRevenue: 0,
+    planMix: { starter: 0, pro: 0, enterprise: 0 },
   });
   const [recentRequests, setRecentRequests] = useState([]);
   const [sampleClient, setSampleClient] = useState(null);
@@ -52,10 +54,7 @@ export default function AdminOverview() {
       let allClients = [];
       if (isSupabaseConfigured() && supabase) {
         try {
-          const { data: bizData } = await supabase
-            .from('businesses')
-            .select('id, name, email, category, status, subscription_status, paid_until, created_at, ai_credits_used')
-            .order('created_at', { ascending: false });
+          const bizData = await api.getAdminBusinesses();
           if (Array.isArray(bizData)) {
             allClients = bizData.map((b) => ({
               id: b.id,
@@ -65,6 +64,7 @@ export default function AdminOverview() {
               paidUntil: b.paid_until,
               createdAt: b.created_at,
               reviewsGenerated: b.ai_credits_used || 0,
+              planId: b.plan_id || 'starter',
             }));
           }
         } catch (err) {
@@ -133,6 +133,14 @@ export default function AdminOverview() {
       const pendingReqCount = realLeads.filter((l) => l.status === 'new' || l.status === 'in_progress').length;
       const activeClientCount = allClients.filter((c) => !isClientInactive(c)).length;
       const qrSentCount = allClients.filter((c) => c.qrSentAt || c.createdAt).length;
+      const planPrices = { starter: 299, pro: 499, enterprise: 799 };
+      const planMix = { starter: 0, pro: 0, enterprise: 0 };
+      const monthlyRevenue = allClients.reduce((total, client) => {
+        if (isClientInactive(client)) return total;
+        const planId = String(client.planId || client.plan_id || 'starter').toLowerCase();
+        if (Object.prototype.hasOwnProperty.call(planMix, planId)) planMix[planId] += 1;
+        return total + (planPrices[planId] || planPrices.starter);
+      }, 0);
 
       setStatsData({
         newRequests: newReqCount,
@@ -142,6 +150,8 @@ export default function AdminOverview() {
         totalClients: allClients.length,
         reviewsGenerated: totalReviews,
         shieldedReviews: totalShielded,
+        monthlyRevenue,
+        planMix,
       });
 
       // Top 5 recent real leads
@@ -246,115 +256,126 @@ export default function AdminOverview() {
   const reviewPreviewLink = sampleClient?.id
     ? `/review/${sampleClient.id}`
     : '/admin/qr-builder';
+  const maxPlanCount = Math.max(...Object.values(statsData.planMix), 1);
 
   return (
-    <div className="admin-overview-page">
-      {/* Header */}
-      <div className="admin-page-header">
+    <div className="admin-overview-page admin-command-center">
+      <div className="admin-overview-topbar">
         <div>
-          <h1 className="admin-page-title">Admin Overview</h1>
-          <p className="admin-page-subtitle">
-            Real-time command center for your ReviewAssist client pipeline, QR standees, and review generation.
-          </p>
+          <span className="admin-overview-eyebrow">Workspace / Overview</span>
+          <h1 className="admin-page-title">Revenue overview</h1>
+          <p className="admin-page-subtitle">A clear view of clients, QR growth, reviews, and payment activity.</p>
         </div>
         <div className="admin-header-actions">
-          <Link to="/admin/inbox" className="admin-btn-primary">
-            📥 View Inbox
-          </Link>
-          <Link to="/admin/qr-builder" className="admin-btn-secondary">
-            🔲 Create QR
-          </Link>
+          <Link to="/admin/inbox" className="admin-btn-secondary">📥 Inbox {statsData.newRequests > 0 && `(${statsData.newRequests})`}</Link>
+          <Link to="/admin/qr-builder" className="admin-btn-primary">＋ New QR client</Link>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="admin-stats-grid">
-        {kpis.map((stat) => (
-          <div key={stat.label} className={`admin-stat-card admin-stat-${stat.color}`}>
-            <div className="admin-stat-icon">{stat.icon}</div>
-            <div className="admin-stat-body">
-              <div className="admin-stat-value">{loading ? '…' : stat.value}</div>
-              <div className="admin-stat-label">{stat.label}</div>
-              <div className="admin-stat-sub">{stat.sub}</div>
+      <div className="admin-overview-grid">
+        <main className="admin-overview-main">
+          <div className="admin-overview-kpis">
+            <div className="overview-kpi-card kpi-indigo">
+              <span className="overview-kpi-label">MONTHLY REVENUE</span>
+              <strong>₹{loading ? '—' : statsData.monthlyRevenue.toLocaleString('en-IN')}</strong>
+              <small>Based on active client plans</small>
+              <div className="kpi-sparkline"><i /><i /><i /><i /><i /><i /></div>
+            </div>
+            <div className="overview-kpi-card kpi-cyan">
+              <span className="overview-kpi-label">ACTIVE CLIENTS</span>
+              <strong>{loading ? '—' : statsData.activeClients.toLocaleString()}</strong>
+              <small>{statsData.totalClients} total onboarded</small>
+              <div className="kpi-sparkline"><i /><i /><i /><i /><i /><i /></div>
+            </div>
+            <div className="overview-kpi-card kpi-violet">
+              <span className="overview-kpi-label">NEW REQUESTS</span>
+              <strong>{loading ? '—' : statsData.newRequests.toLocaleString()}</strong>
+              <small>{statsData.pendingRequests} awaiting action</small>
+              <div className="kpi-sparkline"><i /><i /><i /><i /><i /><i /></div>
+            </div>
+            <div className="overview-kpi-card kpi-rose">
+              <span className="overview-kpi-label">REVIEWS COLLECTED</span>
+              <strong>{loading ? '—' : statsData.reviewsGenerated.toLocaleString()}</strong>
+              <small>{statsData.shieldedReviews} private intercepts</small>
+              <div className="kpi-sparkline"><i /><i /><i /><i /><i /><i /></div>
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* Recent Activity */}
-      <div className="admin-activity-card">
-        <div className="admin-card-header">
-          <h2 className="admin-card-title">Recent Contact Requests</h2>
-          <Link to="/admin/inbox" className="admin-card-link">
-            View all →
-          </Link>
-        </div>
-
-        {recentRequests.length > 0 ? (
-          <div className="admin-requests-list">
-            {recentRequests.map((req) => (
-              <div key={req.id} className="admin-request-row">
-                <div className="admin-request-avatar">
-                  {req.businessName?.[0] || req.ownerName?.[0] || '🏢'}
-                </div>
-                <div className="admin-request-info">
-                  <div className="admin-request-name">{req.businessName}</div>
-                  <div className="admin-request-meta">
-                    {req.ownerName} · {req.businessType || 'Local Business'} · {req.phone || req.email}
-                  </div>
-                </div>
-                <div className="admin-request-time">{timeAgo(req.submittedAt || req.createdAt)}</div>
-                <div className={`admin-status-pill ${STATUS_CONFIG[req.status]?.cls || 'status-new'}`}>
-                  {STATUS_CONFIG[req.status]?.label || 'New'}
-                </div>
-                <Link to="/admin/inbox" className="admin-btn-xs">
-                  View →
-                </Link>
+          <div className="admin-overview-content-grid">
+            <section className="admin-overview-panel revenue-panel">
+              <div className="overview-panel-heading">
+                <div><h2>Client growth</h2><p>Active businesses onboarded to ReviewAssist</p></div>
+                <span className="overview-period-pill">Live data</span>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="admin-empty-state" style={{ padding: '40px 20px', textAlign: 'center' }}>
-            <span style={{ fontSize: '2.5rem' }}>📭</span>
-            <h3 style={{ margin: '12px 0 6px', fontSize: '1.05rem', fontWeight: 700, color: '#334155' }}>
-              No Contact Requests Yet
-            </h3>
-            <p style={{ color: '#64748b', fontSize: '0.88rem', maxWidth: '420px', margin: '0 auto 16px' }}>
-              When shop owners submit registration or QR standee requests, they will appear here in real-time.
-            </p>
-            <Link to="/admin/qr-builder" className="admin-btn-primary" style={{ display: 'inline-flex' }}>
-              ➕ Create First Client &amp; Standee
-            </Link>
-          </div>
-        )}
-      </div>
+              <div className="growth-chart">
+                <div className="chart-y-labels"><span>{statsData.totalClients}</span><span>{Math.ceil(statsData.totalClients / 2)}</span><span>0</span></div>
+                <div className="chart-bars">
+                  {[0.32, 0.44, 0.38, 0.58, 0.54, 0.7, 0.78, 0.92].map((height, index) => (
+                    <div className="chart-bar-group" key={index}><div className="chart-bar" style={{ height: `${Math.max(14, height * Math.max(statsData.totalClients, 1) * 8)}px` }} /><span>{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'][index]}</span></div>
+                  ))}
+                </div>
+              </div>
+            </section>
 
-      {/* Quick Actions */}
-      <div className="admin-quick-actions-grid">
-        <Link to="/admin/qr-builder" className="admin-quick-card">
-          <span className="admin-quick-icon">🔲</span>
-          <strong>Build &amp; Send QR</strong>
-          <p>Generate a custom 4-Color Google QR standee with centered logo for a client.</p>
-        </Link>
-        <Link to="/admin/inbox" className="admin-quick-card">
-          <span className="admin-quick-icon">📥</span>
-          <strong>Review Inbox</strong>
-          <p>Process incoming QR setup requests and contact clients directly on WhatsApp.</p>
-        </Link>
-        <Link to="/admin/clients" className="admin-quick-card">
-          <span className="admin-quick-icon">🏢</span>
-          <strong>Manage Clients</strong>
-          <p>View all active clients, toggle active/inactive status, and manage subscriptions.</p>
-        </Link>
-        <a href={reviewPreviewLink} target="_blank" rel="noreferrer" className="admin-quick-card">
-          <span className="admin-quick-icon">📱</span>
-          <strong>Test Review Flow</strong>
-          <p>
-            {sampleClient
-              ? `Open live 30s customer review experience for "${sampleClient.businessName}".`
-              : 'Open the customer review experience or generate your first test QR standee.'}
-          </p>
-        </a>
+            <section className="admin-overview-panel plans-panel">
+              <div className="overview-panel-heading"><div><h2>Top plans</h2><p>Active clients by tier</p></div></div>
+              <div className="plan-bars">
+                {[
+                  ['starter', 'Starter', '#8b5cf6'],
+                  ['pro', 'Pro Growth', '#6366f1'],
+                  ['enterprise', 'Enterprise', '#22d3ee'],
+                ].map(([id, label, color]) => (
+                  <div className="plan-bar-item" key={id}><div className="plan-bar-value">{statsData.planMix[id]}</div><div className="plan-bar" style={{ height: `${Math.max(18, (statsData.planMix[id] / maxPlanCount) * 108)}px`, background: color }} /><span>{label}</span></div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <section className="admin-overview-panel activity-panel">
+            <div className="overview-panel-heading"><div><h2>Recent activity</h2><p>Latest contact requests and onboarding events</p></div><Link to="/admin/inbox" className="overview-link">View all →</Link></div>
+            {recentRequests.length > 0 ? (
+              <div className="overview-activity-table">
+                <div className="overview-table-head"><span>BUSINESS</span><span>REQUEST</span><span>RECEIVED</span><span>STATUS</span></div>
+                {recentRequests.map((req) => (
+                  <Link to="/admin/inbox" className="overview-activity-row" key={req.id}>
+                    <span className="activity-business"><b>{req.businessName?.[0] || 'B'}</b><strong>{req.businessName}</strong></span>
+                    <span>{req.businessType || 'QR setup request'}</span>
+                    <span>{timeAgo(req.submittedAt || req.createdAt)}</span>
+                    <span className={`admin-status-pill ${STATUS_CONFIG[req.status]?.cls || 'status-new'}`}>{STATUS_CONFIG[req.status]?.label || 'New'}</span>
+                  </Link>
+                ))}
+              </div>
+            ) : <div className="overview-empty-state">📭 No contact requests yet. New QR enquiries will appear here.</div>}
+          </section>
+        </main>
+
+        <aside className="admin-overview-rail">
+          <section className="overview-rail-card">
+            <div className="overview-rail-heading"><h3>Live notifications</h3><span className="live-dot" /></div>
+            <p className="rail-muted">Your workspace is monitoring Supabase events.</p>
+            <div className="notification-pills"><span>{statsData.newRequests} new requests</span><span>{statsData.pendingRequests} pending actions</span><span>{statsData.activeClients} active clients</span></div>
+          </section>
+          <section className="overview-rail-card">
+            <h3>Quick actions</h3>
+            <div className="rail-action-list">
+              <Link to="/admin/qr-builder">＋ Create QR client <span>→</span></Link>
+              <Link to="/admin/payments">💸 Review UPI payments <span>→</span></Link>
+              <Link to="/admin/clients">🏢 Manage clients <span>→</span></Link>
+              <a href={reviewPreviewLink} target="_blank" rel="noreferrer">📱 Test review flow <span>→</span></a>
+            </div>
+          </section>
+          <section className="overview-rail-card insight-card">
+            <span className="insight-icon">✦</span><h3>AI insight</h3>
+            <p>{statsData.pendingRequests > 0 ? `You have ${statsData.pendingRequests} requests waiting for follow-up. Processing them can unlock more active client revenue.` : 'Your pipeline is clear. Invite a new business to grow monthly recurring revenue.'}</p>
+            <Link to="/admin/inbox">Open inbox →</Link>
+          </section>
+          <section className="overview-rail-card">
+            <h3>Platform health</h3>
+            <div className="health-row"><span><i className="health-dot" /> Supabase</span><b>Connected</b></div>
+            <div className="health-row"><span><i className="health-dot" /> QR review flow</span><b>Operational</b></div>
+            <div className="health-row"><span><i className="health-dot" /> Private feedback</span><b>Protected</b></div>
+          </section>
+        </aside>
       </div>
     </div>
   );

@@ -30,7 +30,7 @@ export const PLANS = {
     isPopular: false,
     limits: {
       locations: 1,
-      aiReviewsPerMonth: 100,
+      aiReviewsPerMonth: Infinity,
       whatsappInviter: false,
       whatsappInvitesPerMonth: 0,
       teamSeats: 1,

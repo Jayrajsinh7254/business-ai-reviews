@@ -85,6 +85,43 @@ const DEFAULT_BUSINESSES = {
     planId: 'pro',
     createdAt: '2026-01-01T00:00:00.000Z',
   },
+  'lakshmi-interior': {
+    id: 'lakshmi-interior',
+    name: 'Lakshmi Interior',
+    category: 'interior',
+    phone: '8528012365',
+    address: 'Ck 55/25, Rajadarwaja',
+    instagramUrl: 'https://www.instagram.com/lakshmi_interior_varanasi/',
+    instagram_url: 'https://www.instagram.com/lakshmi_interior_varanasi/',
+    websiteUrl: 'https://www.instagram.com/lakshmi_interior_varanasi/',
+    website_url: 'https://www.instagram.com/lakshmi_interior_varanasi/',
+    logoUrl: 'https://nzhlajxwpxvtcrjrygwv.supabase.co/storage/v1/object/public/logos/cb3ee9da-0c79-4570-8d3a-241f79c57416/79a64f5c-ff95-478c-a85a-4b79760ca3cf.png',
+    logo_url: 'https://nzhlajxwpxvtcrjrygwv.supabase.co/storage/v1/object/public/logos/cb3ee9da-0c79-4570-8d3a-241f79c57416/79a64f5c-ff95-478c-a85a-4b79760ca3cf.png',
+    services: [
+      'PVC Panels',
+      'Louvers',
+      'Marble Sheets',
+      '3D wall tiles',
+      'mosaic tiles',
+      'led mirror',
+      'wallpaper',
+      'upvc windows & doors',
+      'charcoal panel',
+      'fluted panel',
+      'pu stone',
+      'laminates',
+      'mica',
+      'ply'
+    ],
+    google_review_link: 'https://g.page/r/CRjGnJTCvAcbEAE/review',
+    googleReviewLink: 'https://g.page/r/CRjGnJTCvAcbEAE/review',
+    google_review_url: 'https://g.page/r/CRjGnJTCvAcbEAE/review',
+    googleReviewUrl: 'https://g.page/r/CRjGnJTCvAcbEAE/review',
+    status: 'active',
+    subscriptionStatus: 'active',
+    planId: 'pro',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
 };
 
 
@@ -487,6 +524,11 @@ function formatBusinessRow(row) {
     phone: row.phone || '',
     logoUrl: row.logo_url || row.logoUrl || '',
     tagline: row.tagline || 'Scan to Share Your Review',
+    address: row.address || '',
+    websiteUrl: row.website_url || row.websiteUrl || '',
+    instagramUrl: row.instagram_url || row.instagramUrl || '',
+    facebookUrl: row.facebook_url || row.facebookUrl || '',
+    youtubeUrl: row.youtube_url || row.youtubeUrl || '',
     shareableUrl: `${origin}/review/${row.id}`,
     dashboardUrl: `${origin}/dashboard/${row.id}`,
     google_review_link: validGoogleUrl,
@@ -1262,7 +1304,7 @@ export const api = {
     if (isSupabaseConfigured() && supabase && !cleanId.startsWith('demo-')) {
       try {
         // Public-safe columns allowed by Supabase RLS
-        const publicSafeColumns = 'id, name, category, services, google_review_link, status, subscription_status, created_at';
+        const publicSafeColumns = 'id, name, category, services, google_review_link, logo_url, tagline, phone, address, website_url, instagram_url, facebook_url, youtube_url, status, subscription_status, created_at';
         const selectFields = options.isPublic
           ? publicSafeColumns
           : '*';
@@ -1308,11 +1350,13 @@ export const api = {
       }
     }
 
-    // 2. If not found in Supabase or demo mode, check local storage
-    if (!biz && (!isSupabaseConfigured() || cleanId.startsWith('demo-'))) {
+    // 2. If not found in Supabase or demo mode, check DEFAULT_BUSINESSES or local storage
+    if (!biz) {
       const stored = getStoredBusinesses();
       if (stored[cleanId]) {
         biz = { ...stored[cleanId] };
+      } else if (DEFAULT_BUSINESSES[cleanId]) {
+        biz = { ...DEFAULT_BUSINESSES[cleanId] };
       }
     }
 
@@ -1332,6 +1376,11 @@ export const api = {
             google_review_url: found.googleReviewLink || found.googleReviewUrl,
             email: found.email,
             phone: found.phone || '',
+            address: found.address || '',
+            website_url: found.websiteUrl || '',
+            instagram_url: found.instagramUrl || '',
+            facebook_url: found.facebookUrl || '',
+            youtube_url: found.youtubeUrl || '',
             status: found.status || 'active',
             subscription_status: found.subscriptionStatus || 'active',
             plan_id: found.planId || 'pro',
@@ -2439,6 +2488,11 @@ export const api = {
     paidUntil,
     logoUrl,
     tagline,
+    address,
+    websiteUrl,
+    instagramUrl,
+    facebookUrl,
+    youtubeUrl,
   }) {
     if (isSupabaseConfigured()) {
       const { data, error } = await supabase.functions.invoke('admin-manage-client', {
@@ -2458,13 +2512,25 @@ export const api = {
           paidUntil,
           logoUrl,
           tagline,
+          address,
+          websiteUrl,
+          instagramUrl,
+          facebookUrl,
+          youtubeUrl,
         },
       });
       if (error || !data?.success) {
         throw new Error(error?.message || data?.error || 'Secure admin client update failed.');
       }
+      const updatedBusiness = formatBusinessRow(data.business);
+      saveStoredBusiness(updatedBusiness);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('reviewassist:business_updated', {
+          detail: { businessId: updatedBusiness.id, business: updatedBusiness },
+        }));
+      }
       return {
-        business: formatBusinessRow(data.business),
+        business: updatedBusiness,
         credentials: data.credentials,
       };
     }
@@ -2503,6 +2569,11 @@ export const api = {
         paidUntil: paidUntil !== undefined ? paidUntil : existing.paidUntil,
         logoUrl: logoUrl !== undefined ? logoUrl : existing.logoUrl || '',
         tagline: tagline !== undefined ? tagline : existing.tagline || '',
+        address: address !== undefined ? address : existing.address || '',
+        websiteUrl: websiteUrl !== undefined ? websiteUrl : existing.websiteUrl || '',
+        instagramUrl: instagramUrl !== undefined ? instagramUrl : existing.instagramUrl || '',
+        facebookUrl: facebookUrl !== undefined ? facebookUrl : existing.facebookUrl || '',
+        youtubeUrl: youtubeUrl !== undefined ? youtubeUrl : existing.youtubeUrl || '',
         updatedAt: new Date().toISOString(),
       };
 
@@ -2536,10 +2607,20 @@ export const api = {
         paidUntil: paidUntil !== undefined ? paidUntil : existingBiz.paidUntil,
         logoUrl: logoUrl !== undefined ? logoUrl : existingBiz.logoUrl || '',
         tagline: tagline !== undefined ? tagline : existingBiz.tagline || '',
+        address: address !== undefined ? address : existingBiz.address || '',
+        websiteUrl: websiteUrl !== undefined ? websiteUrl : existingBiz.websiteUrl || '',
+        instagramUrl: instagramUrl !== undefined ? instagramUrl : existingBiz.instagramUrl || '',
+        facebookUrl: facebookUrl !== undefined ? facebookUrl : existingBiz.facebookUrl || '',
+        youtubeUrl: youtubeUrl !== undefined ? youtubeUrl : existingBiz.youtubeUrl || '',
         shareableUrl: existingBiz.shareableUrl || `${origin}/review/${cleanId}`,
         dashboardUrl: existingBiz.dashboardUrl || `${origin}/dashboard/${cleanId}`,
       };
       saveStoredBusiness(updatedBiz);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('reviewassist:business_updated', {
+          detail: { businessId: updatedBiz.id, business: updatedBiz },
+        }));
+      }
     } catch (err) {
       console.warn('Error updating local business cache:', err);
     }

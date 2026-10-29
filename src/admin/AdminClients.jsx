@@ -111,6 +111,11 @@ export default function AdminClients() {
     paidUntil: '',
     logoUrl: '',
     tagline: '',
+    address: '',
+    websiteUrl: '',
+    instagramUrl: '',
+    facebookUrl: '',
+    youtubeUrl: '',
   });
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -148,9 +153,14 @@ export default function AdminClients() {
               planId: b.plan_id || 'starter',
               qrSentAt: b.created_at ? b.created_at.split('T')[0] : null,
               paidUntil: b.paid_until || null,
-              googleReviewUrl: b.google_review_url,
+              googleReviewUrl: b.google_review_link || b.google_review_url || '',
               logoUrl: b.logo_url || '',
               tagline: b.tagline || '',
+              address: b.address || '',
+              websiteUrl: b.website_url || '',
+              instagramUrl: b.instagram_url || '',
+              facebookUrl: b.facebook_url || '',
+              youtubeUrl: b.youtube_url || '',
               createdAt: b.created_at,
             };
           });
@@ -302,6 +312,11 @@ export default function AdminClients() {
       paidUntil: client.paidUntil || '',
       logoUrl: client.logoUrl || '',
       tagline: client.tagline || 'Scan to Share Your Review',
+      address: client.address || '',
+      websiteUrl: client.websiteUrl || '',
+      instagramUrl: client.instagramUrl || '',
+      facebookUrl: client.facebookUrl || '',
+      youtubeUrl: client.youtubeUrl || '',
     });
     setShowEditPassword(false);
     setEditingClient(client);
@@ -385,6 +400,11 @@ export default function AdminClients() {
         paidUntil: editForm.paidUntil || null,
         logoUrl: editForm.logoUrl.trim(),
         tagline: editForm.tagline.trim(),
+        address: editForm.address.trim(),
+        websiteUrl: editForm.websiteUrl.trim(),
+        instagramUrl: editForm.instagramUrl.trim(),
+        facebookUrl: editForm.facebookUrl.trim(),
+        youtubeUrl: editForm.youtubeUrl.trim(),
       });
 
       showToast(`✅ Updated details & credentials for "${editForm.businessName}"!`);
@@ -1478,6 +1498,46 @@ export default function AdminClients() {
                         onChange={(e) => setEditForm({ ...editForm, paidUntil: e.target.value })}
                       />
                     </div>
+                  </div>
+                  <div className="admin-edit-grid-2 admin-social-fields">
+                    <div className="admin-edit-field">
+                      <label className="admin-edit-label">Business Address</label>
+                      <input
+                        type="text"
+                        className="admin-edit-input"
+                        value={editForm.address}
+                        onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                        placeholder="e.g. Ck 55/25, Rajadarwaja"
+                      />
+                    </div>
+                    <div className="admin-edit-field">
+                      <label className="admin-edit-label">Website URL</label>
+                      <input
+                        type="url"
+                        className="admin-edit-input"
+                        value={editForm.websiteUrl}
+                        onChange={(e) => setEditForm({ ...editForm, websiteUrl: e.target.value })}
+                        placeholder="https://example.com"
+                      />
+                    </div>
+                  </div>
+                  <div className="admin-edit-grid-2 admin-social-fields">
+                    {[
+                      ['instagramUrl', 'Instagram URL', 'https://instagram.com/your-business'],
+                      ['facebookUrl', 'Facebook URL', 'https://facebook.com/your-business'],
+                      ['youtubeUrl', 'YouTube URL', 'https://youtube.com/@your-business'],
+                    ].map(([field, label, placeholder]) => (
+                      <div className="admin-edit-field" key={field}>
+                        <label className="admin-edit-label">{label}</label>
+                        <input
+                          type="url"
+                          className="admin-edit-input"
+                          value={editForm[field]}
+                          onChange={(e) => setEditForm({ ...editForm, [field]: e.target.value })}
+                          placeholder={placeholder}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
 

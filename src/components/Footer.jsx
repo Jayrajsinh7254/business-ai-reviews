@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import BrandLogo from './BrandLogo';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -10,13 +11,7 @@ export default function Footer() {
         {/* Brand & Mission Column */}
         <div className="footer-brand-col">
           <Link to="/" className="footer-brand-link">
-            <div className="brand-logo-badge">
-              <span className="star-icon">★</span>
-            </div>
-            <div className="brand-text">
-              <span className="brand-name">ReviewAssist</span>
-              <span className="brand-tag">AI-Powered</span>
-            </div>
+            <BrandLogo className="footer-brand-logo" />
           </Link>
           <p className="footer-mission">
             The intelligent customer review copilot for local businesses. Generate authentic, high-converting 5-star Google reviews in 30 seconds via QR code.

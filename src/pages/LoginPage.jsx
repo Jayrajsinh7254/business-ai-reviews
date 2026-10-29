@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROLES } from '../lib/rbac';
+import BrandLogo from '../components/BrandLogo';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -82,9 +83,7 @@ export default function LoginPage() {
       <div className="auth-card-container">
         {/* Header Branding */}
         <div className="page-header text-center auth-header-wrap">
-          <div className="auth-logo-badge">
-            <span className="star-icon">★</span>
-          </div>
+          <BrandLogo className="auth-brand-logo" />
           <h1 className="page-title">Welcome to ReviewAssist</h1>
           <p className="page-subtitle">
             Sign in to manage your AI review collector, team permissions, and subscription.

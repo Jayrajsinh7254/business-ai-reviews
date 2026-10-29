@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import BrandLogo from '../components/BrandLogo';
 
 const NAV_ITEMS = [
   { to: '/admin', icon: '📊', label: 'Overview', end: true },
@@ -81,13 +82,7 @@ export default function AdminLayout() {
       <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
         {/* Brand */}
         <div className="admin-sidebar-brand">
-          <div className="admin-brand-logo">
-            <span>★</span>
-          </div>
-          <div className="admin-brand-text-wrap">
-            <div className="admin-brand-name">ReviewAssist</div>
-            <div className="admin-brand-tag">Admin Panel</div>
-          </div>
+          <BrandLogo className="admin-brand-logo-image" />
           <button
             type="button"
             className="admin-sidebar-close-btn"

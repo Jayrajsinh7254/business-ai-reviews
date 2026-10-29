@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROLES } from '../lib/rbac';
+import BrandLogo from '../components/BrandLogo';
 
 export default function AdminLoginPage() {
   const { login, user, role } = useAuth();
@@ -61,13 +62,7 @@ export default function AdminLoginPage() {
       <div className="admin-login-container">
         {/* Logo */}
         <div className="admin-login-brand">
-          <div className="admin-login-logo">
-            <span>★</span>
-          </div>
-          <div>
-            <div className="admin-login-brand-name">ReviewAssist</div>
-            <div className="admin-login-brand-tag">Admin Portal</div>
-          </div>
+          <BrandLogo className="admin-login-brand-logo" />
         </div>
 
         {/* Card */}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROLES, getRoleBadgeInfo } from '../lib/rbac';
+import BrandLogo from './BrandLogo';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -40,13 +41,7 @@ export default function Navbar() {
           className="navbar-brand"
           onClick={closeMobileMenu}
         >
-          <div className="brand-logo-badge">
-            <span className="star-icon">★</span>
-          </div>
-          <div className="brand-text">
-            <span className="brand-name">ReviewAssist</span>
-            <span className="brand-tag">{isClient ? 'Client Portal' : 'SaaS Platform'}</span>
-          </div>
+          <BrandLogo className="navbar-brand-logo" />
         </Link>
 
         {/* Navigation Links */}

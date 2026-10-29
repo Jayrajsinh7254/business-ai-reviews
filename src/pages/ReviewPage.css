@@ -1,0 +1,1150 @@
+/* ==========================================================================
+   ReviewPage.css — ReviewAssist Signature Brand Aesthetic
+   Unique Layout • Electric Indigo & Violet Gradients • Structured Step Modules
+   Palette: #4f46e5 (Indigo), #7c3aed (Violet), #0f172a (Deep Slate), #f8fafc (App BG)
+   ========================================================================== */
+
+:root {
+  --ra-primary: #4f46e5;
+  --ra-primary-hover: #4338ca;
+  --ra-primary-light: #eef2ff;
+  --ra-primary-border: #c7d2fe;
+  --ra-primary-glow: rgba(79, 70, 229, 0.32);
+
+  --ra-violet: #7c3aed;
+  --ra-violet-light: #f5f3ff;
+  --ra-cyan: #06b6d4;
+
+  --ra-gradient: linear-gradient(135deg, #4f46e5 0%, #6366f1 52%, #7c3aed 100%);
+  --ra-gradient-hover: linear-gradient(135deg, #4338ca 0%, #4f46e5 52%, #6d28d9 100%);
+  --ra-hero-gradient: linear-gradient(145deg, #0f172a 0%, #1e1b4b 55%, #2e1065 100%);
+
+  --ra-bg-page: #f8fafc;
+  --ra-bg-card: #ffffff;
+  --ra-bg-subtle: #f1f5f9;
+  --ra-border: #e2e8f0;
+  --ra-border-focus: #6366f1;
+
+  --ra-text-title: #0f172a;
+  --ra-text-body: #334155;
+  --ra-text-muted: #64748b;
+  --ra-text-faint: #94a3b8;
+
+  --ra-gold: #f59e0b;
+  --ra-gold-glow: rgba(245, 158, 11, 0.28);
+  --ra-success: #10b981;
+  --ra-success-light: #ecfdf5;
+}
+
+/* Base Reset for Viewport */
+.ra-review-viewport {
+  min-height: 100vh;
+  width: 100%;
+  background: 
+    radial-gradient(ellipse 90% 45% at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 70%),
+    linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
+  color: var(--ra-text-body);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 32px 16px 48px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ==========================================================================
+   Master Floating Review Card Shell
+   ========================================================================== */
+.ra-review-card-shell {
+  width: 100%;
+  max-width: 470px;
+  background: var(--ra-bg-card);
+  border-radius: 26px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 
+    0 20px 48px -12px rgba(15, 23, 42, 0.1),
+    0 10px 24px -6px rgba(79, 70, 229, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* ==========================================================================
+   ReviewAssist Branded Hero Banner
+   ========================================================================== */
+.ra-brand-hero-banner {
+  background: var(--ra-hero-gradient);
+  padding: 22px 22px 24px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Ambient glow accent inside banner */
+.ra-brand-hero-banner::after {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.45) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.ra-hero-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+/* Glass Language Segmented Switcher */
+.ra-lang-switcher {
+  display: inline-flex;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  padding: 3px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.ra-lang-switcher::-webkit-scrollbar {
+  display: none;
+}
+
+.ra-lang-tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 11px;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+}
+
+.ra-lang-tab:hover {
+  color: #ffffff;
+}
+
+.ra-lang-tab.active {
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Hero Profile Card (Avatar + Title + Category) */
+.ra-hero-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  z-index: 2;
+}
+
+.ra-profile-avatar-frame {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 3px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.ra-biz-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.ra-biz-logo-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  background: var(--ra-primary-light);
+  color: var(--ra-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.ra-hero-profile-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  text-align: left;
+}
+
+.ra-hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.ra-biz-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
+}
+
+.ra-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.2);
+  flex-shrink: 0;
+}
+
+.ra-biz-category-line {
+  font-size: 12px;
+  color: #cbd5e1;
+  margin: 3px 0 0;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* ==========================================================================
+   Card Body Layout & Alignment Structure
+   ========================================================================== */
+.ra-card-body {
+  padding: 22px 20px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-sizing: border-box;
+}
+
+/* Rating Block with Left-aligned Kicker & Score Pill */
+.ra-rating-block {
+  background: #f8fafc;
+  border: 1px solid var(--ra-border);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.ra-rating-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.ra-rating-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--ra-text-muted);
+  text-transform: uppercase;
+}
+
+.ra-rating-score-pill {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ra-rating-score-pill.positive {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.ra-rating-score-pill.negative {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.ra-stars-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 2px 0;
+}
+
+.ra-star-btn {
+  background: none;
+  border: none;
+  padding: 3px;
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+
+.ra-star-btn:hover {
+  transform: scale(1.15);
+}
+
+.ra-star-btn:active {
+  transform: scale(0.9);
+}
+
+.ra-star-svg {
+  width: 34px;
+  height: 34px;
+  color: var(--ra-gold);
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: drop-shadow(0 2px 5px var(--ra-gold-glow));
+}
+
+.ra-star-svg.filled {
+  fill: var(--ra-gold);
+}
+
+.ra-star-svg.empty {
+  fill: transparent;
+  color: #cbd5e1;
+  filter: none;
+}
+
+.ra-rating-prompt {
+  font-size: 12px;
+  color: var(--ra-text-muted);
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   Structured Module Cards (Step 1, Step 2, Step 3)
+   ========================================================================== */
+.ra-module-card {
+  background: #ffffff;
+  border: 1px solid var(--ra-border);
+  border-radius: 18px;
+  padding: 16px 16px 18px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ra-module-card:hover {
+  border-color: #cbd5e1;
+}
+
+.ra-module-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.ra-step-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--ra-primary);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px var(--ra-primary-glow);
+}
+
+.ra-module-titles {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.ra-module-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ra-text-title);
+  margin: 0;
+  line-height: 1.25;
+}
+
+.ra-module-sub {
+  font-size: 11.5px;
+  color: var(--ra-text-muted);
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.ra-single-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ra-primary);
+  background: var(--ra-primary-light);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Step 1: Products Grid (Structured 2-Column Checkbox Tiles)
+   ========================================================================== */
+.ra-products-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ra-product-tile {
+  background: #f8fafc;
+  border: 1px solid var(--ra-border);
+  border-radius: 11px;
+  padding: 9px 10px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ra-text-body);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+  user-select: none;
+  min-width: 0;
+}
+
+.ra-product-tile:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.ra-product-tile.selected {
+  background: var(--ra-primary-light);
+  border-color: var(--ra-primary-border);
+  color: #3730a3;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.12);
+}
+
+.ra-checkbox-box {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.ra-product-tile.selected .ra-checkbox-box {
+  background: var(--ra-primary);
+  border-color: var(--ra-primary);
+  color: #ffffff;
+}
+
+.ra-checkbox-box svg {
+  width: 10px;
+  height: 10px;
+}
+
+.ra-product-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+/* ==========================================================================
+   Step 2: Highlights Grid (Single-Select Radio Cards with Icons)
+   ========================================================================== */
+.ra-aspects-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ra-aspect-card {
+  background: #ffffff;
+  border: 1.5px solid var(--ra-border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ra-text-body);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+  user-select: none;
+  min-width: 0;
+  position: relative;
+}
+
+.ra-aspect-card:hover {
+  border-color: #a5b4fc;
+  background: #fdfdfe;
+  transform: translateY(-1px);
+}
+
+.ra-aspect-card.selected {
+  background: var(--ra-gradient);
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: 0 6px 18px -2px rgba(79, 70, 229, 0.38);
+  transform: translateY(-1px);
+}
+
+.ra-aspect-icon {
+  font-size: 15px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.ra-aspect-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ra-aspect-check {
+  width: 15px;
+  height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ra-aspect-check svg {
+  width: 13px;
+  height: 13px;
+  color: #ffffff;
+}
+
+/* In-App Browser Warning Alert */
+.ra-inapp-alert {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+}
+
+.ra-inapp-text {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #92400e;
+  margin: 0;
+}
+
+/* Status Indicator */
+.ra-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ra-primary);
+  font-weight: 600;
+  margin: -4px 0;
+}
+
+.ra-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #e0e7ff;
+  border-top-color: var(--ra-primary);
+  animation: raSpin 0.75s linear infinite;
+  display: inline-block;
+}
+
+@keyframes raSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   Step 3: ReviewAssist AI Studio Card (Unique studio aesthetic)
+   ========================================================================== */
+.ra-ai-studio-card {
+  border-left: 4px solid var(--ra-primary);
+  background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
+  border-color: #e0e7ff;
+  border-left-color: var(--ra-primary);
+  box-shadow: 0 4px 18px rgba(79, 70, 229, 0.06);
+}
+
+.ra-studio-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #f1f5f9;
+}
+
+.ra-studio-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ra-primary);
+  background: var(--ra-primary-light);
+  padding: 3px 9px;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+}
+
+.ra-ai-sparkle {
+  font-size: 12px;
+}
+
+.ra-length-controls {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.ra-length-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: var(--ra-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.ra-length-btn.active {
+  background: var(--ra-primary-light);
+  color: var(--ra-primary);
+  border-color: #c7d2fe;
+}
+
+.ra-textarea-wrapper {
+  padding: 10px 0 6px;
+  width: 100%;
+}
+
+.ra-smart-textarea {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ra-text-title);
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: block;
+  min-height: 56px;
+}
+
+.ra-studio-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px dashed #f1f5f9;
+  width: 100%;
+}
+
+.ra-studio-hint {
+  font-size: 11px;
+  color: var(--ra-text-faint);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ra-variation-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ra-primary);
+  background: var(--ra-primary-light);
+  border: none;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 7px;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.ra-variation-btn:hover {
+  background: #e0e7ff;
+}
+
+/* ==========================================================================
+   Action Station (Primary CTA Cluster)
+   ========================================================================== */
+.ra-cta-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.ra-submit-cta {
+  width: 100%;
+  background: var(--ra-gradient);
+  color: #ffffff;
+  padding: 14px 18px;
+  border-radius: 16px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-decoration: none;
+  box-shadow: 0 10px 24px -4px var(--ra-primary-glow);
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.ra-submit-cta:hover {
+  background: var(--ra-gradient-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -4px rgba(79, 70, 229, 0.52);
+}
+
+.ra-submit-cta:active {
+  transform: scale(0.985);
+}
+
+.ra-submit-cta.is-copied {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  box-shadow: 0 10px 24px -4px rgba(16, 185, 129, 0.38);
+}
+
+.ra-cta-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ra-cta-icon-wrap.success {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.ra-cta-text-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+}
+
+.ra-cta-main-text {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.25;
+}
+
+.ra-cta-sub-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 2px;
+}
+
+.ra-cta-arrow {
+  color: rgba(255, 255, 255, 0.85);
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.ra-submit-cta:hover .ra-cta-arrow {
+  transform: translateX(3px);
+}
+
+.ra-cta-disclaimer {
+  font-size: 11.5px;
+  color: var(--ra-text-muted);
+  text-align: center;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.ra-lock-dot {
+  font-size: 12px;
+}
+
+/* ==========================================================================
+   Private Feedback Shield (1-3 Stars)
+   ========================================================================== */
+.ra-private-shield {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #f8fafc;
+  border: 1px solid var(--ra-border);
+  border-radius: 18px;
+  padding: 18px;
+  text-align: left;
+}
+
+.ra-shield-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ra-shield-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #fef3c7;
+  color: #d97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.ra-shield-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ra-text-title);
+  margin: 0;
+}
+
+.ra-shield-desc {
+  font-size: 12px;
+  color: var(--ra-text-muted);
+  margin: 2px 0 0;
+}
+
+.ra-input, .ra-textarea {
+  width: 100%;
+  border-radius: 11px;
+  border: 1px solid var(--ra-border);
+  background: #ffffff;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  color: var(--ra-text-title);
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.ra-input:focus, .ra-textarea:focus {
+  border-color: var(--ra-primary);
+  box-shadow: 0 0 0 2px var(--ra-primary-light);
+}
+
+.ra-primary-cta {
+  width: 100%;
+  background: var(--ra-gradient);
+  color: #ffffff;
+  padding: 14px 18px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px -4px var(--ra-primary-glow);
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.ra-primary-cta:hover {
+  background: var(--ra-gradient-hover);
+  transform: translateY(-1px);
+}
+
+.ra-wa-owner-btn {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 11px 14px;
+  border-radius: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+
+.ra-wa-owner-btn:hover {
+  background: #dcfce7;
+}
+
+.ra-skip-link {
+  font-size: 12px;
+  color: var(--ra-text-muted);
+  text-decoration: underline;
+  text-align: center;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 4px;
+  font-family: inherit;
+}
+
+/* ==========================================================================
+   Business Info & Quick Directions Dock (Footer)
+   ========================================================================== */
+.ra-biz-contact-module {
+  background: #f8fafc;
+  border-top: 1px solid var(--ra-border);
+  padding: 18px 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ra-location-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.ra-loc-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--ra-primary-light);
+  color: var(--ra-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ra-loc-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ra-loc-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ra-text-title);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ra-loc-address {
+  font-size: 11.5px;
+  color: var(--ra-text-muted);
+  line-height: 1.35;
+}
+
+.ra-quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.ra-quick-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 6px;
+  border-radius: 11px;
+  background: #ffffff;
+  border: 1px solid var(--ra-border);
+  color: var(--ra-text-body);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.ra-quick-action-btn:hover {
+  border-color: #818cf8;
+  color: var(--ra-primary);
+  background: var(--ra-primary-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.12);
+}
+
+.ra-quick-action-btn.directions {
+  border-color: var(--ra-primary-border);
+  color: var(--ra-primary);
+}
+
+/* Platform Trust Stamp at Bottom */
+.ra-trust-stamp {
+  font-size: 11.5px;
+  color: var(--ra-text-muted);
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+}
+
+.ra-trust-logo {
+  font-weight: 800;
+  color: var(--ra-primary);
+  letter-spacing: -0.01em;
+}
+
+/* Toast Notification */
+.ra-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.35);
+  z-index: 10000;
+  pointer-events: none;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 480px) {
+  .ra-review-viewport {
+    padding: 16px 12px 36px;
+  }
+
+  .ra-review-card-shell {
+    border-radius: 22px;
+  }
+
+  .ra-brand-hero-banner {
+    padding: 18px 16px 20px;
+  }
+
+  .ra-card-body {
+    padding: 18px 14px 22px;
+    gap: 16px;
+  }
+
+  .ra-biz-contact-module {
+    padding: 16px 14px 20px;
+  }
+
+  .ra-lang-switcher {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .ra-lang-tab {
+    padding-inline: 9px;
+    font-size: 10px;
+  }
+
+  .ra-quick-actions-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .ra-quick-action-btn {
+    min-width: 0;
+    padding-inline: 3px;
+    font-size: 10px;
+  }
+
+  .ra-quick-action-btn span:last-child {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
